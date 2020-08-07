@@ -1,0 +1,357 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C *************************************************************
+C
+       SUBROUTINE RADMSH(NSIZ,RA,RB,ERRMAX,ALMIN,ALMAX,AFUDGE,NPOW,
+     &                   NPTS,RRET,WRET)
+        use global_inputs,only : SCANMESH1
+        IMPLICIT REAL*8 (A-H,O-Z)
+C
+C WRITTEN BY DV POREZAG (OPTIMIZED VERSION OF ONEDIMP BY MR PEDERSON)
+C THIS SUBROUTINE RETURNS A ONE DIMENSIONAL MESH SUITABLE FOR
+C INTEGRATING FUNCTIONS OF THE FORM:
+C
+C   RB
+C  INT  DR * R**2 * F(R)
+C   RA 
+C
+C  WHERE F(R)= R**N * EXP(-ALPHA*R**2) / NORM    (-2 <= N <= NPOW)
+C
+C            INF
+C  AND NORM= INT  DR * R**2 * F(R)
+C             0
+C
+C THE RESULTING INTEGRAL SHOULD BE CORRECT TO AN ACCURACY ERRMAX
+C FOR ALL ALPHAS ALMIN <= ALPHA <= ALMAX  
+C AFUDGE IS THE FACTOR BETWEEN TWO SUCCESSIVE TEST ALPHAS
+C
+C NTRUE:   NUMBER OF MESH POINTS TO DETERMINE TRUE VALUE OF INTEGRAL
+C NCOMP:   NUMBER OF MESH POINTS TO COMPARE TO NTRUE RESULT
+C NSEARCH: NUMBER OF STEPS TO OPTIMIZE TRANSFORMATION PARAMETER
+C MAXALP:  MAXIMUM NUMBER OF TEST ALPHAS
+C 
+        PARAMETER (MAXPOW=20)
+        PARAMETER (NTRUE=96)
+        PARAMETER (NCOMP=48)
+        PARAMETER (NSEARCH=50)
+        PARAMETER (MAXALP=200)
+        LOGICAL OK
+        DIMENSION RRET(NSIZ),WRET(NSIZ)
+        DIMENSION XT(NTRUE),WT(NTRUE),XC(NCOMP),WC(NCOMP)
+        DIMENSION ALTST(MAXALP),COMPARE(0:MAXPOW)
+        DIMENSION CORRECT(0:MAXPOW,MAXALP),WEIGHT(0:MAXPOW,MAXALP)
+        SAVE
+        DATA TINY  /1.0D-12/ 
+        DATA HUEXP /230.0D0/
+C
+C CHECK IF SUPER DUPER FINE MESH IS REQUESTED BY A USER
+C
+        CALL CHECK_INPUTS
+C
+C CHECK INPUT PARAMETERS
+C
+        NPTS=0
+        NPTST=NPOW+2
+        IF (RA .GE. RB)    RETURN
+        IF (RA .LT. 0.0D0) RETURN
+        IF (NPTST .GT. MAXPOW) THEN
+         write(6,*)'RADMSH: MAXPOW MUST BE AT LEAST ',NPTST
+         CALL STOPIT
+        END IF
+        IF (AFUDGE .LE. 1.01D0) THEN
+         write(6,*)'RADMSH: AFUDGE IS TOO SMALL: ',AFUDGE
+         CALL STOPIT
+        END IF
+        IF (ERRMAX .LT. TINY) THEN
+         write(6,*)'RADMSH: DESIRED ACCURACY IS TOO SMALL: ',ERRMAX
+         write(6,*)'        MUST NOT BE SMALLER THAN: ',TINY
+         CALL STOPIT
+        END IF
+        ALP1L= ALMIN
+        ALP2L= ALMAX
+        IF (ALP2L .LT. ALP1L) THEN
+         A=ALP2L
+         ALP2L=ALP1L
+         ALP1L=A
+        END IF 
+C
+C ADJUST ALP1L/ALP2L
+C
+        IF (ALP2L*RA*RA .GT. HUEXP) THEN
+         ALP2L= HUEXP/(RA*RA)
+        END IF
+        IF (ALP2L .LT. ALP1L) RETURN
+C
+C SETUP TEST ALPHAS AND WEIGHT FOR EACH TEST ALPHA/POWER
+C
+        NALTST=2+INT(LOG(ALP2L/ALP1L)/LOG(AFUDGE)) 
+        IF (NALTST .GT. MAXALP) THEN
+         write(6,*)'RADMSH: NUMBER OF TEST EXPONENTS IS TOO BIG'
+         write(6,*)'PARAMETER AFUDGE IS PROBABLY TOO SMALL: ',AFUDGE
+         write(6,*)'MAXALP MUST BE AT LEAST ',NALTST
+         CALL STOPIT
+        END IF
+        ATMP=NALTST-1
+        FUDGE=(ALP2L/ALP1L)**(1.0D0/ATMP)
+C
+        PI=4*ATAN(1.0D0)
+        ATMP=ALP1L
+        DO IALP=1,NALTST
+         ALTST(IALP)=ATMP
+         ALRCH=0.5D0/ATMP 
+C
+C EVEN POWERS 
+C
+         SX=0.5D0*SQRT(2*ALRCH*PI)
+         DO IPOW=0,NPTST,2
+          WEIGHT(IPOW,IALP)=1.0D0/SX
+          SX=SX*(IPOW+1)*ALRCH
+         END DO
+         ATMP=ATMP*FUDGE
+C
+C ODD POWERS
+C
+         SX=ALRCH
+         DO IPOW=1,NPTST,2
+          WEIGHT(IPOW,IALP)=1.0D0/SX
+          SX=SX*(IPOW+1)*ALRCH
+         END DO
+        END DO
+C
+C START OF MESH GENERATION
+C
+        RMIN=RA
+        RMAX=RB
+        RREF=0.1D0/ALP2L
+   10   CONTINUE
+!YY Currently experimenting mesh
+! Things to look out: 
+! 1. Kinks in potential surface - around 3 bohr rad region
+! 2. Integral of Exc - from 0 to 4 bohr rad region
+! 3. Kinks closer to nucleus - this can be addressed with MESHDAT
+! setting.
+        IF(SCANMESH1 > 0) THEN
+!May 2018 radmsh change
+c        IF(RA.LT.1.0D-10)RMAX=MIN(RMAX,RMIN+0.50)
+         IF(RA.LT.1.0D-10)THEN
+          IF(SCANMESH1 .eq. 2) THEN
+           RMAX=MIN(RMAX,RMIN+0.50)
+          ELSE IF(SCANMESH1 .eq. 1) THEN
+C THIS IS A REQUEST FOR A RADIAL INTEGRATION INSIDE A SPHERE....
+          !SCALE=ALMAX
+          !IF(RMIN.NE.0.0D0)SCALE=MIN(ALMAX,1.0D0/RMIN**2)
+          !RMAX=MIN(RMAX,RMIN+0.8D0/SQRT(SCALE))
+! Uniform grid
+!         RMAX=MIN(RMAX,RMIN+0.1d0)
+! Mesh points that goes as R
+!         IF(RMIN.NE.0.0d0) RMAX=MIN(RMAX,RMIN+RMIN/50.0d0)
+! R/30 with a set minimum increment value
+          RMAX=MIN(RMAX,MAX(RMIN+RMIN/30.0d0,RMIN+0.01d0)) 
+! (R/2)^2 with a set minimum value
+!           RMAX=MIN(RMAX,MAX(RMIN+(RMIN*RMIN/90.0d0),RMIN+0.01d0))
+! uniform with boundary
+!           IF(RMIN.LT.1.0d0) THEN
+!             RMAX=MIN(RMAX,RMIN+0.01d0)
+!           ELSE IF (RMIN.LT.4.0d0) THEN
+!             RMAX=MIN(RMAX,RMIN+0.1d0)
+!           END IF
+          END IF
+         END IF
+        END IF
+C
+C CHECK IF THE INTEGRAL IS THE SAME WITH A NCOMP AND A NTRUE POINT MESH
+C IF NOT, REDUCE RMAX AND TRY AGAIN
+C
+         CALL GAUSSP(RMIN,RMAX,NCOMP,XC,WC)
+         CALL GAUSSP(RMIN,RMAX,NTRUE,XT,WT)
+         DO 50 IALP=1,NALTST
+          ATMP=ALTST(IALP)
+          DO IPOW=0,NPTST
+           COMPARE(IPOW)=0.0D0
+           CORRECT(IPOW,IALP)=0.0D0
+          END DO
+          DO IPT=1,NTRUE
+           X=XT(IPT)
+           W=WT(IPT)
+           FACT=EXP(-ATMP*X*X)
+           DO IPOW=0,NPTST
+            CORRECT(IPOW,IALP)=CORRECT(IPOW,IALP)+FACT*W
+            FACT=FACT*X
+           END DO
+          END DO
+          DO IPT=1,NCOMP
+           X=XC(IPT)
+           W=WC(IPT)
+           FACT=EXP(-ATMP*X*X)
+           DO IPOW=0,NPTST
+            COMPARE(IPOW)=COMPARE(IPOW)+FACT*W
+            FACT=FACT*X
+           END DO
+          END DO
+          DO IPOW=0,NPTST
+           X=(COMPARE(IPOW)-CORRECT(IPOW,IALP))*WEIGHT(IPOW,IALP)
+           IF (ABS(X) .GT. TINY) THEN
+            X=MAX(RMIN,RREF)
+            RMAX=SQRT(RMAX*X)
+            GOTO 10
+           END IF
+          END DO
+   50    CONTINUE
+C
+C WE NOW KNOW THAT A NCOMP POINT MESH CAN'T FAIL ...
+C NOW TRY MESHES BETWEEN 0 AND NCOMP POINTS
+C IF (MPT .EQ. 0), CHECK ONLY SIMPLE GAUSS QUADRATURE
+C
+         OK=.FALSE.
+         DO 400 MPT=0,NCOMP
+          ITYPE=0
+          EBST=ERRMAX
+C
+C DEAL WITH GAUSS MESH
+C
+          CALL GAUSSP(RMIN,RMAX,MPT,XC,WC)
+          ERRG=0.0D0
+          DO IALP=1,NALTST
+           ATMP=ALTST(IALP)
+           DO IPOW=0,NPTST
+            COMPARE(IPOW)=0.0D0
+           END DO
+           DO IPT=1,MPT
+            X=XC(IPT)
+            W=WC(IPT)
+            FACT=EXP(-ATMP*X*X)
+            DO IPOW=0,NPTST
+             COMPARE(IPOW)=COMPARE(IPOW)+FACT*W
+             FACT=FACT*X
+            END DO
+           END DO
+           DO IPOW=0,NPTST
+            X=(COMPARE(IPOW)-CORRECT(IPOW,IALP))*WEIGHT(IPOW,IALP)
+            ERRG=MAX(ERRG,ABS(X))
+           END DO
+          END DO
+          IF (MPT .EQ. 0) THEN
+           IF (ERRG .LT. ERRMAX) GOTO 500
+           GOTO 400
+          END IF
+C
+C CHECK IF GAUSS-LEGENDRE MESH IS ACCURATE ENOUGH
+C
+          IF (ERRG .LT. EBST) THEN
+           OK=.TRUE.
+           ITYPE=1
+           EBST=ERRG
+           DO IPT=1,MPT
+            XT(IPT)=XC(IPT)
+            WT(IPT)=WC(IPT)
+           END DO
+          END IF
+C
+C NOW DEAL WITH OPTIMIZED MESH
+C NSEARCH OPTIMIZATION STEPS, ALP STORES BRACKETING FOR ALOPT
+C UPDATE OF ALP AND ERR: FIRST THREE STEPS ARE EASY
+C
+          ERRO=0.0D0
+          ERT1=1.0D30
+          ERT2=1.0D30
+          ALPINIT=SQRT(ALP1L)
+          ALPLIM1=SQRT(ALP1L)*0.01D0
+          ALPLIM2=SQRT(ALP2L)*100.0D0
+          DO 200 IMN=1,NSEARCH
+           CALL MINIMIZE(IMN,ALPINIT,ALOPT,ERRO)
+           IF (ALOPT .LT. ALPLIM1) ALOPT= ALPLIM1
+           IF (ALOPT .GT. ALPLIM2) ALOPT= ALPLIM2
+           ALORC=1.0D0/ALOPT
+C
+C SWITCH LIMITS TO FOR EXPONENTIAL MESH 
+C CALL GAUSSP AND TRANSFORM POINTS/WEIGHTS
+C
+           AA=EXP(-ALOPT*RMAX)
+           BB=EXP(-ALOPT*RMIN)
+           CALL GAUSSP(AA,BB,MPT,XC,WC)
+           DO I=1,MPT
+            WC(I)=WC(I)/(XC(I)*ALOPT)
+            XC(I)= -ALORC*LOG(XC(I))
+           END DO
+C
+C GET ERROR FOR TRANSFORMED MESH
+C
+           ERRO=0.0D0
+           DO IALP=1,NALTST
+            ATMP=ALTST(IALP)
+            DO IPOW=0,NPTST
+             COMPARE(IPOW)=0.0D0
+            END DO
+            DO IPT=1,MPT
+             X=XC(IPT)
+             W=WC(IPT)
+             FACT=EXP(-ATMP*X*X)
+             DO IPOW=0,NPTST
+              COMPARE(IPOW)=COMPARE(IPOW)+FACT*W
+              FACT=FACT*X
+             END DO
+            END DO
+            DO IPOW=0,NPTST
+             X=(COMPARE(IPOW)-CORRECT(IPOW,IALP))*WEIGHT(IPOW,IALP)
+             ERRO=MAX(ERRO,ABS(X))
+            END DO
+           END DO
+C
+C IF WE HAVE A SUCCESSFUL MESH, STORE IT IN XT, WT
+C EBST CONTAINS ERROR OF BEST MESH SO FAR
+C
+           IF (ERRO .LT. EBST) THEN
+            OK=.TRUE.
+            ITYPE=2
+            EBST=ERRO
+            DO IPT=1,MPT
+             XT(IPT)=XC(IPT)
+             WT(IPT)=WC(IPT)
+            END DO
+           END IF
+C
+C IF THE ERROR FOR THE BEST MESH HAS CHANGED LESS THAN 1 PERCENT
+C DURING THE LAST 5 ITERATIONS, STOP OPTIMIZING ALOPT
+C
+           ERT2=MIN(ERT2,ERRO)
+           IF (MOD(IMN,5) .EQ. 0) THEN
+            IF (ERT2 .GT. ERT1*0.99D0) GOTO 300
+            ERT1=ERT2
+           END IF
+  200     CONTINUE
+  300     IF (OK) GOTO 410
+  400    CONTINUE
+  410    CONTINUE
+C
+C STORE MESH POINTS IN RRET, WRET (MULTIPLY WEIGHTS BY R**2)
+C
+         IF (NPTS+MPT .GT. NSIZ) THEN
+          write(6,*)'RADMSH: NSIZ EXCEEDED: ',NSIZ,NPTS+MPT
+          CALL STOPIT
+         END IF
+         IF (ITYPE .EQ. 1) THEN
+          DO IPT=1,MPT
+           RRET(NPTS+IPT)=XT(IPT)
+           WRET(NPTS+IPT)=WT(IPT)*XT(IPT)**2
+          END DO
+         ELSE
+          IOFS=NPTS+MPT+1
+          DO IPT=1,MPT
+           RRET(IOFS-IPT)=XT(IPT)
+           WRET(IOFS-IPT)=WT(IPT)*XT(IPT)**2
+          END DO
+         END IF
+         NPTS=NPTS+MPT
+  500    CONTINUE
+C
+C THE MESH WAS SUCCESSFUL, UPDATE RMIN AND RMAX
+C
+         IF (RMAX .NE. RB) THEN
+          RMIN=RMAX
+          RMAX=RB
+          GOTO 10
+         END IF
+        CONTINUE
+C
+        RETURN
+       END

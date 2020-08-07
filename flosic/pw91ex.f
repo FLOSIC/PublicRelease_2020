@@ -1,0 +1,50 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C ******************************************************************
+C
+C PERDEW WANG ROUTINES, SLIGHTLY OPTIMIZED
+C
+      SUBROUTINE PW91EX(DKF,S,U,V,EXL,EXN,VX)
+C
+C  GGA91 EXCHANGE FOR A SPIN-UNPOLARIZED ELECTRONIC SYSTEM
+C  INPUT DKF: KF REFERRING TO DENSITY D
+C  INPUT S:   ABS(GRAD D)/(2*KF*D)
+C  INPUT U:   (GRAD D)*GRAD(ABS(GRAD D))/(D**2 * (2*KF)**3)
+C  INPUT V:   (LAPLACIAN D)/(D*(2*KF)**2)
+C  OUTPUT:    EXCHANGE ENERGY PER ELECTRON (LOCAL: EXL, NONLOCAL: EXN)
+C             AND POTENTIAL (VX)
+C
+      IMPLICIT REAL*8 (A-H,O-Z)
+      SAVE
+      DATA A1,A2,A3,A4/0.19645D0,0.27430D0,0.15084D0,100.0D0/
+      DATA AX,A,B1/-0.238732414D0,7.7956D0,0.004D0/
+      DATA THRD4/1.3333333333333333D0/
+      FAC = AX*DKF
+      S2 = S*S
+      S3 = S2*S
+      S4 = S2*S2
+      AS = A*S
+      PA = SQRT(1.0D0+AS*AS)
+      P0 = AS/PA
+      P1 = A1*LOG(AS+PA)
+      P2 = A3*EXP(-A4*S2)
+      P3 = 1.0D0/(1.0D0+S*P1+B1*S4)
+      P4 = 1.0D0+S*P1+(A2-P2)*S2
+      F = P3*P4
+      EXL = FAC 
+      EXN = FAC*(F-1.0D0)
+C
+C  ENERGY DONE. NOW THE POTENTIAL:
+C
+      P5 = B1*S2-(A2-P2)
+      P6 = S*(P1+A1*P0)
+      P7 = 2*((A2-P2)+A4*S2*P2-2*B1*S2*F)
+      FS = P3*(P3*P5*P6+P7)
+      P8 = 2*S*(B1-A4*P2)
+      P9 = P1+A1*P0*(3.0D0-P0*P0)
+      P10 = 4*(A4*S*P2*(2.0D0-A4*S2)-2*B1*S*F-B1*S3*FS)
+      P11 = P3*P3*(P1+A1*P0+4*B1*S3)
+      FSS = P3*P3*(P5*P9+P6*P8)-2*P3*P5*P6*P11+P3*P10-P7*P11
+      VX = FAC*(THRD4*F-(U-THRD4*S3)*FSS-V*FS)
+      RETURN
+      END

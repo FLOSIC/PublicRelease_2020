@@ -1,0 +1,285 @@
+C UTEP Electronic Structure Lab (2020)
+      SUBROUTINE SYMBOL(NCALC,MODE_RUN,IMESH,IERR)
+C
+C     SYMBOL REPLACES THE SYMBOLS DEFINED IN FILE SYMBOL BY THE ACTUAL 
+C     DATA FOR ALL RELEVANT FILES (ALSO DEFINED IN SYMBOL)
+C
+C     ORIGINAL VERSION BY MARK R PEDERSON (1990-1991)
+C
+C     ------------------------------------------------------------------
+C
+C     INPUT:     NCALC     CALCULATION INDEX
+C     OUTPUT:    MODE_RUN  CALCULATION MODE
+C                IMESH     REQUESTED MESH TYPE
+C                IERR      ERROR CODE: 0 - NO ERROR
+C                                      1 - CALCULATION INDEX NOT FOUND
+C
+C     ------------------------------------------------------------------
+C
+      use common2,only : ATMSYM, RIDSYM, MOVING, SYMBS, NSCHAR,
+     &                   NIDSYM, NSYMBS, SYMATM,MXSYMBS
+      use common3,only : RMAT
+      use common8,only : REP
+C
+C
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:59 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: NCALC, MODE_RUN, IMESH, IERR, MAXFILE, I, ICALC,
+     & IFILE, IHIG, IPT, ISUM, ISYMB, J, JSYMB, MAXLEN, NBLANK, NCH,
+     & NCHAR, NFCHAR, NFILES
+      SAVE
+      PARAMETER (MAXFILE=50)
+      CHARACTER*1  COMCHAR
+      CHARACTER*35 STRING
+      CHARACTER*80 LINE,FNAM(2,MAXFILE)
+C
+      LOGICAL EXIST
+C
+      DIMENSION NFCHAR(2,MAXFILE)
+      DATA MAXLEN,COMCHAR/16,'!'/
+C
+C     ------------------------------------------------------------------
+C
+C     --- CHECK IF SYMBOL FILE EXIST ---
+C
+      INQUIRE(FILE='SYMBOL',EXIST=EXIST)
+      IF (.NOT.EXIST) THEN
+        WRITE(6,*)'SYMBOL: SYMBOL FILE IS MISSING'
+        CALL STOPIT
+C
+      ELSE
+        OPEN(50,FILE='SYMBOL',FORM='FORMATTED',STATUS='OLD')
+        REWIND(50)
+      END IF
+C
+C     --- SETUP RELAXATION MODE ---
+C
+      READ(50,'(A)') STRING
+C
+      IF (STRING(1: 8) .EQ. 'SCF-ONLY') THEN
+        MODE_RUN=0
+      ELSE IF (STRING(1:18) .EQ. 'CONJUGATE-GRADIENT') THEN
+        MODE_RUN=1
+      ELSE IF (STRING(1: 6) .EQ. 'VERLET') THEN
+        MODE_RUN=2
+      ELSE IF (STRING(1:11) .EQ. 'VIBRATIONAL') THEN
+         MODE_RUN=3
+      ELSE IF (STRING(1:5)  .EQ. 'LBFGS') THEN
+         MODE_RUN=4
+      ELSE IF (STRING(1:9) .EQ. 'REDUNDANT') THEN
+        MODE_RUN=5
+      ELSE 
+        WRITE(6,*)'SYMBOL: UNKNOWN RELAXATION MODE: ',STRING
+        WRITE(6,*)'VALID MODES ARE: SCF-ONLY, CONJUGATE-GRADIENT, '
+        WRITE(6,*)'VERLET, VIBRATIONAL, LBFGS, AND REDUNDANT'
+        CALL STOPIT
+      END IF
+      PRINT '(2A)','RELAXATION MODE: ',STRING
+C
+C     --- DEFINE FUNCTIONAL ---
+C
+      READ(50,'(A)') STRING
+      CALL SETDFTYP(STRING)
+C
+C     --- DEFINE MESH TYPE ---
+C
+      READ(50,'(A7)') STRING
+      IF (STRING(1:7) .EQ. 'OLDMESH') THEN
+        IMESH= 1
+      ELSE IF (STRING(1:7) .EQ. 'DVPMESH') THEN
+        IMESH= 2
+      ELSE
+        WRITE(6,*)'SYMBOL: UNKNOWN MESH TYPE: ',STRING(1:7)
+        WRITE(6,*)'VALID TYPES ARE: OLDMESH AND DVPMESH'
+        CALL STOPIT
+      END IF
+C
+C     --- NOW DEAL WITH THE FILES BUSINESS ---
+C
+      READ(50,*) NFILES
+      IF (NFILES .GT. MAXFILE) THEN
+        WRITE(6,*)'SYMBOL: TOO MANY SYMBOLIC FILES'
+        CALL STOPIT
+      END IF
+C
+C     --- READ FILES ---
+C
+      DO 20 IFILE=1,NFILES
+        FNAM(1,IFILE)= ' '
+        FNAM(2,IFILE)= ' '
+        NFCHAR(1,IFILE)=0
+        NFCHAR(2,IFILE)=0
+        READ(50,1010) LINE
+        IPT=1
+        DO 10 J=1,80
+          IF (LINE(J:J) .EQ. COMCHAR) GOTO 20
+          IF (LINE(J:J) .EQ. '=') THEN
+            IPT=2
+          ELSE IF (LINE(J:J) .NE. ' ') THEN
+            NFCHAR(IPT,IFILE)=NFCHAR(IPT,IFILE)+1
+            NCH=NFCHAR(IPT,IFILE)
+            FNAM(IPT,IFILE)(NCH:NCH)=LINE(J:J)
+          END IF
+   10   CONTINUE
+   20 CONTINUE
+C
+C     --- READ IN MASSES FOR RELAXATION AND MOVING ---
+C     --- MOVING SHOULD BE 1 FOR NORMAL DEGREES OF ---
+C     --- FREEDOM AND 0 FOR FROZEN ONES            ---
+C
+      READ(50,*) NSYMBS
+      READ(50,*) NIDSYM
+      IF (NSYMBS .GT. MXSYMBS) THEN
+        WRITE(6,*)'SYMBOL: MXSYMBS MUST BE AT LEAST: ',NSYMBS
+        CALL STOPIT
+      END IF
+C
+      IF (NIDSYM .GT. MAX_IDENT) THEN
+        WRITE(6,*)'SYMBOL: MAX_IDENT MUST BE AT LEAST: ',NIDSYM
+        CALL STOPIT
+      END IF
+      DO I=1,NIDSYM
+        READ(50,*) ATMSYM(I),(MOVING(J,I), J=1,3)
+      END DO
+C
+C     --- CHECK IF SYMBOL CONTAINS INFORMATION AND CONFORMS ---
+C     --- TO STANDARD     ---
+C
+      IERR= 1
+      IHIG= -1
+      ISUM= 0
+C
+   50 CONTINUE
+C
+      READ(50,*,END=60) ICALC
+C
+      IHIG= MAX(IHIG,ICALC)
+      IF (ICALC .EQ. NCALC) ISUM= ISUM+1
+      DO ISYMB=1,NSYMBS
+        READ(50,1010,END=60) LINE
+      END DO
+C
+      GOTO 50
+C
+   60 CONTINUE
+      IF (ISUM .EQ. 0) RETURN
+C
+      IERR= 0
+      IF (((IHIG .GT. NCALC) .OR. (ISUM .GT. 2)) .AND.
+     &   ((MODE_RUN .EQ. 1) .OR. (MODE_RUN .EQ. 2))) THEN
+        WRITE(6,*)'YOUR CURRENT SYMBOL FILE CANNOT BE USED WITH'
+        WRITE(6,*)'CONJUGATE-GRADIENT, VERLET OR LBFGS MODE.'
+        WRITE(6,*)'IN ORDER TO USE THESE MODES, THERE MUST BE ONLY ONE'
+        WRITE(6,*)'BLOCK OF DATA IN SYMBOL FILE THAT CORRESPONDS TO'
+        WRITE(6,*)'CURRENT CALCULATION INDEX (WHICH IS SET IN RUNS)'
+        WRITE(6,*)'AND THERE MUST BE NO BLOCKS WITH A LARGER INDEX.'
+        CALL STOPIT
+      END IF
+C
+C     --- GET RELEVANT DATA BLOCK (NEED TO REWIND) ---
+C
+      REWIND(50)
+      DO I=1,3
+        READ(50,'(A)') LINE
+      END DO
+C
+      READ (50,*) J
+      DO I=1,J
+        READ(50,'(A)') LINE
+      END DO
+C
+      READ (50,*) J
+      READ (50,*) J
+      DO I=1,J
+        READ(50,'(A)') LINE
+      END DO
+C
+   70 CONTINUE
+C
+      READ(50,*) ICALC
+      IF (ICALC .EQ. NCALC) GOTO 80
+        DO ISYMB=1,NSYMBS
+          READ(50,1010) LINE
+        END DO
+        GOTO 70
+C
+   80 CONTINUE
+C
+C     --- READ SYMBOLS ---
+C     --- NOTE: THE RIGHT SIDE MAY CONTAIN BLANKS ---
+C
+      DO 130 ISYMB=1,NSYMBS
+        READ(50,1010) LINE
+        SYMBS(1,ISYMB)= ' '
+        SYMBS(2,ISYMB)= ' '
+        NSCHAR(1,ISYMB)=0
+        NSCHAR(2,ISYMB)=0
+        NBLANK=0
+        IPT=1
+        DO 110 J=1,80
+          IF (LINE(J:J) .EQ. COMCHAR) GOTO 120
+          IF (LINE(J:J) .EQ. '=') THEN
+            IPT=2
+          ELSE IF (LINE(J:J) .NE. ' ') THEN
+            NBLANK=0
+            NSCHAR(IPT,ISYMB)= NSCHAR(IPT,ISYMB)+1
+            NCHAR=NSCHAR(IPT,ISYMB)
+            SYMBS(IPT,ISYMB)(NCHAR:NCHAR)= LINE(J:J)
+          ELSE IF ((NBLANK .EQ. 0) .AND. (IPT .EQ. 2)) THEN
+            NBLANK=1
+            NSCHAR(IPT,ISYMB)= NSCHAR(IPT,ISYMB)+1
+            NCHAR=NSCHAR(IPT,ISYMB)
+            SYMBS(IPT,ISYMB)(NCHAR:NCHAR)= LINE(J:J)
+          END IF
+  110   CONTINUE
+C
+  120   IF (NSCHAR(1,ISYMB) .GT. MAXLEN) NSCHAR(1,ISYMB)=MAXLEN
+        IF (ISYMB .LE. NIDSYM) THEN
+          READ(SYMBS(2,ISYMB),*)(RIDSYM(I,ISYMB), I=1,3)
+          DO NCHAR=1,10
+            SYMATM(NCHAR,ISYMB)=SYMBS(1,ISYMB)(NCHAR:NCHAR)
+          END DO
+        END IF
+C
+  130 CONTINUE
+C
+C     --- CLOSE SYMBOL FILE ---
+C
+      CLOSE(50)
+C
+C     --- REPLACE SYMBOLS BY ASSIGNED STRING ---
+C
+      DO 200 IFILE=1,NFILES
+        OPEN(98,FILE=FNAM(1,IFILE)(1:NFCHAR(1,IFILE)),
+     &          FORM='FORMATTED',STATUS='UNKNOWN')
+        OPEN(99,FILE=FNAM(2,IFILE)(1:NFCHAR(2,IFILE)),
+     &          FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND(98)
+        REWIND(99)
+C
+  140   CONTINUE
+        READ(98,1010,END=190) LINE
+        JSYMB=0
+        DO 150 ISYMB=1,NSYMBS
+          IF (LINE(1:NSCHAR(1,ISYMB)) .EQ.
+     &       SYMBS(1,ISYMB)(1:NSCHAR(1,ISYMB))) JSYMB=ISYMB
+  150   CONTINUE 
+C
+        IF (JSYMB.NE.0) LINE=SYMBS(2,JSYMB)
+        WRITE(99,1010) LINE
+        GOTO 140
+C
+  190   CONTINUE
+        CLOSE(98)
+        CLOSE(99)
+  200 CONTINUE
+C
+ 1010 FORMAT(A80)
+C
+      RETURN
+C
+C     ------------------------------------------------------------------
+C
+      END

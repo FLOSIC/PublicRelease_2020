@@ -1,0 +1,83 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C ***************************************************************
+C
+      SUBROUTINE FPULAY
+C ORIGINAL VERSION BY KOBLAR A JACKSON (1990)
+C
+C CALCULATE PULAY CORRECTIONS BY NUMERICAL INTEGRATION 
+C
+       use common2,only : RIDT, NIDENT, FHELLF, FNONL, FTOT, FRC1, FRC2
+       use common3,only : RMAT
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:49 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: IID, IPAR, IX
+       REAL*8 :: FDIFF , FPUL, SMALL, TIME1, TIME2
+       SAVE
+       DIMENSION FPUL(3)
+       DATA SMALL/1.0D-3/
+C
+C ZERO FRC ARRAYS
+C
+       DO IID=1,NIDENT 
+        DO IX=1,3
+         FRC1(IX,IID)=0.0D0
+         FRC2(IX,IID)=0.0D0
+        END DO
+       END DO
+C
+C CALCULATE PULAY CORRECTIONS NUMERICALLY
+C
+       CALL GTTIME(TIME1)
+       CALL NUMFORCE
+       CALL GTTIME(TIME2)
+       CALL TIMOUT('PULAY CORRECTIONS TO FORCES:       ',TIME2-TIME1)
+ 1010  FORMAT(1X,A,7X,F12.3)
+C
+C COMPUTE TOTAL FORCE ON IDENTITY MEMBERS
+C SYMMETRIZE PULAY FORCE BEFORE ADDING TO HELLMANN-FEYNMAN TERM
+C
+       DO 20 IID=1,NIDENT
+        DO IX=1,3
+         FPUL(IX)= -2*(FRC1(IX,IID)-FRC2(IX,IID))
+        END DO
+        CALL FRCSYM(RIDT(1,IID),FPUL,FDIFF)
+        IF (FDIFF .GT. SMALL) THEN
+         PRINT 1020,IID,FDIFF 
+ 1020    FORMAT(' WARNING: PULAY FORCE CORRECTION OF ATOM ',I3,
+     &          ' VIOLATES SYMMETRY BY ',D12.4)
+        END IF
+        DO IX=1,3
+         FTOT(IX,IID)= FPUL(IX)
+        END DO
+   20  CONTINUE
+C
+C OBTAIN TOTAL FORCE: HELLMANN-FEYNMAN PART ALREADY IN FHELLF
+C
+       PRINT '(A)',' '
+       PRINT '(A)','HERE ARE THE FORCES:'
+       PRINT '(A)','===================='
+       IPAR=0
+       DO IID=1,NIDENT
+        DO IX=1,3
+         IPAR=IPAR+1
+         FTOT(IX,IID)= FTOT(IX,IID)+FHELLF(IX,IID)+FNONL(IX,IID) 
+        END DO 
+        PRINT 1030,'ATOM ',IID,', POSITION:',(RIDT(IX,IID),IX=1,3)
+        PRINT 1040,'HELLMANN-FEYNMAN:  ',(FHELLF(IX,IID),IX=1,3)
+        PRINT 1040,'NONLOCAL FORCE:    ',(FNONL(IX,IID),IX=1,3)
+        PRINT 1040,'PULAY CORRECTION:  ',
+     &             (FTOT(IX,IID)-FHELLF(IX,IID)-FNONL(IX,IID),IX=1,3)
+        PRINT 1040,'PULAY CORRECTION1:  ',
+     &             (FRC1(IX,IID),IX=1,3)
+        PRINT 1040,'PULAY CORRECTION2:  ',
+     &             (FRC2(IX,IID),IX=1,3)
+        PRINT 1040,'TOTAL:             ',(FTOT(IX,IID),IX=1,3)
+       END DO 
+       PRINT '(A)',' '
+ 1030  FORMAT(A,I3,A,3(1X,F18.12))
+ 1040  FORMAT(A,3(1X,D18.12))
+       RETURN
+      END

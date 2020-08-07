@@ -1,0 +1,351 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C *************************************************************
+C
+C SUBVLXC DIRK POREZAG AUGUST 1999
+C CALCULATES THE LOCAL AND EXCHANGE-CORRELATION POTENTIALS 
+C FOR A SET OF POINTS
+C
+C MODE:  1: VXC ONLY 
+C        2: VXC AND VLOCAL 
+C
+       SUBROUTINE SUBVLXC(MODE,LPTS,MPTS,RHOV,VXCS,VLOS,EXCVEC)
+
+       use mesh1,only : WMSH,RMSH
+       use common2,only : RCNT, IFUCNT, NCNT, IGGA, IDFTYP, ISPN, NSPN
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:59 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: MODE, LPTS, MPTS, I, ICNT, IERR, IFU, IOFS, IPTS,
+     & IPV, ISPFAC, JPTS, MXDFTYP, NGRAD, NPV
+       REAL*8 :: SYMBOL , RHOV, VXCS, VLOS, EXCVEC, ALFC, D, DDN, DEC,
+     & DELTA, DEN, DEX, DG2, DGG, DGRAD, DKF, DKF2RS, DKS, DLAP, DLP,
+     & DREC, DUP, DVCDN, DVCUP, EC, ECL, ECN, ECRS, ECZET, EPS, EX,
+     & EXL, EXN, FAC, FRDPI, G, REC1, REC2, REC22, REC3, RHT, RS, S, T,
+     & THIRD, THIRD2, TRPI2, U, UU, V, VCDN, VCOR, VCUP, VV, VX, WW,
+     & ZET
+       SAVE
+       PARAMETER (MXDFTYP=10)
+       DIMENSION RHOV(10*MXSPN*MPBLOCK),VXCS(MXSPN*MPBLOCK)
+       DIMENSION VLOS(MPBLOCK),EXCVEC(4)
+       REAL*8,ALLOCATABLE :: RHOV1(:),VXCS1(:),VLOS1(:),RHOC(:,:)
+     &  ,XTMP(:,:),DTMP(:,:),RTMP(:),VLOC(:)
+C
+C COMMON/PW91GAS/ IS NEEDED FOR PW91 GGA
+C
+       COMMON/PW91GAS/G,EC,ECRS,ECZET
+       LOGICAL   ISGGA
+       DIMENSION RHT(10,MXSPN),VCOR(2),DEN(3),DG2(3),DGG(3),DLP(3)
+       DATA THIRD/0.3333333333333333D0/
+       DATA THIRD2/0.6666666666666667D0/
+       DATA TRPI2/29.6088132032680759D0/
+       DATA FRDPI/1.2732395447351627D0/ 
+       DATA DKF2RS/1.9191582926775128D0/
+       DATA EPS/1.0D-20/
+C
+C CHECK IGGA, IDFTYP, AND MPTS
+C
+       DO I=1,2
+        IF (IGGA(I)*(IGGA(I)-1) .NE. 0) THEN
+         write(6,*)'SUBVLXC: INVALID VALUE FOR IGGA: ',IGGA(I)
+         CALL STOPIT
+        END IF
+        IF ((IDFTYP(I) .LT. 0) .OR. (IDFTYP(I) .GT. MXDFTYP)) THEN
+         write(6,*)'SUBVLXC: INVALID VALUE FOR IDFTYP: ',IDFTYP(I)
+         CALL STOPIT
+        END IF
+       END DO
+       IF (MPTS .GT. MPBLOCK) THEN
+        write(6,*)'SUBVLXC: MPTS MUST BE <= MPBLOCK'
+        CALL STOPIT
+       END IF
+C
+C ALLOCATE LOCAL ARRAYS
+C
+       ALLOCATE(RHOV1(10*MXSPN*MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING RHOV1'
+       ALLOCATE(VXCS1(MXSPN*MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING VXCS1'
+       ALLOCATE(VLOS1(MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING VLOS1'
+       ALLOCATE(RHOC(10,MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING RHOC'
+       ALLOCATE(XTMP(3,MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING XTMP'
+       ALLOCATE(DTMP(3,MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING DTMP'
+       ALLOCATE(RTMP(MPBLOCK),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING RTMP'
+       ALLOCATE(VLOC(NSPEED),STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING VLOC'
+C
+C LOCAL POTENTIAL
+C DELTA IS USED TO PREVENT DIVISION BY ZERO FOR R=0
+C
+       IF (MODE .GT. 1) THEN
+        DO IPTS=1,MPTS
+         VLOS(IPTS)= 0.0D0
+        END DO
+        DELTA=1.0D-100
+        DO ICNT=1,NCNT
+         IFU=IFUCNT(ICNT)
+         DO IPTS=0,MPTS-1,NSPEED
+          NPV=MIN(NSPEED,MPTS-IPTS)
+          IOFS=LPTS+IPTS
+          DO IPV=1,NPV
+           RTMP(IPV)=(RMSH(1,IOFS+IPV)-RCNT(1,ICNT))**2
+     &              +(RMSH(2,IOFS+IPV)-RCNT(2,ICNT))**2
+     &              +(RMSH(3,IOFS+IPV)-RCNT(3,ICNT))**2
+           RTMP(IPV)=MAX(RTMP(IPV),DELTA)
+           RTMP(IPV)=SQRT(RTMP(IPV))
+          END DO
+          CALL VLOCAL(1,NPV,IFU,RTMP,VLOC)
+          DO IPV=1,NPV
+           VLOS(IPTS+IPV)=VLOS(IPTS+IPV)+VLOC(IPV)
+          END DO
+         END DO
+        END DO
+       END IF
+C
+C INITIALIZATION OF DATA NEEDED FOR EXCHANGE-CORRELATION
+C
+       EXL= 0.0D0
+       EXN= 0.0D0
+       ECL= 0.0D0
+       ECN= 0.0D0
+       ISPFAC= 2/NSPN
+       ISGGA= ((IGGA(1) .EQ. 1) .OR. (IGGA(2) .EQ. 1))
+       NGRAD=1
+       IF (ISGGA) NGRAD=10
+C
+C GET CORE DENSITY
+C
+       CALL GTRHOCR(ISGGA,MPTS,RMSH(1,LPTS+1),RHOC,XTMP,DTMP,RTMP)
+C
+C LOOP OVER POINTS
+C
+       DO 200 IPTS=1,MPTS
+        VXCS(IPTS)= 0.0D0
+        IF (NSPN .EQ. 2) VXCS(IPTS+MPTS)= 0.0D0
+C
+C INITIALIZE DG2, DGG, DLP
+C
+        DO I=1,3
+         DG2(I)= 0.0D0
+         DGG(I)= 0.0D0
+         DLP(I)= 0.0D0
+        END DO
+C
+C MOVE DATA TO RHT
+C
+        DO ISPN=1,NSPN
+         FAC= 1.0D0
+         IF (ISPN .EQ. 2) FAC= 0.5D0
+         IOFS=NGRAD*((ISPN-1)+(IPTS-1)*NSPN)
+         DO I=1,NGRAD
+          RHT(I,ISPN)= RHOV(IOFS+I)+FAC*RHOC(I,IPTS)
+         END DO
+         IF (RHT(1,ISPN) .LT. 0.0D0)    RHT(1,ISPN)= 0.0D0
+         IF (RHT(1,ISPN) .GT. RHT(1,1)) RHT(1,ISPN)= RHT(1,1)
+        END DO
+C
+C DENSITIES D, DUP, DDN
+C
+        DEN(1)= RHT(1,1)
+        DEN(3)= DEN(1)*0.5D0
+        IF (NSPN .EQ. 2) DEN(3)= RHT(1,NSPN)
+        DEN(2)= DEN(1)-DEN(3)
+C
+C ABS(GRAD(D))**2
+C
+        IF (ISGGA) THEN
+         DG2(1)= RHT(2,1)**2+RHT(3,1)**2+RHT(4,1)**2
+         DG2(2)= DG2(1)*0.250D0
+         DG2(3)= DG2(2)
+C
+C GRAD(D)xGRAD(ABS(GRAD(D)))*ABS(GRAD(D))
+C
+         DGG(1)= RHT(5,1)*RHT(2,1)**2
+     &          +RHT(6,1)*RHT(3,1)**2
+     &          +RHT(7,1)*RHT(4,1)**2
+     &       +2*(RHT( 8,1)*RHT(2,1)*RHT(3,1)
+     &          +RHT( 9,1)*RHT(2,1)*RHT(4,1)
+     &          +RHT(10,1)*RHT(3,1)*RHT(4,1))
+         DGG(2)= DGG(1)*0.125D0
+         DGG(3)= DGG(2)
+C
+C LAPLACE(D)
+C
+         DLP(1)= RHT(5,1)+RHT(6,1)+RHT(7,1)
+         DLP(2)= DLP(1)*0.500D0
+         DLP(3)= DLP(2)
+C
+C EQUIVALENT SPIN-POLARIZED TERMS
+C
+         IF (NSPN .EQ. 2) THEN
+          DO I=1,10
+           RHT(I,1)= RHT(I,1)-RHT(I,NSPN)
+          END DO
+          DO ISPN=1,NSPN
+           DG2(ISPN+1)= RHT(2,ISPN)**2+RHT(3,ISPN)**2+RHT(4,ISPN)**2
+           DGG(ISPN+1)= RHT(5,ISPN)*RHT(2,ISPN)**2
+     &                 +RHT(6,ISPN)*RHT(3,ISPN)**2
+     &                 +RHT(7,ISPN)*RHT(4,ISPN)**2
+     &              +2*(RHT( 8,ISPN)*RHT(2,ISPN)*RHT(3,ISPN)
+     &                 +RHT( 9,ISPN)*RHT(2,ISPN)*RHT(4,ISPN)
+     &                 +RHT(10,ISPN)*RHT(3,ISPN)*RHT(4,ISPN))
+           DLP(ISPN+1)= RHT(5,ISPN)+RHT(6,ISPN)+RHT(7,ISPN)
+          END DO
+          DO I=1,10
+           RHT(I,1)= RHT(I,1)+RHT(I,NSPN)
+          END DO
+         END IF
+        END IF
+C
+C EXCHANGE
+C
+        D= DEN(1)
+        IF ((IDFTYP(1) .EQ. 0) .OR. (D .LT. EPS)) GOTO 100
+        DO ISPN=1,NSPN
+         D= 2*DEN(ISPN+1)
+         IF (D .GT. EPS) THEN
+          DKF= (TRPI2*D)**THIRD
+          IF (IGGA(1) .EQ. 0) THEN
+           S= 0.0D0
+           U= 0.0D0
+           V= 0.0D0
+          ELSE
+           DGRAD= 2*SQRT(DG2(ISPN+1))
+           DLAP= 2*DLP(ISPN+1)
+           REC2= 0.5D0/(DKF*D)
+           REC1= REC2*D
+           REC22= REC2*REC2
+           S= DGRAD*REC2
+           V= DLAP*REC1*REC2
+           IF (DGRAD .GT. EPS) THEN
+            U= 8*DGG(ISPN+1)*REC1*REC22/DGRAD
+           ELSE
+            U= 0.0D0
+           END IF
+          END IF
+C          IF (IDFTYP(1) .LE. 6) THEN
+C           CALL PW91EX(DKF,S,U,V,EX,DEX,VX)
+C          ELSE IF (IDFTYP(1) .EQ. 7) THEN
+C           CALL PBEEX(D,S,U,V,1,1,EX,DEX,VX)
+C          END IF
+C LB: ADDED REVPBE AND RPBE
+          SELECT CASE(IDFTYP(1))
+            CASE(:6)
+              CALL PW91EX(DKF,S,U,V,EX,DEX,VX)
+            CASE(7)
+C PBE
+              CALL PBEEX(1,D,S,U,V,1,1,EX,DEX,VX)
+            CASE(8)
+C REVPBE
+              CALL PBEEX(2,D,S,U,V,1,1,EX,DEX,VX)
+            CASE(9)
+C RPBE
+              CALL PBEEX(3,D,S,U,V,1,1,EX,DEX,VX)
+            CASE(10)
+C BECKE 88
+              CALL XBECKE(D,S,U,V,EX,DEX,VX)
+          END SELECT
+C LB: END OF NEW CODE
+          JPTS= IPTS+(ISPN-1)*MPTS
+          VXCS(JPTS)= VXCS(JPTS)+VX
+          EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)
+          EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)
+         END IF
+        END DO
+C
+C CORRELATION
+C
+  100   D=   DEN(1)
+        DUP= DEN(2)
+        DDN= DEN(3)
+        IF ((IDFTYP(2) .EQ. 0) .OR. (D .LT. EPS)) GOTO 200
+        DREC= 1.0D0/D
+        ZET= (DUP-DDN)*DREC
+        DKF= (TRPI2*D)**THIRD
+        DKS= SQRT(FRDPI*DKF)
+        RS= DKF2RS/DKF
+        G= 0.5D0*((1.0D0+ZET)**THIRD2+(1.0D0-ZET)**THIRD2)
+
+        !A fix for NaN issue on KNL
+        IF(ZET.EQ. 1.0d0) G=0.5D0*(2.0D0**THIRD2)
+        IF(ZET.EQ.-1.0d0) G=0.5D0*(2.0D0**THIRD2)
+
+        IF (IGGA(2) .EQ. 0) THEN
+         T= 0.0D0
+         UU= 0.0D0
+         VV= 0.0D0
+         WW= 0.0D0
+        ELSE
+         DGRAD= SQRT(DG2(1))
+         DLAP= DLP(1)
+         REC3= DREC
+         REC1= 0.5D0/(DKS*G)
+         REC2= REC1*REC3
+         REC22= REC2*REC2
+         T= DGRAD*REC2
+         VV= DLAP*REC1*REC2
+C
+C NOTE THAT GRAD(D)xGRAD(ZETA)*(D**2) IS EQUAL TO
+C D*(GRAD(DUP)**2-GRAD(DDN)**2)-(DUP-DDN)*(GRAD(D)**2)
+C
+         WW= D*(DG2(2)-DG2(3))
+         WW= WW-(DUP-DDN)*DG2(1)
+         WW= WW*REC3*REC22
+         IF (DGRAD .GT. EPS) THEN
+          UU= DGG(1)*REC1*REC22/DGRAD
+         ELSE
+          UU= 0.0D0
+         ENDIF
+        END IF
+        IF (IDFTYP(2) .LE. 5) THEN
+         CALL LDACOR(D,ZET,IDFTYP(2),EC,VCOR)
+         VCUP= VCOR(1)
+         VCDN= VCOR(2)
+         DEC= 0.0D0
+         DVCUP= 0.0D0
+         DVCDN= 0.0D0
+        ELSE IF (IDFTYP(2) .EQ. 6) THEN
+         CALL PW91LC(RS,ZET,EC,VCUP,VCDN,ECRS,ECZET,ALFC)
+         CALL PW91NC(RS,ZET,T,UU,VV,WW,DEC,DVCUP,DVCDN)
+        ELSE IF (IDFTYP(2) .EQ. 7) THEN
+         CALL PBECOR(RS,ZET,T,UU,VV,WW,1,1,
+     &               EC,VCUP,VCDN,DEC,DVCUP,DVCDN)
+        END IF
+        ECL= ECL+ EC*D*WMSH(LPTS+IPTS)
+        ECN= ECN+DEC*D*WMSH(LPTS+IPTS)
+        VXCS(IPTS)= VXCS(IPTS)+VCUP+DVCUP
+        IF (NSPN .EQ. 2) VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS)+VCDN+DVCDN
+  200  CONTINUE
+       EXCVEC(1)=EXL 
+       EXCVEC(2)=EXN 
+       EXCVEC(3)=ECL 
+       EXCVEC(4)=ECN
+ 
+C
+C DEALLOCATE LOCAL ARRAYS
+C
+       DEALLOCATE(RHOV1,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RHOV1'
+       DEALLOCATE(VXCS1,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING VXCS1'
+       DEALLOCATE(VLOS1,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING VLOS1'
+       DEALLOCATE(RHOC,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RHOC'
+       DEALLOCATE(XTMP,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING XTMP'
+       DEALLOCATE(DTMP,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING DTMP'
+       DEALLOCATE(RTMP,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RTMP'
+       DEALLOCATE(VLOC,STAT=IERR)
+       IF(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING VLOC'
+C
+       RETURN
+      END

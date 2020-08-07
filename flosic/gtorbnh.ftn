@@ -1,0 +1,82 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C *************************************************************
+C
+       SUBROUTINE GTORBNH(NPTS,PTS,I_ATOM,ANGLE,CONORB)
+C
+C WRITTEN BY MARK R PEDERSON , MODIFIED BY DIRK POREZAG
+C
+       use common2,only : BFCON, BFALP, N_BARE, N_CON, LSYMMAX
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:52 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: NPTS, I_ATOM, I_BARE, IPTS, L, LMAX, LMAX1, NB
+       REAL*8 :: PTS , ANGLE, CONORB, ALP, ALPRSQR, FAC, GAUS, RSQR
+       SAVE
+       LOGICAL ISKIP
+       DIMENSION CONORB(MPBLOCK,MAX_CON,3)
+       DIMENSION PTS(3,MPBLOCK),GAUS(MPBLOCK),RSQR(MPBLOCK)
+       DIMENSION ANGLE(MPBLOCK,10)
+C
+       IF (NPTS.GT.MPBLOCK) THEN
+        write(6,*)'GTORBNH: MPBLOCK MUST BE AT LEAST ',NPTS
+        CALL STOPIT
+       END IF
+       LMAX=LSYMMAX(I_ATOM)
+       DO 2 IPTS=1,NPTS
+        ANGLE(IPTS,1) = 1.0D0
+        ANGLE(IPTS,5) = PTS(1,IPTS)*PTS(1,IPTS)
+        ANGLE(IPTS,6) = PTS(2,IPTS)*PTS(2,IPTS)
+        ANGLE(IPTS,7) = PTS(3,IPTS)*PTS(3,IPTS)
+        RSQR(IPTS)=ANGLE(IPTS,5)+ANGLE(IPTS,6)+ANGLE(IPTS,7)
+    2  CONTINUE
+       IF (LMAX.LT.1) GOTO 10
+       DO 4 IPTS=1,NPTS
+        ANGLE(IPTS,2) = PTS(1,IPTS)
+        ANGLE(IPTS,3) = PTS(2,IPTS)
+        ANGLE(IPTS,4) = PTS(3,IPTS)
+    4  CONTINUE
+       IF (LMAX.LT.2) GOTO 10
+       DO 6 IPTS=1,NPTS
+        ANGLE(IPTS,8) =  PTS(1,IPTS)*PTS(2,IPTS)
+        ANGLE(IPTS,9) =  PTS(1,IPTS)*PTS(3,IPTS)
+        ANGLE(IPTS,10) = PTS(2,IPTS)*PTS(3,IPTS)
+    6  CONTINUE
+   10  CONTINUE
+C
+       LMAX1=LMAX+1
+       DO 40 L=1,LMAX1
+        DO 30 NB=1,N_CON(L,I_ATOM)
+         DO 20 IPTS=1,NPTS
+          CONORB(IPTS,NB,L)=0.0D0
+   20    CONTINUE
+   30   CONTINUE
+   40  CONTINUE
+C
+       DO 200 I_BARE=1,N_BARE(I_ATOM)
+        ISKIP= .TRUE.
+        ALP=BFALP(I_BARE,I_ATOM)
+        DO 50 IPTS=1,NPTS
+         ALPRSQR= ALP*RSQR(IPTS)
+         IF (ALPRSQR.LT.CUTEXP) THEN
+          ISKIP= .FALSE.
+          GAUS(IPTS)=EXP(-ALPRSQR)
+         ELSE
+          GAUS(IPTS)= 0.0D0
+         END IF
+         GAUS(IPTS)=EXP(-ALPRSQR)
+   50   CONTINUE
+        IF (ISKIP) GOTO 200
+C
+        DO 80 L=1,LMAX1
+         DO 70 NB=1,N_CON(L,I_ATOM)
+          FAC= BFCON(I_BARE,NB,L,I_ATOM)
+          DO 60 IPTS=1,NPTS
+           CONORB(IPTS,NB,L)=CONORB(IPTS,NB,L)+FAC*GAUS(IPTS)
+   60     CONTINUE
+   70    CONTINUE
+   80   CONTINUE
+  200  CONTINUE
+       RETURN
+       END

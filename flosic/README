@@ -1,0 +1,55 @@
+1/10/2018
+   FLOSIC 0.1 is now available to CMU. For the purpose of 
+testing, I want you to use it first for the systems that 
+you have already done. Let us know about its performance- 
+accuracy as well as timings.
+   FLOSIC0.0 is the 0.0 version of the Fermi Orbital Self 
+Interaction Correction Code created in 2017 by introducing 
+SIC into one of UTEP-NRLMOL versions (Yoh). The perfect 
+version by Mark was used as a reference. It is extensively 
+tested and reproduces published FLOSIC numbers (perfect 
+code). A number of routines were optimized during the 
+development.
+   FLOSIC 0.1 is an upgrade to FLOSIC0.0 code. A number 
+of loops have been rewritten and are now computed using 
+LAPACK routines (Carlos). Major upgrade is a second level 
+of parallelization (Luis). The SIC potentials and 
+corresponding matrices are built using groups in parallel. 
+This allows large number of processors to be used. To use 
+this feature create a file called "igroup" as follows
+    20 Number of groups
+    24 Number of processors per group
+In this case, user should request total 480 processors 
+(=20*24) in job script. We can give a short tutorial via 
+Skype. We will also present scaling information. It should 
+be particularly efficient for systems containing  upto 
+200 electrons.  
+
+
+Compilation Instruction
+
+1. Open Makefile and edit the following sections.
+ # COMPILERS
+ CC = cc    (C compiler)
+ FC = ftn   (Fortran MPI compiler)
+ FFF = ftn  (Fortran MPI compiler)
+
+ # COMPILER FLAGS
+ CFLAGS = -O3
+ FFLAGS = -dynamic -mcmodel=medium
+ LFLAGS = -dynamic -mcmodel=medium
+
+ # COMPILING OPTIONS
+ OPTIONS = -DMPI -DGROUP  
+ (Add -DMPI to run MPI calculation and add 
+  -DGROUP in addition to run group calculation.) 
+
+ # LINKING OPTIONS
+        $(FFF) $(LFLAGS) $(OBJ) -o $(BIN)
+
+2. Type "make -f Makefile" to compile the code.
+
+3. You have a binary file named "nrlmol_exe."
+
+Optional. To generate Doxygen documentation, run
+"make doc."

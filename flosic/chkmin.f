@@ -1,0 +1,148 @@
+C UTEP Electronic Structure Lab (2020)
+      SUBROUTINE CHKMIN(MODE_RUN,NCALC,ENERGY,FTOL,X,G,OPTION)
+C
+C     CHECK FOR OPTIMIZATION CONVERGENCE
+C
+C     BY ULISES REVELES, AUG. 2013.
+C
+C     ------------------------------------------------------------------
+C
+C     --- GLOBAL VARIABLES ---
+C  
+      use common2,only : GSUM,GMAX,GTOL,OPTIMIZED
+      use common5,only : CONVERGENCE
+C
+! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:37 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: NIDENT, NPAR
+C
+C     --- LOCAL VARIABLES ---
+C
+      INTEGER MODE_RUN,NCALC
+C
+      REAL*8 TOLSML
+      PARAMETER(TOLSML = 1.0D-4)
+C
+      CHARACTER*5 OPTION
+      CHARACTER*40 NAME
+C
+      INTEGER ISTAT,MPAR
+      REAL*8 ENERGY,FTOL
+      REAL*8 X(*),G(*)
+C
+      INTEGER ALLOCATION
+      REAL*8,ALLOCATABLE :: SCRCGR(:,:)
+C
+C     ------------------------------------------------------------------
+C
+C     --- CHECK FOR REQUESTED TOLERANCE ---
+C
+      IF ((OPTION.EQ.'CHECK').AND.(MODE_RUN .NE. 3)) THEN
+        GTOL=1.0D-3
+        CONVERGENCE=.FALSE.
+C
+        OPEN(65,FILE='GEOCNVRG',FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND(65)
+        NAME='CONVERGE FALSE'
+C
+        READ(65,*,END=30) GTOL
+        IF (GTOL.LT.TOLSML) THEN
+          WRITE(6,*)
+     &         'WARNING: CONVERGENCE LIMIT IN GEOCNVRG IS VERY SMALL.'
+          WRITE(6,*)
+     &         'IF YOU INTEND TO PERFORM A GEOMETRY OPTIMIZATION, MAKE'
+          WRITE(6,*)
+     &         'SURE YOU ARE USING A REALLY GOOD MESH. OTHERWISE, THE'
+          WRITE(6,*)'GEOMETRY OPTIMIZATION MAY NEVER CONVERGE.'
+        END IF
+C
+        READ(65,1000,END=30) NAME
+        IF (NAME(10:13).EQ.'TRUE') THEN
+          PRINT '(A)','CLUSTER: YOU CONVERGED TO THE FINAL ANSWER'
+          PRINT '(A,I4,A)','GEOMETRY OPTIMIZED ON: ',NCALC-2,' CYCLES'
+          PRINT '(A)','TO START ANEW, REMOVE FILE GEOCNVRG AND RERUN'
+          CLOSE(65)
+          OPTIMIZED = .TRUE.
+          GOTO 900
+        END IF
+C
+   30   REWIND(65)
+        WRITE(65,'(1X,F12.6)') GTOL
+        WRITE(65,1000) NAME
+        CLOSE(65)
+      END IF
+C
+C     --- CALL CGRAD IF IN CONJUGATE-GRADIENT MODE, IF CONVERGED ---
+C     --- MPAR=0 IN ORDER TO DELETE CGRAD FILE   ---
+C
+      IF (MODE_RUN.EQ.1) THEN
+C
+C     --- ALLOCATE LOCAL FIELDS ---
+C
+        ALLOCATE(SCRCGR(3*NIDENT,6),STAT=ALLOCATION)
+        IF (ALLOCATION.GT.0) THEN
+          WRITE(*,*) 'ERROR IN CHKMIN: ALLOCATION FAILED'
+        END IF
+C
+        IF (GMAX.LE.GTOL) THEN
+          MPAR=0
+          CALL CGRAD(MPAR,ENERGY,X,G,GTOL,FTOL,SCRCGR,ISTAT)
+          ISTAT=0
+          OPTIMIZED = .TRUE.
+        ELSE
+          CALL CGRAD(NPAR,ENERGY,X,G,GTOL,FTOL,SCRCGR,ISTAT)
+        END IF
+C
+        OPEN(22,FILE='GEOCNVRG',FORM='FORMATTED',STATUS='OLD')
+        REWIND(22)
+        WRITE(22,'(1X,F12.6)') GTOL
+        IF (OPTIMIZED) THEN
+          PRINT '(A)','FORCES CONVERGED - NO UPDATE NECESSARY'
+          WRITE(22,*) 'CONVERGE TRUE'
+        ELSE
+          WRITE(22,*) 'CONVERGE FALSE'
+        END IF
+        WRITE(22,'(1X,A,F12.6)') 'ENERGY= ',ENERGY
+        WRITE(22,'(1X,A,F12.6)') 'TOTAL GRADIENT= ',GSUM
+        WRITE(22,'(1X A,F12.6)') 'LARGEST NUCLEAR GRADIENT= ',GMAX
+        CLOSE(22)
+C
+C     --- DEALLOCATE LOCAL FIELDS ---
+C
+        DEALLOCATE(SCRCGR,STAT=ALLOCATION)
+        IF (ALLOCATION.GT.0) THEN
+          WRITE(*,*) 'ERROR IN CHKMIN: DEALLOCATION FAILED'
+        END IF
+C
+C     --- CARTESIAN L-BFGS AND REDUNDANT OPTIMIZATION ---
+C
+      ELSE IF ((MODE_RUN.EQ.4).OR.(MODE_RUN.EQ.5)) THEN
+        OPEN(22,FILE='GEOCNVRG',FORM='FORMATTED',STATUS='OLD')
+        REWIND(22)
+        WRITE(22,*) GTOL
+        IF (OPTIMIZED) THEN
+          PRINT '(A)','FORCES CONVERGED - NO UPDATE NECESSARY'
+          WRITE(22,*) 'CONVERGE TRUE'
+        ELSE
+          WRITE(22,*) 'CONVERGE FALSE'
+        END IF
+        WRITE(22,'(1X,A,F12.6)') 'ENERGY= ',ENERGY
+        WRITE(22,'(1X,A,D12.6)') 'TOTAL GRADIENT= ',GSUM
+        WRITE(22,'(1X,A,D12.6)') 'LARGEST NUCLEAR GRADIENT= ',GMAX
+        CLOSE(22)
+C
+      END IF
+C
+  900 CONTINUE
+C
+C     --- FORMATS ---
+C
+ 1000 FORMAT(1X,A40)
+C
+      RETURN
+C
+C     ------------------------------------------------------------------
+C
+      END 

@@ -1,0 +1,569 @@
+C UTEP Electronic Structure Lab (2020)
+
+C ****************************************************************
+C
+      SUBROUTINE READPSP
+C
+C DIRK POREZAG, JULY 1997
+C READ PSEUDOPOTENTIAL PARAMETERS, SET UP RADIAL MESH AND NONLOCAL
+C PART OF PSEUDOPOTENTIAL
+C COMMON/PSPANG/ CONTAINS THE ANGULAR DEGREE OF THE MESH
+C USED FOR THE INTEGRATION OF THE NONLOCAL PSEUDOPOTENTIAL 
+C
+       use common1,only : ALPCOR, PSRZONE, LMXPSRZ, PSPSYM, ISITPSP,
+     & ISNLCC, RPSNLO, WPSNLO, VPSNLO, LMAXNLO, NRPSP, BHSALP, BHSCOF,
+     &  RRADTAB, VLRTAB, RHOCOR, NRADTAB, NLCC
+       use common2,only : BFALP, N_BARE, NFNCT
+       use common3,only : RMAT
+! Conversion to implicit none.  Raja Zope Sun Oct 23 22:32:06 MDT 2016
+
+!       INCLUDE  'PARAMAS'  
+        INCLUDE  'PARAMA2'  
+       INTEGER :: I, IALP, IBARE, IDX, IERR, IFNCT, IRAD, ISET, ITAB,
+     & J, JALP, K, L1, LMAX, MTAB, NPOW, NPOWPSP, NRAD, NRHOC, NSETS,
+     &  Ncore, Nterms, NECPRd, LMx, ECPMx !<<<< ECP
+       REAL*8 :: AFUDGE , AMAX, AMIN, CMAX, FAC, PAMAX, PAMIN, PI,
+     & PSPMERR, RMAX, RSQR, SUM, WAMAX, WAMIN
+       SAVE
+       LOGICAL EXIST,LNLCC
+       CHARACTER*9 SYM1
+       CHARACTER*3 SYM2,SYM3
+C       COMMON/TMP1/RRAD(MXRPSP),WRAD(MXRPSP),VNRAD(MXLPSP+1,MXRPSP)
+C     &  ,VLRAD(2,MXRPSP)
+C     &  ,BHS1(2),BHS2(2),BHS3(3,MXLPSP+1),BHS4(6,MXLPSP+1)
+C     &  ,BHSMAT(6,6),BHSDRC(6),BHSSAV(6)
+C     &  ,RREAD(MXPTAB),VREAD(MXPTAB,MXLPSP+2),RHCREAD(MXPTAB)
+C     &  ,ISDEF(MAX_FUSET),ITABLE(MAX_FUSET)
+       REAL*8 :: BHS1(2),BHS2(2),BHSMAT(6,6),BHSDRC(6),BHSSAV(6)
+       REAL*8,ALLOCATABLE :: RRAD(:),WRAD(:),VNRAD(:,:),VLRAD(:,:),
+     &    BHS3(:,:),BHS4(:,:),RREAD(:),VREAD(:,:),RHCREAD(:)
+       REAL*8,ALLOCATABLE :: ECPCoe(:,:), ECPExp(:,:) !<<<< ECP
+       INTEGER,ALLOCATABLE :: ISDEF(:),ITABLE(:)
+       INTEGER,ALLOCATABLE :: ECPPow(:,:), NECPTe(:) !<<<< ECP
+
+       real*8  rcutoff
+       external rcutoff
+       DATA PSPMERR/1.0D-6/
+       DATA AFUDGE /1.2D+0/
+       DATA NPOWPSP/     6/
+       DATA ECPMx/      15/
+       DATA LMx/         6/
+C
+C ALLOCATE LOCAL ARRAYS
+C
+       ALLOCATE(RRAD(MXRPSP),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING RRAD'
+       ALLOCATE(WRAD(MXRPSP),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING WRAD'
+       ALLOCATE(VNRAD(MXLPSP+1,MXRPSP),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING VNRAD'
+       ALLOCATE(VLRAD(2,MXRPSP),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING VLRAD'
+       ALLOCATE(BHS3(3,MXLPSP+1),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING BHS3'
+       ALLOCATE(BHS4(6,MXLPSP+1),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING BHS4'
+       ALLOCATE(RREAD(MXPTAB),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING RREAD'
+       ALLOCATE(VREAD(MXPTAB,MXLPSP+2),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING VREAD'
+       ALLOCATE(RHCREAD(MXPTAB),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING RHCREAD'
+       ALLOCATE(ISDEF(MAX_FUSET),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING ISDEF'
+       ALLOCATE(ITABLE(MAX_FUSET),STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR ALLOCATING ITABLE'
+!<<<<<<<<<<<<< ECP Arrays
+       Allocate (ECPPow(0:Lmx,ECPMx) )
+       Allocate (ECPExp(0:Lmx,ECPMx) )
+       Allocate (ECPCoe(0:Lmx,ECPMx) )
+       Allocate (NECPTe(0:Lmx) )
+!>>>>>>>>>>>>>
+C
+C INITIALIZE ARRAYS IN COMMON BLOCKS
+C
+       DO IFNCT= 1,NFNCT
+        BHSALP(1,IFNCT)= 1.0D0
+        BHSALP(2,IFNCT)= 1.0D0
+        BHSCOF(1,IFNCT)= 0.0D0
+        BHSCOF(2,IFNCT)= 0.0D0
+        NRADTAB(IFNCT)= 0
+        NLCC(IFNCT)= 0
+        LMAXNLO(IFNCT)= -1
+        NRPSP(IFNCT)= 0
+       END DO
+       IF (ISITPSP .NE. 1) RETURN
+C
+C DEAL WITH MESH FIRST
+C
+       PRINT '(A)','READING PSEUDOPOTENTIAL DATA'
+       INQUIRE(FILE='MESHPSP',EXIST=EXIST)
+       IF (EXIST) THEN
+        OPEN(50,FILE='MESHPSP',FORM='FORMATTED',STATUS='OLD')
+        REWIND(50)
+        READ(50,*,END=20) PSPMERR,AFUDGE,NPOWPSP
+        READ(50,*,END=20)(PSRZONE(I), I=1,4)
+        READ(50,*,END=20)(LMXPSRZ(I), I=1,5)
+       END IF
+       CLOSE(50)
+       GOTO 40
+C
+C ERROR
+C
+   20  PRINT *,'READPSP: FILE MESHPSP IS BROKEN'
+       CLOSE(50)
+       CALL STOPIT
+C
+C WRITE MESHPSP
+C
+   40  OPEN(50,FILE='MESHPSP',FORM='FORMATTED',STATUS='UNKNOWN')
+       REWIND(50)
+       WRITE(50,1010) PSPMERR,AFUDGE,NPOWPSP,
+     &                ' Accuracy, Afudge, Max. power'
+       WRITE(50,1020)(PSRZONE(I), I=1,4),' Radial zones'
+       WRITE(50,1030)(LMXPSRZ(I), I=1,5),' Max. L for each zone'
+ 1010  FORMAT(2(1X,D15.8),1X,I3,4X,A)
+ 1020  FORMAT(4(1X,F8.3),4X,A)
+ 1030  FORMAT(5(1X,I3),20X,A)
+       CLOSE(50)
+C
+C SET ISDEF TO 0 FOR ALL PSP-ATOMS
+C
+       DO IFNCT=1,NFNCT
+        IF (PSPSYM(IFNCT)(1:3) .EQ. 'ALL') THEN
+         ISDEF(IFNCT)= 1
+        ELSE
+         ISDEF(IFNCT)= 0
+         Print *, 'Pseudopot. type for atom ',IFNCT, PSPSYM(IFNCT)(1:3) !<<<< Added from ECP code
+        END IF
+       END DO
+C
+C NOW READ THE ACTUAL PSEUDOPOTENTIALS FROM PSPINP
+C
+       INQUIRE(FILE='PSPINP',EXIST=EXIST)
+       IF (.NOT. EXIST) GOTO 950
+       OPEN(40,FILE='PSPRAD',FORM='FORMATTED',STATUS='UNKNOWN')
+       OPEN(50,FILE='PSPINP',FORM='FORMATTED',STATUS='OLD')
+       REWIND(40)
+       REWIND(50)
+C
+C READ UNTIL END OF FILE
+C
+  110  READ(50,'(A7)',END=500) SYM1
+       SYM2=SYM1(1:3)
+       IF (SYM2 .NE. 'ECP') THEN
+        READ(50,*,END=900) LMAX
+       ELSE
+        READ(50,*,END=900) LMAX, NCORE
+       END IF
+       IF (LMAX .GT. MXLPSP) THEN
+        PRINT *,'READPSP: MXLPSP MUST BE AT LEAST: ',LMAX
+        GOTO 950
+       END IF
+C
+C PSP-DEPENDENT INPUT FROM PSPINP
+C
+C TYPE BHS: BACHELET-HAMANN-SCHLUTER, SEE:
+C PRB 26, 4199 (ERRATA: PRB 29, 2309) 
+C
+       IF (SYM2 .EQ. 'BHS') THEN
+        LNLCC= .FALSE.
+        READ(50,*,END=900)(BHS1(I), I=1,2)      ! Core Alphas
+        READ(50,*,END=900)(BHS2(I), I=1,2)      ! Core Coefficients
+        PI=4*ATAN(1.0D0)
+        DO L1=1,LMAX+1
+         READ(50,*,END=900)(BHS3(I,L1), I=1,3)  ! NL Alphas
+         READ(50,*,END=900)(BHS4(I,L1), I=1,6)  ! NL Coefficients 
+C
+C TRANSFORMATION OF BHS COEFFICIENTS TO "SIMPLE" COEFFICIENTS
+C FILL BHSMAT WITH "OVERLAP" MATRIX ELEMENTS AS DEFINED IN BHS PAPER
+C
+         DO IALP=1,3
+          DO JALP=IALP,3
+           FAC= 1.0D0/(BHS3(IALP,L1)+BHS3(JALP,L1))
+           BHSMAT(IALP,JALP)= 0.25D0*FAC*SQRT(PI*FAC)
+           BHSMAT(IALP,JALP+3)= BHSMAT(IALP,JALP)*1.5D0*FAC
+           BHSMAT(IALP+3,JALP+3)= BHSMAT(IALP,JALP+3)*2.5D0*FAC
+          END DO
+         END DO
+         BHSMAT(2,4)=BHSMAT(1,5)
+         BHSMAT(3,4)=BHSMAT(1,6)
+         BHSMAT(3,5)=BHSMAT(2,6)
+C
+C UPDATE BHSMAT (CORRESPONDS TO MATRIX Q IN BHS PAPER)
+C
+         DO I=1,6
+          DO J=I,6
+           SUM=BHSMAT(I,J)
+           DO K=1,I-1
+            SUM= SUM-BHSMAT(K,I)*BHSMAT(K,J)
+           END DO
+           IF (I .EQ. J) THEN
+            IF (SUM .LE. 0.0D0) THEN
+             PRINT *,'READPSP: BHS TRANSFORMATION ERROR'
+             CALL STOPIT
+            END IF
+            BHSMAT(I,I)= SQRT(SUM)
+            BHSDRC(I)= 1.0D0/BHSMAT(I,I)
+           ELSE
+            BHSMAT(I,J)= SUM*BHSDRC(I)
+           END IF
+          END DO
+         END DO
+C
+C SYMMETRIZE BHSMAT AND MOVE DATA FROM BHS4 TO BHSSAV
+C
+         DO I= 1,6
+          BHSSAV(I)= -BHS4(I,L1)
+          DO J=I+1,6
+           BHSMAT(J,I)=BHSMAT(I,J)
+          END DO
+         END DO
+C
+C BACKWARD SUBSTITUTION
+C
+         DO I= 6, 1, -1
+          BHS4(I,L1)= BHSSAV(I)
+          DO J= I+1,6
+           BHS4(I,L1)= BHS4(I,L1)-BHSMAT(J,I)*BHS4(J,L1)
+          END DO
+          BHS4(I,L1)= BHS4(I,L1)*BHSDRC(I)
+         END DO
+C
+C CHECK CONDITION OF THE PROBLEM
+C
+         CMAX= 0.0D0
+         SUM= 0.0D0
+         DO I=1,6
+          FAC= 0.0D0
+          DO J=I,6
+           FAC= FAC+BHSMAT(J,I)*BHS4(J,L1)
+          END DO
+          SUM= SUM+(FAC-BHSSAV(I))**2 
+          CMAX= MAX(CMAX,ABS(BHS4(I,L1)))
+         END DO
+         IF (L1 .EQ. 1) THEN
+          PRINT '(2A)','BHS TRANSFORMATION FOR PSEUDOPOTENTIAL ',SYM1
+         END IF
+         PRINT 1110,L1-1,SQRT(SUM),CMAX
+ 1110    FORMAT('L= ',I2,', |AX-B|= ',D12.5,
+     &          ', LARGEST COEFFICIENT= ',D12.5)
+        END DO
+        PAMIN=  1.0D30
+        PAMAX= -1.0D30
+        DO L1=1,LMAX+1
+         DO I=1,3
+          PAMIN=MIN(PAMIN,BHS3(I,L1))
+          PAMAX=MAX(PAMAX,BHS3(I,L1))
+         END DO
+        END DO
+C 
+C TYPE TAB: GENERAL TABLE OF NONLOCAL PSEUDOPOTENTIAL. FORMAT:
+C MTAB,PAMIN,PAMAX= NUMBER OF TABULATED POINTS, MIN/MAX ALPHA FOR MESH,
+C NONLINEAR CORE CORRECTION (T/F)
+C RRADTAB,VLOTAB= RADIUS, LOCAL POTENTIAL, VNLTAB= NONOCAL POTENTIAL 
+C (L= 0 TO LMAX), RHOCORE= CORE DENSITY (FOR NLCC) | NRADTAB BLOCKS
+C 
+       ELSE IF (SYM2 .EQ. 'TAB') THEN
+        READ(50,*,END=900) MTAB,PAMIN,PAMAX,LNLCC
+        NRHOC=0
+        IF (LNLCC) NRHOC=1
+        IF (LNLCC) ISNLCC=1
+        IF (MTAB .GT. MXPTAB) THEN
+         PRINT *,'READPSP: MXPTAB MUST BE AT LEAST: ',MTAB
+         CALL STOPIT
+        END IF
+        DO ITAB=1,MTAB
+         READ(50,*,END=900) RREAD(ITAB),(VREAD(ITAB,L1), L1=1,LMAX+2),
+     &                     (RHCREAD(ITAB), I=1,NRHOC)
+        END DO
+        DO L1=1,LMAX+2
+         DO ITAB=1,MTAB
+          VREAD(ITAB,L1)= VREAD(ITAB,L1)*RREAD(ITAB)
+         END DO
+         IF (L1 .GT. 1) THEN
+          DO ITAB=1,MTAB
+           VREAD(ITAB,L1)= VREAD(ITAB,L1)-VREAD(ITAB,1)
+          END DO
+         END IF
+        END DO
+!<<<<<<<<<<<<<<<<
+C
+C ECP potentials
+C
+       ELSE IF (SYM2 .EQ. 'ECP') THEN
+        Print *, 'Now Reading ECP...'
+        NECPRd = 0
+ 333    READ(50,'(A3)',END=900) SYM3
+        IF(SYM3(1:1).EQ.'s'.OR.SYM3(1:1).EQ.'S') L1 = 0
+        IF(SYM3(1:1).EQ.'p'.OR.SYM3(1:1).EQ.'P') L1 = 1
+        IF(SYM3(1:1).EQ.'d'.OR.SYM3(1:1).EQ.'D') L1 = 2
+        IF(SYM3(1:1).EQ.'f'.OR.SYM3(1:1).EQ.'F') L1 = 3
+        IF(SYM3(1:1).EQ.'g'.OR.SYM3(1:1).EQ.'G') L1 = 4
+        IF(L1.GT.LMax) Then
+         Print *, 'L > Lmax '
+         Call STOPIT
+        ENDIF
+        READ(50,*,END=900) NTerms
+        NECpTe(L1) = NTerms
+        Print *,'Found  L = ', L1, ' with ',NTerms, ' terms'
+        READ(50,*)(ECPPow(L1,J),ECPExp(L1,J),ECPCoe(L1,J),J=1,NTerms) 
+C Merge: Took out the extra bracket from the above read statement
+        NECPRd = NECPRd + 1
+        IF (NECPRd.LE.LMax) Goto 333
+C
+        PAMIN=  1.0D30
+        PAMAX= -1.0D30
+        DO L1=0,LMAX
+         DO I=1, NECpTe(L1) 
+          PAMIN=MIN( PAMIN,ECPExp(L1,I) )
+          PAMAX=MAX( PAMAX,ECPExp(L1,I) )
+         END DO
+        END DO
+C
+!>>>>>>>>>>>>>>>>
+C
+C END OF READ 
+C
+       ELSE
+        PRINT *,'READPSP: PSEUDOPOTENTIAL TYPE ',SYM2,' IS NOT',
+     &          'RECOGNIZED'
+        GOTO 900
+       END IF
+       READ(50,'(A3)',END=900) SYM3
+       IF (SYM3 .NE. '***') GOTO 900
+C
+C END OF PSP-DEPENDENT INPUT FROM PSPINP
+C
+C DETERMINE WHICH FUNCTION SETS USE THIS PSP AND FIND THEIR 
+C LARGEST AND SMALLEST WAVEFUNCTION EXPONENT 
+C
+       NSETS=0
+       WAMIN=  1.0D30
+       WAMAX= -1.0D30
+       DO IFNCT=1,NFNCT
+        IF (PSPSYM(IFNCT) .EQ. SYM1) THEN
+         NSETS=NSETS+1
+         ITABLE(NSETS)=IFNCT
+         DO IBARE=1,N_BARE(IFNCT)
+          WAMIN=MIN(WAMIN,BFALP(IBARE,IFNCT))
+          WAMAX=MAX(WAMAX,BFALP(IBARE,IFNCT))
+         END DO
+        END IF
+       END DO
+       IF (NSETS .EQ. 0) GOTO 110
+C
+C PRINT STATISTICS
+C
+       PRINT '(5A)','PSEUDOPOTENTIAL ',SYM1,' (TYPE ',SYM2,
+     &              ') HAS BEEN SUCCESSFULLY PROCESSED'
+!<<<<<<<<<<<<<<<< 
+! ECP
+       IF(SYM2 .EQ. 'ECP') THEN
+        DO I=0, Lmax 
+         PRINT *, 'L= ', I
+         PRINT *, ' Powers: r**(N-2) '
+         PRINT *, (ECPPow(I,J),J=1,NECPTe(I) )
+         PRINT *, 'Coefficients '
+         PRINT *, (ECPCoe(I,J),J=1,NECPTe(I) )
+         PRINT *, 'Exponents '
+         PRINT *, (ECPExp(I,J),J=1,NECPTe(I) )
+        ENDDO
+       END IF
+!>>>>>>>>>>>>>>
+C      
+C
+C PSP-DEPENDENT ASSIGNMENT OF LOCAL POTENTIAL PARAMETERS
+C AND CORE DENSITIES
+C
+       DO 200 ISET=1,NSETS
+        IDX=ITABLE(ISET)
+        NLCC(IDX)= 0
+        IF (LNLCC) NLCC(IDX)= 1
+C
+C TYPE BHS
+C
+        IF (SYM2 .EQ. 'BHS') THEN
+         DO I=1,2
+          BHSALP(I,IDX)=SQRT(BHS1(I))
+          BHSCOF(I,IDX)=BHS2(I)
+         END DO
+!<<<<<<<<<<<<<<<<
+C
+C TYPE ECP
+C Note: This is a 'hack' to force the vlocal routine to use the same 
+C BHS code that screens the local potential but using parameters so that 
+C the screening doesnt take effect. This might need to be improved.
+C
+        ELSE IF (SYM2 .EQ. 'ECP') THEN
+        PRINT *, ' Setting up Local Potential Screeneing Parameters....'
+        BHSALP(1,IDX)=999.0D0
+        BHSALP(2,IDX)=999.0D0
+        BHSCOF(1,IDX)=1.0D0
+        BHSCOF(2,IDX)=0.0D0
+
+!>>>>>>>>>>>>>>>>
+C
+C TYPE TAB
+C
+        ELSE IF (SYM2 .EQ. 'TAB') THEN
+         NRADTAB(IDX)=MTAB
+         CALL TABDRV(10,1,0.1D0,MTAB,RREAD,VREAD,2,VLRTAB(1,1,IDX))
+         IF (LNLCC) THEN 
+          CALL TABDRV(10,2,0.1D0,MTAB,RREAD,RHCREAD,3,RHOCOR(1,1,IDX))
+          DO I=1,MTAB
+           IF (RREAD(I) .GT. 1.0D-3) GOTO 190
+          END DO
+  190     I=MIN(I,MTAB)
+          ALPCOR(IDX)= -RHOCOR(2,I,IDX)/(2*RREAD(I)*RHOCOR(1,I,IDX))
+          PRINT 1210,'ESTIMATED CORE DENSITY EXPONENT FOR SET ',IDX,
+     &               ' IS: ',ALPCOR(IDX)
+ 1210     FORMAT(A,I3,A,F12.3)
+         END IF
+         DO ITAB=1,MTAB
+          RRADTAB(ITAB,IDX)=RREAD(ITAB)
+         END DO
+        END IF
+  200  CONTINUE
+C
+C PSP-DEPENDENT SETUP OF NONLOCAL RADIAL POTENTIAL
+C
+       AMIN=PAMIN
+       AMAX=PAMAX+2*WAMAX
+       NPOW=NPOWPSP+2 
+       RMAX= RCUTOFF(NPOW,AMIN,0.1D0*PSPMERR)
+       CALL RADMSH(MXRPSP,0.0D0,RMAX,PSPMERR,AMIN,AMAX,AFUDGE,NPOW,
+     &             NRAD,RRAD,WRAD)
+C
+C TYP 1: BHS
+C
+       IF (SYM2 .EQ. 'BHS') THEN
+        DO IRAD=1,NRAD
+         RSQR=RRAD(IRAD)**2
+         DO L1=1,LMAX+1
+          VNRAD(L1,IRAD)=0.0D0
+          DO I=1,3
+           VNRAD(L1,IRAD)=VNRAD(L1,IRAD)
+     &     +(BHS4(I,L1)+RSQR*BHS4(I+3,L1))*EXP(-BHS3(I,L1)*RSQR)
+          END DO
+         END DO
+        END DO
+!<<<<<<<<<<<<<<<<<<
+C
+C ECP
+C
+       ELSE IF (SYM2 .EQ. 'ECP') THEN
+        DO IRAD=1,NRAD
+         RSQR=RRAD(IRAD)**2
+         DO L1=0,LMAX
+          VNRAD(L1+1,IRAD)=0.0D0
+          DO I=1,NECPTe(L1)
+           VNRAD(L1+1,IRAD)=VNRAD(L1+1,IRAD) +
+     &     (RRAD(IRAD)**(ECPPow(L1,I) -2)) * ECPCoe(L1,I)
+     &      *DEXP(-ECPExp(L1,I)*RSQR)
+
+         END DO
+        END DO
+       END DO
+!>>>>>>>>>>>>>>>>>>
+C
+C TYP 2: TAB
+C
+       ELSE IF (SYM2 .EQ. 'TAB') THEN
+        DO IRAD=1,NRAD
+         DO L1=1,LMAX+1
+          CALL FINTPOL(8,1,RRAD(IRAD),0.1D0,MTAB,1,1,RREAD,
+     &                 VREAD(1,L1+1),VNRAD(L1,IRAD))
+          VNRAD(L1,IRAD)= VNRAD(L1,IRAD)/RRAD(IRAD)
+         END DO
+        END DO
+       END IF
+C
+C PRINT RADIAL TABLE TO FILE PSPRAD
+C
+       WRITE(40,*) 'PSP ',SYM1,', TYPE ',SYM2
+       WRITE(40,*) NRAD,LMAX,' NRAD,LMAX'
+       DO IRAD=1,NRAD
+        WRITE(40,1310) RRAD(IRAD),WRAD(IRAD)
+        WRITE(40,1310)(VNRAD(L1,IRAD), L1=1,LMAX+1)
+       END DO
+ 1310  FORMAT(3(1X,D20.10))
+C
+C ASSIGN NONLOCAL PSEUDOPOTENTIAL TO FUNCTION SETS
+C
+       DO ISET=1,NSETS
+        IDX=ITABLE(ISET)
+        ISDEF(IDX)=1
+        LMAXNLO(IDX)=LMAX
+        NRPSP(IDX)=NRAD
+        DO IRAD=1,NRAD
+         RPSNLO(IRAD,IDX)=RRAD(IRAD)
+         WPSNLO(IRAD,IDX)=WRAD(IRAD)
+         DO L1=1,LMAX+1
+          VPSNLO(L1,IRAD,IDX)=VNRAD(L1,IRAD)
+         END DO
+         DO L1=LMAX+2,MXLPSP+1
+          VPSNLO(L1,IRAD,IDX)=0.0D0
+         END DO
+        END DO
+       END DO
+       GOTO 110
+C
+  500  CLOSE(40)
+       CLOSE(50)
+C
+C CHECK FOR UNDEFINED PSP'S  
+C
+       NSETS=0
+       DO IFNCT=1,NFNCT
+        IF (ISDEF(IFNCT) .EQ. 0) THEN
+         NSETS=NSETS+1
+         ITABLE(NSETS)=IFNCT
+        END IF
+       END DO
+C
+C DEALLOCATE LOCAL ARRAYS
+C
+       DEALLOCATE(RRAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING RRAD'
+       DEALLOCATE(WRAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING WRAD'
+       DEALLOCATE(VNRAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING VNRAD'
+       DEALLOCATE(VLRAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING VLRAD'
+       DEALLOCATE(BHS3,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING BHS3'
+       DEALLOCATE(BHS4,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING BHS4'
+       DEALLOCATE(RREAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING RREAD'
+       DEALLOCATE(VREAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING VREAD'
+       DEALLOCATE(RHCREAD,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING RHCREAD'
+       DEALLOCATE(ISDEF,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING ISDEF'
+       DEALLOCATE(ITABLE,STAT=IERR)
+       IF(IERR.NE.0)WRITE(6,*)'READPSP:ERROR DEALLOCATING ITABLE'
+!<<<<< ECP Arrays
+       DEALLOCATE(ECPPow) 
+       DEALLOCATE(NECPTe)
+       DEALLOCATE(ECPCoe)
+       DEALLOCATE(ECPExp)
+!>>>>>>>>>>>>>>>>
+
+       IF (NSETS .EQ. 0) RETURN
+       PRINT *,'READPSP: THE FOLLOWING PSEUDOPOTENTIALS ',
+     &         'ARE UNDEFINED: '
+       PRINT 1410,(PSPSYM(ITABLE(ISET)), ISET=1,NSETS)
+ 1410  FORMAT(10(1X,A7))
+       CALL STOPIT
+C
+C READ ERROR
+C
+  900  CLOSE(40)
+       CLOSE(50)
+  950  PRINT *,'READPSP: FILE PSPINP IS MISSING OR BROKEN'
+       CALL STOPIT
+      END

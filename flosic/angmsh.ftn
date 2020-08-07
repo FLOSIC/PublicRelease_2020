@@ -1,0 +1,33 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C **************************************************************** 
+C
+CP PREVENT MESHES WHICH ARE NOT OH-INVARIANT 
+CP (EXCEPT L=12-14 AND IF BFSA IS NEEDED)
+CP POREZAG (01/97)
+C
+       SUBROUTINE ANGMSH(MAXPTS,LMAX,NPTS,ANGLE,DOMEGA)
+        IMPLICIT REAL*8 (A-H,O-Z)
+        DIMENSION ANGLE(3,MAXPTS),DOMEGA(MAXPTS)
+        DIMENSION LIST(3)
+        SAVE
+        DATA NLIST/3/
+        DATA NMXLEB/29/
+        DATA LIST /12,13,14/
+C
+        LMAX=MAX(LMAX,0)
+        IF (LMAX.GT.NMXLEB) THEN
+         CALL BFSA(MAXPTS,LMAX,NPTS,ANGLE,DOMEGA)
+        ELSE 
+         ICALL=0
+         DO I=1,NLIST
+          IF (LIST(I).EQ.LMAX) ICALL=1
+         END DO
+         IF (ICALL.EQ.0) THEN
+          CALL LEBEDEV(MAXPTS,LMAX,NPTS,ANGLE,DOMEGA)
+         ELSE
+          CALL STROUD(MAXPTS,LMAX,NPTS,ANGLE,DOMEGA)
+         END IF
+        END IF
+        RETURN
+       END

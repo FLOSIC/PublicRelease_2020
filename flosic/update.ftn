@@ -1,0 +1,325 @@
+C UTEP Electronic Structure Lab (2020)
+       SUBROUTINE UPDATE(NCALC,MODE_RUN)
+C
+C      ORIGINAL VERSION BY MARK R PEDERSON (1990)
+C      UPDATED BY ULISES REVELES, AUG. 2013.
+C
+C      UPDATE NUCLEAR COORDINATES
+C
+C      OPTIONS:
+C               MODE_RUN=0: NO UPDATE
+C               MODE_RUN=1: CONJUGATE GRADIENT
+C               MODE_RUN=2: VERLET UPDATE
+C               MODE_RUN=3: NO UPDATE
+C               MODE_RUN=4: LBFGS
+C               MODE_RUN=5: REDUNDANT INTERNAL LBFGS
+C
+C     ------------------------------------------------------------------
+C
+       use common2,only : RIDT, NIDENT, E_UP, E_DN, NSPN, ETOTAL, FTOT,
+     &   ATMSYM, RIDSYM, GTOL, MOVING, SYMBS, NSCHAR, NIDSYM, NSYMBS,
+     &   IFUIDT, NATOM, NATOMS, COORD, OPTCYC, ATOMMAP, OPTIMIZED,
+     %   MOLDEN, GSUM, GMAX
+       use xmol
+       use common3,only : RMAT,NGRP
+       use common4,only : ISPIDT
+C
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:02:00 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: MODE_RUN, I, IATOM, IDEG, IDSYM, IFLAG, IID, IPAR,
+     & IPRINT, ISMAP, ISYM, MAP, MNUC, MPAR, MSITES, MUPDATE, NPAR
+       REAL*8 :: ACCSOLN , DECAY, DGUESS, DIAG, ENERGY, FTOL, G, GRAD,
+     & RNUCA, WORK, X, XTOL, ZERO
+       SAVE
+C
+       CHARACTER*3  SPNSYM
+       CHARACTER*5  OPTION
+C
+       INTEGER JATOM,NCALC
+C
+       LOGICAL NEWGEOM
+       LOGICAL EXIST
+C
+CJUR
+       INTEGER CSET
+C
+C
+       REAL*8 DISTANCE,FACTOR,AVEC(3),BVEC(3)
+       REAL*8 RDUMMY,RVEC1(1)
+C
+       DIMENSION MAP(MAX_IDENT)
+       DIMENSION X(3*MAX_IDENT),G(3*MAX_IDENT)
+       DIMENSION MSITES(1),RNUCA(3,MX_GRP)
+       DIMENSION DIAG(3*MXATMS)
+       DIMENSION WORK(3*MXATMS*(2*NMUPMAX+1)+2*NMUPMAX)
+       DIMENSION IPRINT(2)
+       DATA ZERO/1.0D-5/
+C
+C       --- THESE DATA ARE TO BE USED BY THE LBFGS CODE ---
+C
+       DATA DGUESS,IPRINT(1),IPRINT(2)/0.1D0,-1,0/
+       DATA MUPDATE,ACCSOLN,XTOL/4,1.0D-4,10D-16/
+C
+C     ------------------------------------------------------------------
+C
+C     --- INITIALIZATION ---
+C
+       ENERGY=ETOTAL
+C
+       IF (MODE_RUN .EQ. 1) THEN
+        PRINT '(A)','CONJUGATE-GRADIENT UPDATE OF NUCLEAR POSITIONS'
+       ELSE IF (MODE_RUN .EQ. 2) THEN
+        PRINT '(A)','VERLET UPDATE OF NUCLEAR POSITIONS'
+       ELSE IF (MODE_RUN .EQ. 4) THEN
+        PRINT '(A)','CARTESIAN LBFGS UPDATE OF NUCLEAR POSITIONS'
+       ELSE IF (MODE_RUN .EQ. 5) THEN
+        PRINT '(A)','INTERNAL REDUNDANT UPDATE OF NUCLEAR POSITIONS'
+       ELSE
+        RETURN
+       END IF
+C
+C     --- MAP RIDT AND RIDSYM ---
+C
+      NPAR=0
+      GMAX= 0.0D0
+      GSUM= 0.0D0
+CJUR
+      DO 100 IID=1,NIDENT
+        MAP(IID)=0
+        DO IDSYM=1,NIDSYM
+          FACTOR = DISTANCE(RIDT(1:3,IID),RIDSYM(1:3,IDSYM))
+          IF (FACTOR.LE.ZERO) MAP(IID)= IDSYM
+        END DO
+        IF (MAP(IID) .EQ. 0) THEN
+          WRITE(6,*)'UPDATE: UNABLE TO MAP IDENTITY MEMBER ',IID
+          CALL STOPIT
+        END IF
+C
+C     --- MANIPULATE FORCES                       ---
+C     --- IF IN VERLET MODE, DIVIDE FORCE BY MASS ---
+C
+        CALL GASITES(1,RIDT(1,IID),MNUC,RNUCA,MSITES)
+        GRAD= 0.0D0
+        DO I=1,3
+          NPAR=NPAR+1
+          X(NPAR)= RIDT(I,IID)
+          IF (MOVING(I,MAP(IID)) .EQ. 0) THEN
+            G(NPAR)= 0.0D0
+          ELSE
+            GRAD= GRAD+FTOT(I,IID)**2
+            G(NPAR)= -FTOT(I,IID)*MNUC
+            IF (MODE_RUN .EQ. 2) THEN
+              G(NPAR)= G(NPAR)/(ZERO+ATMSYM(MAP(IID)))
+            END IF
+          END IF
+        END DO
+C
+        GSUM= GSUM+GRAD
+        GRAD= SQRT(GRAD)
+        GMAX= MAX(GMAX,GRAD)
+  100 CONTINUE
+      GSUM= SQRT(GSUM)
+C
+C     --- CHECK OPTIMIZATION CONVERGENCE ---
+C
+      NEWGEOM= .TRUE.
+      FTOL=1.0D-4
+C
+C     --- CALL CGRAD IF IN CONJUGATE-GRADIENT MODE ---
+C
+        IF (MODE_RUN .EQ. 1) THEN
+          OPTION = ''
+          CALL CHKMIN(MODE_RUN,NCALC,ENERGY,FTOL,X,G,OPTION)
+          IF (OPTIMIZED) NEWGEOM = .FALSE.
+C
+C     --- NEWTONS EQUATIONS A LA VERLET ---
+C
+       ELSE IF (MODE_RUN .EQ. 2) THEN
+         DECAY= 0.01D0
+         CALL VERLET(NPAR,X,G,DECAY)
+C
+C     --- CALL LBFGS IF IN LBFGS MODE ---
+C     --- IF CONVERGED, CALL CGRAD WITH MPAR=0 IN ORDER TO DELETE ---
+C     --- DIAG.LBF, SEARCH.LBF, STEP.LBF ---
+C
+       ELSE IF (MODE_RUN .EQ. 4) THEN
+         OPTCYC = NCALC
+         WRITE(*,'(A,I3)')'ENTERING OPTIMIZATION CYCLE: ',OPTCYC
+         WRITE(*,*)
+C
+         INQUIRE(FILE='DIAG.LBF',EXIST=EXIST)
+         IF (EXIST) THEN
+          OPEN(UNIT=4,FILE='DIAG.LBF',STATUS='OLD')
+          READ(4,*)IFLAG
+          READ(4,*)
+          DO I=1,NPAR
+           READ(4,*)DIAG(I)
+          ENDDO
+          READ(4,*)
+          DO I=1,NPAR*(2*MUPDATE+1)+2*MUPDATE
+           READ(4,*)WORK(I)
+          ENDDO
+          CLOSE(UNIT=4)
+         ENDIF
+         IF (GMAX .LE. GTOL) THEN
+          MPAR=0
+          CALL LBFGS(MPAR,MUPDATE,X,ENERGY,G,.FALSE.,DIAG,IPRINT,
+     &              ACCSOLN,XTOL,WORK,IFLAG,DGUESS)
+          IFLAG=0
+         ELSE
+          CALL LBFGS(NPAR,MUPDATE,X,ENERGY,G,.FALSE.,DIAG,IPRINT,
+     &              ACCSOLN,XTOL,WORK,IFLAG,DGUESS)
+         END IF
+C
+C     --- WRITE INTERMEDIATE DATA FOR LBFGS ---
+C
+         IF (IFLAG .EQ. 0) THEN
+          OPEN(99,FILE='DIAG.LBF',FORM='FORMATTED',STATUS='UNKNOWN')
+          CLOSE(99,STATUS='DELETE')
+          OPEN(99,FILE='SEARCH.LBF',FORM='FORMATTED',STATUS='UNKNOWN')
+          CLOSE(99,STATUS='DELETE')
+          OPEN(99,FILE='STEP.LBF',FORM='FORMATTED',STATUS='UNKNOWN')
+          CLOSE(99,STATUS='DELETE')
+         END IF
+C
+         IF (IFLAG .GT. 0) THEN
+           OPEN(UNIT=4,FILE='DIAG.LBF',STATUS='UNKNOWN')
+           WRITE(4,*)IFLAG, "  IFLAG"
+           WRITE(4,*)"=====DIAG===="
+           DO I=1,NPAR
+             WRITE(4,*)DIAG(I)
+           END DO
+           WRITE(4,*)"====WORK===="
+           DO I=1,NPAR*(2*MUPDATE+1)+2*MUPDATE
+            WRITE(4,*)WORK(I)
+           END DO
+           CLOSE(UNIT=4)
+         ENDIF
+C
+         OPTIMIZED = .FALSE. 
+         IF (IFLAG .EQ. 0) OPTIMIZED = .TRUE.
+C
+         OPTION = ''
+         CALL CHKMIN(MODE_RUN,NCALC,ENERGY,RDUMMY,RVEC1,RVEC1,OPTION)
+         IF (OPTIMIZED) NEWGEOM = .FALSE.
+CJUR
+C     --- UPDATE NEW COORDINATES IN COMMON FIELD COORD ---
+C
+         IDEG=1
+         CSET = 2
+         DO IATOM=1,NATOM
+           COORD(1,IATOM,CSET) = X(IDEG)
+           COORD(2,IATOM,CSET) = X(IDEG+1)
+           COORD(3,IATOM,CSET) = X(IDEG+2)
+           IDEG = IDEG + 3
+         END DO
+C
+C     --- WRITE NEW COORDINATES INTO CLUSTER.INP FILE ---
+C
+C YY. 8.4.2020 Removed for public release (2020).
+C        INQUIRE(FILE='CLUSTER.INP',EXIST=EXIST)
+C        IF (EXIST) CALL NEWDRV('GEOMETRY STEP')
+C
+C     --- OPTIMIZATION STEP IN REDUNDANT COORDINATES ---
+C
+C YY. 8.4.2020 MODE_RUN=5 is removed
+C      ELSE IF (MODE_RUN .EQ. 5) THEN
+C
+C        OPTIMIZED = .FALSE.
+CJUR
+C        WRITE(*,*) 'GMAX AND GTOL IS: ',GMAX,GTOL
+CJUR
+C        IF (GMAX.LE.GTOL) THEN
+C          OPTIMIZED = .TRUE.
+C
+C        ELSE
+CJUR       WRITE(*,*) 'NGRP IS IN UPDATE:',NGRP
+C          IF (NGRP.EQ.1) THEN
+C            OPTCYC = NCALC
+C            WRITE(*,*)'ENTERING OPTIMIZATION CYCLE: ',OPTCYC
+C            CALL OPTDRV
+C          END IF
+C        END IF
+C        OPTION = ''
+C        CALL CHKMIN(MODE_RUN,NCALC,ENERGY,RDUMMY,RVEC1,RVEC1,OPTION)
+C        IF (OPTIMIZED) NEWGEOM = .FALSE.
+C
+      END IF
+C
+      IF (.NOT.NEWGEOM) RETURN
+CJUR
+C     --- REPLACE COORDINATES BY THE ONES FROM THE OPTIMIZATION ---
+C
+      IF (MODE_RUN .EQ. 5) THEN
+        IDEG=1
+        CSET = 1
+        DO IATOM=1,NATOMS
+C        
+C    --- MAP COORDINATES BACK TO ORDER IN SYMBOL FILE ---
+C        
+          JATOM = ATOMMAP(IATOM,4)
+          X(IDEG) = COORD(1,JATOM,CSET)
+          X(IDEG+1) = COORD(2,JATOM,CSET)
+          X(IDEG+2) = COORD(3,JATOM,CSET)
+          IDEG = IDEG + 3
+        END DO
+      END IF
+C
+C     --- PRINT NEW SET OF COORDINATES ---
+C        
+       PRINT '(A)','NEW SET OF COORDINATES:'
+       DO IPAR= 1,NPAR,3
+         PRINT 1010,(X(IPAR+I), I=0,2)
+ 1010    FORMAT(3(1X,F15.6))
+       END DO
+C
+C     --- OPEN SYMBOL TO APPEND NEW DATA ---
+C
+        OPEN(22,FILE='SYMBOL',FORM='FORMATTED',STATUS='OLD',
+     %          ACCESS='APPEND')
+C
+C     --- APPEND NEXT SET OF DIRECTIONS TO SYMBOL ---
+C
+        WRITE(22,1030) NCALC+1,'NEW CALCULATION CREATED BY UPDATE'
+ 1030   FORMAT(1X,I5,1X,A)
+        DO ISYM=1,NSYMBS
+         ISMAP=0
+         IF (ISYM .LE. NIDSYM) THEN
+          DO IID=1,NIDENT
+            IF (ISYM .EQ. MAP(IID)) ISMAP=IID
+          END DO
+         END IF
+C
+         IF (ISMAP .EQ. 0) THEN
+           IF(SYMBS(1,ISYM)(1:NSCHAR(1,ISYM)).EQ.'ELECTRONS')THEN
+             IF(NSPN.EQ.1)THEN
+               WRITE(22,1041)E_UP,E_UP
+             ELSE
+               WRITE(22,1041)E_UP,-ABS(E_DN)
+             END IF
+           ELSE
+             WRITE(22,1040) SYMBS(1,ISYM)(1:NSCHAR(1,ISYM)),
+     &                     SYMBS(2,ISYM)(1:NSCHAR(2,ISYM))
+           END IF
+ 1040      FORMAT(A,' = ',A)
+ 1041      FORMAT('ELECTRONS =',2G15.6)
+         ELSE
+           SPNSYM='UPO'
+! 11/14/2018 The following conditions were SUP for ISPIDT=1
+! and SDN for ISPIDT=-1. This must be a bug. YY.
+           IF (ISPIDT(ISMAP) .GT. 0) SPNSYM='SUP'
+           IF (ISPIDT(ISMAP) .LT. 0) SPNSYM='SDN'
+           WRITE(22,1050) SYMBS(1,ISYM)(1:NSCHAR(1,ISYM)),
+     &                    (X(3*(ISMAP-1)+I), I=1,3),SPNSYM
+ 1050      FORMAT(A,' =',3(1X,F15.6),1X,A3)
+         END IF
+        END DO
+        CLOSE(22)
+C
+        RETURN
+C
+C     ------------------------------------------------------------------
+C
+       END

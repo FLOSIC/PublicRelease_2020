@@ -1,0 +1,352 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C *************************************************************
+C
+       SUBROUTINE IS1DIM(EMAX,SIDE,IX,XRET,WRET,NRET,OK)
+C
+C ORIGINAL VERSION BY MARK R PEDERSON (1989)
+C
+C FILLS AN INTERSTITIAL REGION WITH POINTS
+C
+C PARAMETERS:
+C
+C EMAX:   MAXIMUM RELATIVE ERROR
+C SIDE:   CONTAINS THE PARALLELEPIPED BOUNDARIES
+C IX:     THE INDEX OF THE CURRENT 1-D COMPONENT (1=X, 2=Y, 3=Z)
+C XRET:   RETURNED COORDINATES
+C WRET:   RETURNED WEIGHTS
+C NRET:   NUMBER OF POINTS RETURNED
+C OK:     TRUE ON SUCCESS, FALSE OTHERWISE
+C
+C ATTENTION: PARAMETERS AND COMMON/TMP1/ MUST BE IDENTICAL TO FILLIST
+C
+        use xtmp3,only : MAXTST,MAXNP,ALTAB,PREFAC,RTST,
+     &     XYZWGT,CORRECT,YZDECAY,SUMMESH,
+     &     TABINT,TABSUM,TABNRM,NPTAB,NTST
+        use debug1
+       use common3,only : RMAT
+       use istitl,only : ALONG, MX1D
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:52 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: IX, NRET, I, IC, IPOW, IPTS, ITST, MAXP1D,
+     & MODE, MPTS, MRET, NBIS, NODE, NOPT, NPTS
+       REAL*8 :: SYMBOL , EMAX, SIDE, XRET, WRET, EBEST,
+     & ERR1, ERR2, ERR3, ERROR, FACDN, FACT, FACUP, GAM, GAM1, GAM2,
+     & GAM3, GAMACC, GAMMA, GAMMAX, GAMMIN, GAMRC, SMCUB, U1, U2,
+     & W, WMESH, X1, X2, XMESH, XS, XS1, XS2, XX, YZWEIG
+        SAVE
+        PARAMETER (MAXP1D=20)
+C        PARAMETER (MAXTST=2000)
+C        PARAMETER (MAXNP=6)
+        DIMENSION XRET(*),WRET(*),SIDE(2,3)
+        LOGICAL FAST,OK,BISECT,GOBIG,GOSML,FOUND
+!        COMMON/ISTITL/RNUC(3,MX_CNT),ZALP(2,MX_CNT),AFUDIS,ALONG
+!     &  ,IFNU(MX_CNT),NPOW(MX_CNT),NNUC,MX1D
+C        COMMON/TMP1/ALTAB(MAXTST),PREFAC(0:MAXNP,MAXTST),RTST(3,MAXTST)
+C     &   ,XYZWGT(0:MAXNP,3,MAXTST),CORRECT(0:MAXNP,3,MAXTST)
+C     &   ,YZDECAY(0:MAXNP,MAXTST),SUMMESH(0:MAXNP,MAXTST)
+C     &   ,TABINT(0:MAXNP,3),TABSUM(0:MAXNP,3),TABNRM(0:MAXNP)
+C     &   ,NPTAB(MAXTST),NTST
+        DIMENSION WMESH(MAXP1D),XMESH(MAXP1D)
+        DATA SMCUB/1.0D-2/
+C
+C       GAMACC IS THE RELATIVE ACCURACY REQUIRED FOR THE VARIATIONAL
+C       TRANSFORMATION PARAMETER GAMMA
+C
+        DATA GAMACC/0.01D0/
+C
+C CHECK EMAX, DEFINE X1 AND X2
+C
+        FAST= .FALSE.
+        IF (EMAX .GT. 0.9D0) FAST=.TRUE.
+        X1=SIDE(1,IX)
+        X2=SIDE(2,IX)
+C
+C QUICK AND DIRTY MESH
+C
+        OK=.TRUE.
+        IF (FAST) THEN
+         NRET=2
+         CALL GAUSSP(X1,X2,NRET,XRET,WRET)
+         GOTO 900
+        END IF
+C
+C CHECK FOR TINY CUBES
+C
+        IF (ABS(X1-X2).LT.(SMCUB*EMAX)) THEN
+         write(6,*)'IS1DIM: FOUND A VERY SMALL CUBE:'
+         write(6,*)X1,X2
+        END IF
+C
+C DEFINE YZDECAY 
+C USE TABNRM AS TEMPORARY STORAGE
+C
+        DO ITST=1,NTST
+         YZWEIG=1.0D0
+         DO IC=1,3
+          IF (IC .NE. IX) THEN
+           W=0.0D0
+           DO IPOW=0,NPTAB(ITST)
+            W=MAX(W,PREFAC(IPOW,ITST)*XYZWGT(IPOW,IC,ITST))
+           END DO
+           YZWEIG=YZWEIG*W
+          END IF
+         END DO
+         DO IPOW=0,NPTAB(ITST)
+          YZDECAY(IPOW,ITST)=YZWEIG*PREFAC(IPOW,ITST)
+         END DO
+        END DO
+C
+C SEARCH FOR A "GOOD" MESH 
+C MINIMUM NUMBER OF POINTS IS 1, MAXIMUM MX1D
+C GAMMAX AND GAMMIN DEFINES THE VALID GAMMA RANGE
+C
+        EBEST=1.0D30
+        FACUP=1.0D+1
+        FACDN=1.0D-1
+        GAMMIN=SQRT(ALONG)*0.01D0
+        GAMMAX=GAMMIN*1.0D4
+C 
+C START LOOP TO FIND MINIMUM NUMBER OF POINTS THAT ARE ACCURATE ENOUGH
+C
+        DO 700 MPTS=1,MX1D
+         DO 600 MODE=1,3
+          GAMMA=SQRT(ALONG)
+          BISECT=.FALSE.
+          GOBIG=.FALSE.
+          GOSML=.FALSE.
+          FOUND=.FALSE.
+          NOPT=0
+C
+C OPTIMIZATION LOOP
+C
+  300     CONTINUE
+           GAMRC=1.0D0/GAMMA
+C
+C START WITH NORMAL GAUSSIAN QUADRATURE MESH
+C
+           IF (MODE.EQ.1) THEN
+            NPTS=MPTS
+            FOUND=.TRUE.
+            CALL GAUSSP(X1,X2,NPTS,XMESH,WMESH)
+C
+C "LEFT HANDED" LINEAR COMBINATION OF SLATERS
+C
+           ELSE IF (MODE.EQ.2) THEN
+            U2=1.0D0
+            U1=EXP(-GAMMA*(X2-X1))
+            NPTS=MPTS
+            CALL GAUSSP(U1,U2,NPTS,XMESH,WMESH)
+            DO IPTS=1,NPTS
+             WMESH(IPTS)=WMESH(IPTS)/XMESH(IPTS)*GAMRC
+             XMESH(IPTS)=X1-LOG(XMESH(IPTS))*GAMRC
+            END DO
+C
+C "RIGHT HANDED" LINEAR COMBINATION OF SLATERS
+C
+           ELSE IF (MODE.EQ.3) THEN
+            XS1=X1
+            XS2=X2
+            X2= -XS1
+            X1= -XS2
+            U2=1.0D0
+            U1=EXP(-GAMMA*(X2-X1))
+            NPTS=MPTS
+            CALL GAUSSP(U1,U2,NPTS,XMESH,WMESH)
+            DO IPTS=1,NPTS
+             WMESH(IPTS)=WMESH(IPTS)/XMESH(IPTS)*GAMRC
+             XMESH(IPTS)= -X1+LOG(XMESH(IPTS))*GAMRC
+            END DO
+            X1=XS1
+            X2=XS2
+           END IF
+C
+C CALCULATE MAXIMUM ERROR AND RMS ERROR
+C COPY EXACT RESULT TO SUMMESH AND SUBTRACT THE
+C RESULT OF THE VARIATIONAL MESH
+C
+           DO ITST=1,NTST
+            DO IPOW=0,NPTAB(ITST)
+             SUMMESH(IPOW,ITST)=CORRECT(IPOW,IX,ITST)
+            END DO
+           END DO
+           DO 400 IPTS=1,NPTS
+            DO 390 ITST=1,NTST
+             XX=(XMESH(IPTS)-RTST(IX,ITST))
+             XS=XX*XX
+             FACT=WMESH(IPTS)*EXP(-ALTAB(ITST)*XS)
+             DO IPOW=0,NPTAB(ITST)
+              SUMMESH(IPOW,ITST)=SUMMESH(IPOW,ITST)-FACT
+              FACT=FACT*XX
+             END DO
+  390       CONTINUE
+  400      CONTINUE
+C
+C CHECK FOR MAXIMUM ERROR
+C
+           ERROR=0.0D0
+           DO 430 ITST=1,NTST
+            DO IPOW=0,NPTAB(ITST)
+             SUMMESH(IPOW,ITST)=SUMMESH(IPOW,ITST)*YZDECAY(IPOW,ITST)
+             ERROR=MAX(ERROR,ABS(SUMMESH(IPOW,ITST)))
+            END DO
+  430      CONTINUE
+C
+C CALCULATE NEW GAMMA. IF (FOUND), WE ARE DONE
+C
+           IF (FOUND) GOTO 480
+           NOPT=NOPT+1
+C
+C SETUP FOR SECOND GAMMA: JUST INCREASE GAMMA
+C
+           IF (NOPT.EQ.1) THEN
+            ERR2=ERROR
+            GAM2=GAMMA
+            GAMMA=GAMMA*FACUP
+C
+C SETUP FOR THIRD GAMMA: GO UP OR DOWN DEPENDING ON THE CURRENT ERROR
+C
+           ELSE IF (NOPT .EQ. 2) THEN
+            IF (ERROR .LT. ERR2) THEN
+             GOBIG=.TRUE.
+             GAM1=GAM2
+             ERR1=ERR2
+             GAM2=GAMMA
+             ERR2=ERROR
+             GAMMA=GAM2*FACUP
+            ELSE
+             GOSML=.TRUE.
+             GAM3=GAMMA
+             ERR3=ERROR
+             GAMMA=GAM2*FACDN
+            END IF
+           ELSE
+C
+C STILL LOOKING FOR BRACKETS WHILE GOING UP
+C
+            IF (GOBIG) THEN
+             IF (ERROR .LT. ERR2) THEN
+              IF (GAMMA .GT. GAMMAX) GOTO 480
+              GAM1=GAM2
+              ERR1=ERR2
+              GAM2=GAMMA
+              ERR2=ERROR
+              GAMMA=GAM2*FACUP
+             ELSE
+              GAM3=GAMMA
+              ERR3=ERROR
+              BISECT=.TRUE.
+              GOBIG=.FALSE.
+              NBIS=0
+             END IF 
+            END IF 
+C
+C STILL LOOKING FOR BRACKETS WHILE GOING DOWN
+C
+            IF (GOSML) THEN
+             IF (ERROR.LT.ERR2) THEN
+              IF (GAMMA .LT. GAMMIN) GOTO 480
+              GAM3=GAM2
+              ERR3=ERR2
+              GAM2=GAMMA
+              ERR2=ERROR
+              GAMMA=GAM2*FACDN
+             ELSE
+              GAM1=GAMMA
+              ERR1=ERROR
+              BISECT=.TRUE.
+              GOSML=.FALSE.
+              NBIS=0
+             END IF 
+            END IF 
+C
+C MINIMUM BISECTION
+C
+            IF (BISECT) THEN
+             NBIS=NBIS+1
+C
+C SETUP OF NEW GAM AND ERR
+C
+             IF (NBIS .GT. 1) THEN
+              IF (MOD(NBIS,2) .EQ. 0) THEN
+               IF (ERROR .LT. ERR2) THEN
+                GAM3=GAM2
+                ERR3=ERR2
+                GAM2=GAMMA
+                ERR2=ERROR
+               ELSE
+                GAM1=GAMMA
+                ERR1=ERROR
+               END IF
+              ELSE
+               IF (ERROR .LT. ERR2) THEN
+                GAM1=GAM2
+                ERR1=ERR2
+                GAM2=GAMMA
+                ERR2=ERROR
+               ELSE
+                GAM3=GAMMA
+                ERR3=ERROR
+               END IF
+              END IF
+             END IF
+C
+C SETUP OF NEW GAMMA
+C
+             IF ((MAX(ERR1-ERR2,ERR3-ERR2) .LT. GAMACC*ERR2) .OR.
+     &           (ERR2 .LT. 0.01D0*EMAX)) THEN
+              FOUND=.TRUE.
+              GAMMA=GAM2
+             ELSE
+              IF (MOD(NBIS,2).EQ.0) THEN
+               GAMMA=SQRT(GAM2*GAM3)
+              ELSE
+               GAMMA=SQRT(GAM1*GAM2)
+              END IF
+             END IF
+            END IF
+           END IF
+           GOTO 300
+C
+C UPDATE EBEST, XRET AND WRET
+C
+  480     IF (ERROR .LT. EBEST) THEN
+           NODE=MODE
+           GAM=GAMMA
+           NRET=NPTS
+           MRET=MPTS
+           EBEST=ERROR
+           DO 490 I=1,NRET
+            XRET(I)=XMESH(I)
+            WRET(I)=WMESH(I)
+  490      CONTINUE
+          END IF
+  600    CONTINUE
+         IF (EBEST .LT. EMAX) GOTO 800
+  700   CONTINUE
+        OK=.FALSE.
+C
+C PRINT SOME STUFF AND RETURN
+C
+  800   CONTINUE
+        IF (NRET .NE. MRET) THEN
+         write(6,*)'IS1DIM: NRET AND MRET ARE NOT EQUAL: ',NRET,MRET
+         CALL STOPIT
+        END IF
+        IF (NODE.EQ.1) GAM=0.0D0
+C
+C ABOUT TO BE DONE
+C
+  900   IF (DEBUG) THEN
+         IF (OK) THEN
+          PRINT 1010,NODE,NRET,GAM,EBEST
+         ELSE
+          PRINT 1020,EBEST
+         END IF
+        END IF
+ 1010   FORMAT(' SUCCESSFUL MESH! MODE: ',2I3,' GAM: ',G10.4,
+     &  ' BIGGEST ERROR: ',G12.4)
+ 1020   FORMAT(' NO SUCCESS IN IS1DIM, BIGGEST ERROR: ',G12.4)
+       END

@@ -1,0 +1,48 @@
+C UTEP Electronic Structure Lab (2020)
+C
+C
+C
+       SUBROUTINE FIXIT 
+C ORIGINALLY WRITTEN BY MARK R PEDERSON (6-AUGUST 1999)
+       use common2,only : ISPN, NSPN
+       use common5,only : N_OCC, NWF, NWFS, EVLOCC
+       use common8,only : REP, N_REP, NDMREP, LDMREP
+       use unravl,only  : OCCL,OCCV
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:49 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: IOCC, IREP, IROW, ITOT, IWF, JWF, K_REP, MDMREP
+       LOGICAL REDREP
+C       LOGICAL REDREP,OCCL,OCCV
+C       COMMON/UNRAVL/OCCL(MAX_OCC),OCCV(MAX_OCC)
+       DIMENSION MDMREP(MAX_REP)
+       SAVE
+C     
+        REDREP=.FALSE.
+        DO IREP=1,N_REP
+        IF(LDMREP(IREP).NE.1)REDREP=.TRUE.
+        IF(LDMREP(IREP)*(NDMREP(IREP)/LDMREP(IREP)).NE.NDMREP(IREP))THEN
+        write(6,*)'PROBLEM IN FIXIT WITH REDUCIBLE REP MODE'
+        CALL STOPIT 
+        END IF
+        MDMREP(IREP)=NDMREP(IREP)!/LDMREP(IREP)
+        END DO
+       ITOT=0
+       IWF=0
+       JWF=0
+       DO 1020 ISPN=1,NSPN
+       DO 1000 K_REP=1,N_REP
+         DO 1000 IOCC=1,N_OCC(K_REP,ISPN)
+         DO 1000 IROW=1,MDMREP(K_REP)
+           IWF=IWF+1
+           JWF=JWF+1
+           EVLOCC(JWF)=EVLOCC(IWF)
+           IF(IROW.GT.1.AND.LDMREP(K_REP).EQ.2)JWF=JWF-1
+ 1000    CONTINUE
+       NWFS(ISPN)=JWF
+ 1020  CONTINUE
+       NWF=NWFS(NSPN)
+       IF(NSPN.EQ.2)NWFS(NSPN)=NWF-NWFS(1)
+       RETURN
+       END
