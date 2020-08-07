@@ -27,4 +27,4 @@ Variational mesh:
 M. R. Pederson and K. A. Jackson, Phys. Rev. B: Condens. Matter Mater. Phys., 1990, 41, 7453?7461.
 
 FLOSIC-SCAN/rSCAN: 
-Y. Yamamoto, C. M. Diaz, L. Basurto, K. A. Jackson, T. Baruah WRITE(*,'(A)')"* and R. R. Zope, J. Chem. Phys., 2019, 151, 154105; Y. Yamamoto, A. Salcedo, C. M. Diaz, M. S. Alam, T. Baruah and R. R. Zope, Phys. Chem. Chem. Phys. 2020, doi:10.1039/D0CP02717K.
+Y. Yamamoto, C. M. Diaz, L. Basurto, K. A. Jackson, T. Baruah and R. R. Zope, J. Chem. Phys., 2019, 151, 154105; Y. Yamamoto, A. Salcedo, C. M. Diaz, M. S. Alam, T. Baruah and R. R. Zope, Phys. Chem. Chem. Phys. 2020, doi:10.1039/D0CP02717K.
