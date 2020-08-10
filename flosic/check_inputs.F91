@@ -5,6 +5,7 @@ subroutine check_inputs
   use common2,only : OPTTYP
   implicit none
   logical   :: exist,lopen
+  integer   :: ios
   character*10 :: calctypev  = 'LBFGS'
   character*30 :: basisv     = 'DEFAULT'
   character :: jntdosv       = 'F'
@@ -141,7 +142,15 @@ subroutine check_inputs
     inquire(unit=68,opened=lopen)
     if(lopen) write(6,'(A)')'CHECK_INPUTS:Unit 68 is already open!!'
     OPEN(68,FILE='NRLMOL_INPUT.DAT')
-    read(68,input_data)
+    read(68,input_data,ERR = 10,IOSTAT=ios)
+    !read(68,input_data,IOSTAT=ios)
+    if(ios .eq. 0) goto 20
+10  continue
+    print *,"#################### WARNING ####################"
+    print *," ONE OR MORE NRLMOL_INPUT.DAT VARIABLES ARE NOT  "
+    print *," AVAILABE IN THIS SOFTWARE VERSION AND IGNORED.  "
+    print *,"#################################################"
+20  continue
     CLOSE(68)
     idiag1=diag1v
     idiag2=diag2v
