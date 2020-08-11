@@ -598,20 +598,19 @@ C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
 ! Calculate FOD force - moved from apotnl_sic
            IF(CONVERGENCE) THEN
             CALL GTTIME(TIMET3)
-            DO IORBX=1,NFRM(JSPNX)
-             IF(CALCTYPE1.NE.2) THEN
+            IF(CALCTYPE1.NE.2) THEN
 %ifdef ATOMFORCE
+             DO IORBX=1,NFRM(JSPNX)
               WRITE(6,*) 'CALLING SICLAG_DER FOR FLO', IORBX
               CALL SICLAG_DER(JSPNX,IORBX)
+             END DO
 %else
-              WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
-              WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+             WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
+             WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
 %endif
-             END IF
-  
-             CALL FRMORB2(-JSPNX,IORBX)
+            END IF
+            CALL FRMORB2(-JSPNX,-1)
 
-            END DO
             CALL GTTIME(TIMET4)
             WRITE(6,*)'TIME FOR FOD FORCES:',TIMET4-TIMET3             
            END IF
