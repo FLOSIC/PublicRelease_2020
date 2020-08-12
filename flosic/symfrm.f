@@ -18,7 +18,7 @@ C> Also used in electronic_geometry
         if(.not.exist)return
         inquire(file='frozen.tmp',exist=exist)
         if(exist)call system('rm  frozen.tmp') 
-        open(3000,file='frozen.tmp',status='new')
+!       open(3000,file='frozen.tmp',status='new')
         open(300,file='FRMIDT')
         read(300,*)nidt(1),nidt(2)
         do ispn=1,2   
@@ -33,11 +33,11 @@ C> Also used in electronic_geometry
  51         continue
             print  103,(fodidt(j,idnt,ispn),j=1,3),froze
  103        format(' ',3F20.10,I3)
-            write(3000,*) froze
+!           write(3000,*) froze
           end do
         end do
         close(300)
-        close(3000)
+!       close(3000)
         open(300,file='FRMGRP')
         read(300,*)ngp
         do igp=1,ngp
