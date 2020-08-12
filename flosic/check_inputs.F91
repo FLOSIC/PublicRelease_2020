@@ -42,14 +42,19 @@ subroutine check_inputs
   character :: spnpolv       = 'F'
   character :: efpv          = 'F'
   character :: populationv   = 'F'
-  character :: scaledlbfgsv  = 'F'
-  integer   :: meshsettingv     = -1
+! character :: scaledlbfgsv  = 'F'
+  integer   :: meshsettingv  = -1
   character :: unihamv       = 'F'
   character :: frozendenv    = 'F'
+  character :: fod_loopv     = 'F'
+  character :: fod_opt1v     = 'F'
+  character :: fod_opt2v     = 'F'
+  integer   :: fod_opt3v     = -1
   namelist/input_data/atomsphv,diag1v,diag2v,diag3v,dosoccuv,excitedv,formfakv,jntdosv,matdipolev,nonscfv,nonscfforcesv,wfgridv, &
                       dftd3v,calctypev,fragmentv,basisv,rhogridv,solventv,maxscfv,scftolv,moldenv,nbov,symmetryv,mpi_iov,spnorbv, &
-                      fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,spnpolv,efpv,populationv,scaledlbfgsv,meshsettingv,unihamv,&
-                      frozendenv
+                      fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,spnpolv,efpv,populationv,meshsettingv,unihamv,&
+                      frozendenv, &
+                      fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v
 
   INQUIRE(FILE='NRLMOL_INPUT.DAT',EXIST=EXIST)
   IF (.NOT.EXIST) THEN
@@ -73,22 +78,26 @@ subroutine check_inputs
     write(68,'(A)')'DIAG2V        =  1  ! diagonalization to use on packed arrays (diag_dspgv.f90)'
     write(68,'(A)')'DIAG3V        =  0  ! diagonalization to use on parallel (sdiagge_n.f90)'
     write(68,'(A)')'DMATV         = ''N'' ! Create/use/mix density matrix'
-    write(68,'(A)')'DOSOCCUV      = ''N'' ! Controls wether to calculate density of states (DFA only)'
+    write(68,'(A)')'DOSOCCUV      = ''N'' ! Controls wether to calculate density of states'
     write(68,'(A)')'FIXMV         = ''N'' ! Fix spin moment'
+    write(68,'(A)')'FOD_LOOPV     = ''N'' ! Inernal FOD loop for frozen density optimization'
+    write(68,'(A)')'FOD_OPT1V     = ''CG'' ! FOD_OPT: algorithm (LBFGS/CG)'
+    write(68,'(A)')'FOD_OPT2V     = ''N'' ! FOD_OPT: scaling of r and F'
+    write(68,'(A)')'FOD_OPT3V     =  0  ! FOD_OPT (0)no constraint (1)fix1s (2)fullForce (3)shellOPT (4)freeFOD'
     write(68,'(A)')'FRAGMENTV     = ''N'' ! Process CLUSTER in fragments'
-    write(68,'(A)')'FROZENDENV    = ''N'' ! Frozen density mode (SIC only)'
-    write(68,'(A)')'JNTDOSV       = ''N'' ! This calculates jonit density of states (DFA only)'
+!   write(68,'(A)')'FROZENDENV    = ''N'' ! Frozen density mode (SIC only)'
+    write(68,'(A)')'JNTDOSV       = ''N'' ! This calculates joint density of states (DFA only)'
     write(68,'(A)')'MAXSCFV       = 100 ! Maximum SCF iterations'
     write(68,'(A)')'MIXINGV       = ''P'' ! (H)amiltonian (P)otential (D)ensity matrix mixing'
     write(68,'(A)')'NONSCFV       = ''N'' ! Set to Y to do a non SCF calculation' 
     write(68,'(A)')'NONSCFFORCESV = ''N'' ! Set to Y to calculate forces in a non SCF calculation' 
-    write(68,'(A)')'NWFOUTV       = 10    ! Write WFOUT file for every N-th iteration'    
+    write(68,'(A)')'NWFOUTV       = 10  ! Write WFOUT file for every N-th iteration'    
     write(68,'(A)')'POPULATIONV   = ''N'' ! Population analysis'
     write(68,'(A)')'RHOGRIDV      = ''N'' ! Set to Y to execute RHOGRID'
-    write(68,'(A)')'SCALEDLBFGSV  = ''Y'' ! Set to Y to scaled LBFGS (SIC only)'
+!   write(68,'(A)')'SCALEDLBFGSV  = ''Y'' ! Set to Y to scaled LBFGS (SIC only)'
     write(68,'(A)')'SCFTOLV       = 1.0D-6 ! SCF tolerance'
     write(68,'(A)')'SPNPOLV       = ''N'' ! Run spin polarized calculation from CLUSTER'
-    write(68,'(A)')'MESHSETTINGV  =  0   ! Mesh recommended for (0)LDA/PBE, (1)SCAN, (2)rSCAN'
+    write(68,'(A)')'MESHSETTINGV  =  0  ! Mesh recommended for (0)LDA/PBE, (1)SCAN, (2)rSCAN'
     write(68,'(A)')'SYMMETRYV     = ''N'' ! Set to Y to detect symmetry'
     write(68,'(A)')'UNIHAMV       = ''N'' ! Set to Y to use unified Hamiltonian formalism in SCF-SIC (SIC only)'
     write(68,'(A)')'WFGRIDV       = ''N'' ! set to Y to write orbitals in cube format (DFA only)'
@@ -135,7 +144,7 @@ subroutine check_inputs
     scanmesh1=0
     efp1=.FALSE.
     population1=.FALSE.
-    SCALEDLBFGS1=.FALSE.
+!   SCALEDLBFGS1=.FALSE.
     UNIHAM1=.FALSE.
     FROZENDENSITY1=.FALSE.
   ELSE
@@ -679,11 +688,11 @@ subroutine check_inputs
       population1=.FALSE.
     endif
 ! Check for SCALEDLBFGS
-    if(scaledlbfgsv=='Y'.or.scaledlbfgsv=='y')then
-      SCALEDLBFGS1=.TRUE.
-    else
-      SCALEDLBFGS1=.FALSE.
-    end if
+!   if(scaledlbfgsv=='Y'.or.scaledlbfgsv=='y')then
+!     SCALEDLBFGS1=.TRUE.
+!   else
+!     SCALEDLBFGS1=.FALSE.
+!   end if
 ! Check for UNIHAM
     if(unihamv=='Y'.or.unihamv=='y')then
       UNIHAM1=.TRUE.
@@ -695,6 +704,26 @@ subroutine check_inputs
       FROZENDENSITY1=.TRUE.
     else
       FROZENDENSITY1=.FALSE.
+    end if
+    if(FOD_LOOPV=='Y'.or.FOD_LOOPV=='y')then
+      FOD_LOOP1=.TRUE.
+    else
+      FOD_LOOP1=.FALSE.
+    end if
+    if(FOD_OPT1V=='LBFGS'.or.FOD_OPT1V=='lbfgs')then
+      FOD_OPT1=.TRUE.
+    else
+      FOD_OPT1=.FALSE.
+    end if
+    if(FOD_OPT2V=='Y'.or.FOD_OPT2V=='y')then
+      FOD_OPT2=.TRUE.
+    else
+      FOD_OPT2=.FALSE.
+    end if
+    !FOD_OPT3V default is 0
+    FOD_OPT3=FOD_OPT3V
+    if(FOD_OPT3V.LT.0 .OR. FOD_OPT3V.GT.4)then
+      FOD_OPT3=0
     end if
    ENDIF
   RETURN

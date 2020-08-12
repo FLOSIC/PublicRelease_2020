@@ -158,7 +158,7 @@ OPTIONS = $(MPI1) $(GROUP1) $(ATOMFORCE1)
 
 # Object modules
 #
-SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevsvd.o allocate_sic.o allocate_diag1.o frmiorb.o apotnl_dft.o apotnl_sic.o coupot_sic.o diagv_fo.o electronic_geometry_lbfgs.o focgrad.o frmorb2.o loravel.o lowden_files.o moravel.o newwaves.o readmesh.o scfsicw.o swapfgi.o symfrm.o unravel2.o readwfsic.o orbsic.o wffrm.o write_phires.o siclag_der.o lagmult_slv.o scaledlbfgs.o write_table.o delete_oldfiles.o
+SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevsvd.o allocate_sic.o allocate_diag1.o frmiorb.o apotnl_dft.o apotnl_sic.o coupot_sic.o diagv_fo.o electronic_geometry.o focgrad.o frmorb2.o loravel.o lowden_files.o moravel.o newwaves.o readmesh.o scfsicw.o swapfgi.o symfrm.o unravel2.o readwfsic.o orbsic.o wffrm.o write_phires.o siclag_der.o lagmult_slv.o scaledlbfgs.o write_table.o delete_oldfiles.o fod_opt.o
 
 #SIC orbital subroutine 
 SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o

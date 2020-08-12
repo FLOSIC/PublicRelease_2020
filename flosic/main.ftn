@@ -14,7 +14,7 @@ C
      & DOSOCCU1,MATDIPOLE1,NONSCF1,FRAGMENT1,SOLVENT1,DFTD31,CALCTYPE1,
      & MAXSCF,SCFTOL,MOLDEN1,NBO1,ATOMSPH1,SPNORB1,PCM1,WFFRM1,
      & DMAT1,MIXING1,ITTOT,NONSCFFORCES1,NWFOUT,EFP1,POPULATION1,
-     & SCALEDLBFGS1,UNIHAM1,FROZENDENSITY1
+     & FOD_LOOP1,FOD_OPT2,UNIHAM1,FROZENDENSITY1
       use mesh1,only : nmsh
 C
       use common2,only : CHNET, RIDT, IFUIDT, NIDENT, ZELC, ZNUC,
@@ -46,7 +46,7 @@ C
        INTEGER :: MXCHG,  I, I_OCC, I_REP, IA, IATOM, IERR, 
      & IMESH, INITOUT, IORB, IORBX, ISTDEF, ITBEG, ITOT,
      & ITSCF, IWF, JWF, IX, J, JSPNX, K, MODE_RUN, MSITES, MXNUC,
-     & NCALC, NN_ATOMS, NSPX !,NCNT
+     & NCALC, NN_ATOMS, NSPX, ITER_FOD !,NCNT
      
        REAL*8 :: ATMASS, DFONUC, ELOWEST, ERGCNV, FOMSH_CUT,
      & FOMSH_ISCORE, FOMSH_MDIST, OLDERG1, OLDERG2, PMASS,
@@ -70,6 +70,8 @@ C
       PARAMETER(MXCHG=56)
       LOGICAL FULLSTEP,LNEWWF,DOITALL
       LOGICAL EXIST,FAILED,EXCCONV,LSIC,FODMSH_EXISTS
+      LOGICAL FOD_LOOP
+      LOGICAL FOD_CONVERGE
       CHARACTER*5 OPTION
       CHARACTER*1 CHDUM
       CHARACTER*40 NAME
@@ -127,6 +129,14 @@ C LB: READ FRMORB HERE
          CLOSE(68)
          call allocate_diag1(.true.)
       ENDIF
+
+c  FOD_LOOP = false --> do SCF iteration
+c  Initialize FOD_CONVERGE
+c
+      FOD_LOOP = .FALSE.
+      FOD_CONVERGE = .FALSE.
+      ITER_FOD = 0
+
       if(LSIC) then
         inquire(file='GEOCNVRG',EXIST=EXIST)
         IF(EXIST) call system('rm GEOCNVRG')
@@ -413,7 +423,24 @@ C
       MAXSCF=MAX(MAXSCF,100)
       ITSCF=ITSCF+1
 C
-      CONVERGENCE=.FALSE.
+      IF(FOD_LOOP) THEN ! read new FOD positions
+       INQUIRE(FILE='FRMIDT',EXIST=EXIST)
+       IF(EXIST) THEN
+        OPEN(68,FILE='FRMIDT')
+       ELSE
+        OPEN(68,FILE='FRMORB')
+       END IF
+       READ(68,*)LFRM
+       DO LSPN=1,2
+        DO IFRM=1,LFRM(LSPN)
+         READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
+        END DO
+       END DO
+       CLOSE(68)
+      ELSE
+       CONVERGENCE=.FALSE.
+      END IF
+
       TRACE=0.0D0
       TOTQNUM=0.0D0
       ITTOT=ITTOT+1
@@ -464,7 +491,7 @@ C
 C     IF (EXCITED1) THEN
 C       CALL EXCWAVE(EXCCONV,TRACE)
 C     ELSE
-       CALL NEWWAVES(ITTOT,TRACE)
+       IF(.NOT.FOD_LOOP) CALL NEWWAVES(ITTOT,TRACE)
 C     END IF
 
   111 CONTINUE
@@ -476,7 +503,7 @@ C     END IF
 %ifdef SCALAPACK
         CALL DENMAT_MPI
 %else
-        CalL TRACER('CALLING DENMAT_SERIAL')
+        CALL TRACER('CALLING DENMAT_SERIAL')
         CALL DENMAT_SERIAL
 %endif
       ENDIF
@@ -496,10 +523,10 @@ C     --- CHECK ENERGY FOR CONVERGENCE                      ---
 C     --- LB SCFTOL NOW SHARED THROUGH GLOBAL_INPUTS MODULE ---
 C
 !YY For borth DFT and SIC calculation, check scf convergence
-      IF(.NOT. FROZENDENSITY1) THEN
-       CALL CHKSCF(ERGCNV,MODE_RUN,OLDERG1,OLDERG2,ITSCF)
-      ELSE 
+      IF(FROZENDENSITY1) THEN
        CONVERGENCE =.TRUE. !SKIP SCF
+      ELSE IF(.NOT.FOD_LOOP) THEN
+       CALL CHKSCF(ERGCNV,MODE_RUN,OLDERG1,OLDERG2,ITSCF)
       END IF
 
       IF(EXCITED1)CONVERGENCE=EXCCONV
@@ -596,7 +623,7 @@ C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
            WRITE(6,*)'TIME FOR SICLAGM:',TIMET4-TIMET3
 
 ! Calculate FOD force - moved from apotnl_sic
-           IF(CONVERGENCE) THEN
+           IF(FOD_LOOP.OR.CONVERGENCE) THEN
             CALL GTTIME(TIMET3)
             IF(CALCTYPE1.NE.2) THEN
 %ifdef ATOMFORCE
@@ -768,6 +795,19 @@ C
         END IF
        END IF
       END IF
+!###########################
+!#   FOD Optimization      #
+!###########################
+      IF(FOD_LOOP) then
+        iter_fod = iter_fod + 1
+        PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
+c       print *, 'iter_fod ',iter_fod
+        CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
+        !CALL ELECTRONIC_GEOMETRY(ETOTAL)
+        print *, 'FOD_CONVERGE', FOD_CONVERGE
+        PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"
+      END IF
+
       IF (ITSCF.LT.MAXSCF.AND..NOT.CONVERGENCE) GOTO 400
 C
 C     --- CONVERGENCE ACHIVEVED OR MAX CYCLES - NOW PRINT RESULTS ---
@@ -775,6 +815,16 @@ C
   410 CONTINUE
       CALL GTTIME(TIME2)
       TTIME=TIME2-TIME1
+
+      IF(FOD_LOOP1) THEN
+       IF(LSIC) FOD_LOOP = .TRUE.
+       !INQUIRE(FILE='FOD_OPT',EXIST=EXIST)
+       !if(.not.exist) FOD_LOOP = .FALSE. 
+       !if(NONSCF1.AND..NOT.NONSCFFORCES1) FOD_LOOP = .FALSE.
+       IF (FOD_LOOP.AND..NOT.FOD_CONVERGE.AND.ITER_FOD.lt.100) GOTO 400   !set max fod optimization steps here
+c      print *, 'after FOD_LOOP'
+      END IF
+
 C
 C     --- PRINT DETAILED SUMMARY OF ENERGIES ---
 C
@@ -918,15 +968,18 @@ C     CALL WFOUT2
 !###########################
 !>YY CALL ELECTRONIC_GEOMETRY to compute forces on FODs.
 !>   Use CGRAD to update new positions for FODs.
-      PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
-      IF(LSICF) then
-        IF(SCALEDLBFGS1) THEN
+      IF(.NOT.FOD_LOOP1) THEN
+       PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
+       IF(LSICF) then
+        !IF(SCALEDLBFGS1) THEN
+        IF(FOD_OPT2) THEN
           CALL SCALEDLBFGS(ETOTAL)
         ELSE
           CALL ELECTRONIC_GEOMETRY(ETOTAL)
         END IF
+       END IF
+       PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"
       END IF
-      PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"
       IF(LSICF) THEN
         CALL DEALLOCATE_SIC_SHM
         call allocate_sic(.false.)
