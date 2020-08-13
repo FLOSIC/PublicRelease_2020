@@ -47,7 +47,7 @@ subroutine check_inputs
   character :: unihamv       = 'F'
   character :: frozendenv    = 'F'
   character :: fod_loopv     = 'F'
-  character :: fod_opt1v     = 'F'
+  character*5 :: fod_opt1v     = 'F'
   character :: fod_opt2v     = 'F'
   integer   :: fod_opt3v     = -1
   namelist/input_data/atomsphv,diag1v,diag2v,diag3v,dosoccuv,excitedv,formfakv,jntdosv,matdipolev,nonscfv,nonscfforcesv,wfgridv, &
