@@ -1,3 +1,8 @@
+<h1 align="center">
+  <br>
+  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a>
+</h1>
+
 # PublicRelease_2020
 ## FLOSIC2020
 
