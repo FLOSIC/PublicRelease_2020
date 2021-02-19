@@ -1,10 +1,11 @@
 C UTEP Electronic Structure Lab (2020)
        SUBROUTINE SICLAGM(LSPN)
        use debug1
+       use global_inputs,only : CALCTYPE1
        use mpidat1,only : IRANK,NPROC,SHM_SIZE
        use mesh1,only : wmsh,rmsh,nmsh
        use common2,only : NSPN,IGGA   !,RIDT,N_CON,LSYMMAX,N_POS,NFNCT
-       use common5,only : NWFS !,NWF,PSI
+       use common5,only : NWFS,CONVERGENCE!,NWF,PSI
        use mixpot1,only : POT=>POTOUT   !POTIN
 !      use pot_dens,only : COULOMB,RHOG
        use for_diag1
@@ -262,15 +263,30 @@ C      PRINT*,'SMCHG:',CHGUP,CHGDN,SMCHG,TMKIN,NWFS(1)
  1000  FORMAT(' ',15F12.5)
 !      DEALLOCATE(SICP)
 !      DEALLOCATE(POTFILE)
-       DO LFM=1,NFRM(LSPN)
-        CLOSE(206+LFM+IRBOFS,STATUS='DELETE')
-        print *,206+LFM+IRBOFS," CLOSED AND DELETED"
-       END DO
-       IF(LIBXC1.OR.ISMGGA)THEN
+       IF(CONVERGENCE.AND. CALCTYPE1.NE.2) THEN
+        !Keep ZPOT FILES for post conv. proc.
         DO LFM=1,NFRM(LSPN)
-         CLOSE(106+LFM+IRBOFS,STATUS='DELETE')
-         print *,106+LFM+IRBOFS," CLOSED AND DELETED"
+         CLOSE(206+LFM+IRBOFS)
+         print *,206+LFM+IRBOFS," CLOSED"
         END DO
+        IF(LIBXC1.OR.ISMGGA)THEN
+         DO LFM=1,NFRM(LSPN)
+          CLOSE(106+LFM+IRBOFS)
+          print *,106+LFM+IRBOFS," CLOSED"
+         END DO
+        ENDIF
+       ELSE !.not. convergence
+        !Clean up ZPOT files for the next iter. step.
+        DO LFM=1,NFRM(LSPN)
+         CLOSE(206+LFM+IRBOFS,STATUS='DELETE')
+         print *,206+LFM+IRBOFS," CLOSED AND DELETED"
+        END DO
+        IF(LIBXC1.OR.ISMGGA)THEN
+         DO LFM=1,NFRM(LSPN)
+          CLOSE(106+LFM+IRBOFS,STATUS='DELETE')
+          print *,106+LFM+IRBOFS," CLOSED AND DELETED"
+         END DO
+        ENDIF
        ENDIF
        DEALLOCATE(ZMGGAS)
        DEALLOCATE(POTSMALL)

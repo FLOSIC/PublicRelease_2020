@@ -1,5 +1,5 @@
 C UTEP Electronic Structure Lab (2020)
-       SUBROUTINE SICLAG_DER(LSPN,LFM)
+       SUBROUTINE SICLAG_DER(LSPN)
 !
 !  KAJ 1-8-2018 This computes <del(phi_i)/del(R_nu)|VSIC_i|phi_i>
 !        for each atomic site, nu; compute for the orbital LFM
@@ -8,7 +8,7 @@ C UTEP Electronic Structure Lab (2020)
        use common2,only : RIDT,N_CON,LSYMMAX,N_POS,NFNCT,NSPN
        use common5,only : NWF,NWFS,PSI
        use mixpot1,only : POTIN,POT=>POTOUT
-       use pot_dens,only : COULOMB,RHOG
+!      use pot_dens,only : COULOMB,RHOG !use V_SIC from ZPOT instead
        use for_diag1
 !SIC modules
        use SICMAT,only : SIC,DERSIC
@@ -23,14 +23,20 @@ C UTEP Electronic Structure Lab (2020)
      & IERR, IFNCT, IGR, ILOC, ISHDUM, ISHELLA, IWF, J_POS, JFM, JFN,
      & JPTS, KPTS, L_NUC, LFN, LI, LMAX1, LPV, M_NUC, MU, NDERV, NPV
        REAL*8 :: SYMBOL , APT1, APT2, CHGDN, CHGE, CHGUP, FMAT,
-     & RHI, RPTS, SICP, SMCHG, TMKIN, WMSA, ADD1, ADD2, 
-     & ADD3,ADD4, AGRAD, FACTOR,over_test,testsic
+     & RHI, RPTS, SMCHG, TMKIN, WMSA, ADD1, ADD2, 
+     & ADD3,ADD4, AGRAD, FACTOR,over_test,testsic,
+     & TIMET1,TIMET2
+       !Additional vars
+       INTEGER :: IRBOFS
+       REAL(8),ALLOCATABLE :: POTSMALL(:,:)
+       CHARACTER*12 :: ZPOTSTR
        PARAMETER (NMAX=MPBLOCK)
 
        LOGICAL EXIST,FIRST,IUPDAT
 
        DIMENSION WMSA(NMAX),RPTS(3,NMAX)
-       DIMENSION SICP(NMAX)
+       !DIMENSION SICP(NMAX)  !Changed the size
+       REAL(8) :: SICP(NMAX,MAX_OCC) !New size 
 C
        DIMENSION ISIZE(3)
        DATA ISIZE/1,3,6/
@@ -38,21 +44,35 @@ C
        INTEGER MFRM
 
        SAVE
+
+       CALL GTTIME(TIMET1)
 c
 c  Print tests as needed...
 c
 c       print *, 'in SICLAG_DER:  LSPN LFM', LSPN, LFM
 c
+! allocate array to store V_SIC temporarily
+       ALLOCATE(POTSMALL(NMAX,MAX_OCC))
+
        NGRAD=4
 c
 c  initialize test integrals
 c
        over_test = 0.0d0
        testsic = 0.0d0
+       IF(LSPN.EQ.1) dersic = 0.0d0
 C
 C LOOP OVER ALL POINTS
 C
        CALL GTTIME(APT1)
+       IRBOFS=(LSPN-1)*NWFS(1)
+
+       DO LFM=1,NFRM(LSPN)
+        WRITE(ZPOTSTR,'(A,I4.4)')'ZPOT',LFM+IRBOFS
+        print *,206+LFM+IRBOFS,"OPENING ",ZPOTSTR
+        OPEN(206+LFM+IRBOFS,FILE=ZPOTSTR,FORM='UNFORMATTED',
+     &       STATUS='OLD')
+       END DO
        LPTS=0
  10    CONTINUE
        IF(LPTS+NMAX.LT.NMSH)THEN
@@ -60,9 +80,19 @@ C
        ELSE
          MPTS=NMSH-LPTS
        END IF
+! Read potential from files
+       DO LFM=1,NFRM(LSPN)
+        DO IPTS=1,MPTS
+         READ(206+LFM+IRBOFS) POTSMALL(IPTS,LFM)
+        END DO
+       END DO
+
        DO IPTS=1,MPTS
          WMSA(IPTS)=WMSH(LPTS+IPTS)
-         SICP(IPTS)=POT(LPTS+IPTS)
+!        SICP(IPTS)=POT(LPTS+IPTS)  !commented
+         DO LFM=1,NFRM(LSPN)
+          SICP(IPTS,LFM)=POTSMALL(IPTS,LFM)
+         END DO
          DO J=1,3
            RPTS(J,IPTS)=RMSH(J,LPTS+IPTS)
          END DO
@@ -73,7 +103,9 @@ c        written.  It would follow the same format as in frcslv
 c
 c  %ifndef MPI
 c
-       CALL SICLM_DERSLV(LSPN,LFM,MPTS,WMSA,SICP,RPTS,
+!       CALL SICLM_DERSLV(LSPN,LFM,MPTS,WMSA,SICP,RPTS,
+!     &   over_test,testsic)
+       CALL SICLM_DERSLV(LSPN,MPTS,WMSA,SICP,RPTS,
      &   over_test,testsic)
 C  %else
 c      CALL PAMLM_DERSIC(1,LSPN,LFM,MPTS,WMSA,SICP,RPTS)
@@ -89,23 +121,37 @@ C         PRINT*,'TIME FOR DERSIC:',LFM,APT2-APT1
 C         CALL PAMLMSIC(2,LSPN,LFM,MPTS,WMSA,SICP,RPTS)
 C  %endif
 c
-       LFN = LFM + LFRM(1)*(LSPN-1)
+       !LFN = LFM + LFRM(1)*(LSPN-1) !commented
 c
 c      print test integrals as needed...
 c
 c      PRINT*, 'LFM OVER_TEST', LFN, over_test
 c      PRINT*, 'LFM TESTSIC', LFN, testsic
 c      PRINT*,'DERSIC MATRIX FOR ORBITAL LFM:',LFN
-c      do iid = 1,10
-c      PRINT 1000,(DERSIC(IX,LFM,IID),IX=1,3)
-c      end do
+       DO LFM=1,LFRM(LSPN)
+       LFN=LFM+LFRM(1)*(LSPN-1)
+       PRINT*,'DERSIC MATRIX FOR ORBITAL LFM:',LFN
+       do iid = 1,10
+       PRINT 1000,(DERSIC(IX,LFN,IID),IX=1,3)
+       end do
+       END DO
 1000   FORMAT(' ',3F12.5)
+
+       DO LFM=1,LFRM(LSPN)
+        CLOSE(206+LFM+IRBOFS,STATUS='DELETE')
+        print *,206+LFM+IRBOFS," CLOSED AND DELETED"
+       END DO
+       DEALLOCATE(POTSMALL)
+
+       CALL GTTIME(TIMET2)
+       WRITE(6,*)'TIME FOR SICLAG_DER/SPIN:',TIMET2-TIMET1,LSPN
+
        RETURN
        END
 
 !####################################################################
 
-       SUBROUTINE SICLM_DERSLV(LSPN,LFM,MPTS,WMSA,SICP,RPTS,
+       SUBROUTINE SICLM_DERSLV(LSPN,MPTS,WMSA,SICP,RPTS,
      & over_test,testsic)
 c      use mesh1,only : wmsh,rmsh,nmsh
        use common2,only : RIDT,N_CON,LSYMMAX,N_POS,NFNCT,NSPN
@@ -117,7 +163,8 @@ c      use mixpot1,only : POTIN,POT=>POTOUT
        use for_diag1
 !SIC modules
        use SICMAT,only : SIC,DERSIC
-       use FRM,only    : BFRM,RESULTS,LFRM,DEBDAX
+       use FRM,only : LFRM 
+!      use FRM,only    : BFRM,RESULTS,LFRM,DEBDAX 
        use mpidat1,only : IRANK
 ! Converion to implicit none.  Raja Zope Sun Aug 20 09:01:50 MDT 2017
 
@@ -135,10 +182,10 @@ c      use mixpot1,only : POTIN,POT=>POTOUT
        PARAMETER (NMAX=MPBLOCK)
        LOGICAL EXIST,FIRST,IUPDAT
        DIMENSION WMSA(NMAX),RPTS(3,NMAX)
-       DIMENSION SICP(NMAX)
+       DIMENSION SICP(NMAX,MAX_OCC)
        DIMENSION FMAT(MAX_OCC,MAX_OCC,4,2),RHI(4)
 
-      REAL*8,allocatable :: PSIG(:,:), PTS(:,:), PSID(:,:,:) 
+      REAL*8,allocatable :: PSIG(:,:,:), PTS(:,:), PSID(:,:,:) 
      &    ,GRAD(:,:,:,:,:),GRAD1(:,:,:,:),RVECA(:,:),GSUB(:,:) 
       LOGICAL ,allocatable :: ICOUNT(:,:) 
 C
@@ -156,7 +203,7 @@ C
 c       print *, 'in siclm_der_slv', LFM, LSPN
 c       call flush(6)
 !YY allocate tmp2 arrays
-       ALLOCATE(PSIG(NMAX,10),STAT=IERR)
+       ALLOCATE(PSIG(NMAX,10,MAX_OCC),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'SICDERSLV:ERROR ALLOCATING PSIG'
        ALLOCATE(PSID(3,MAX_OCC,NMAX),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'SICDERSLV:ERROR ALLOCATING PSID'
@@ -173,19 +220,19 @@ c       call flush(6)
        ALLOCATE(ICOUNT(MAX_CON,3),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'SICDERSLV:ERROR ALLOCATING ICOUNT'
 
-       IF(LFM.EQ.0)THEN
-         PRINT*,IRANK, LFM,' FIRST LFM IS ZERO'
-         CALL STOPIT
-       END IF
+!      IF(LFM.EQ.0)THEN
+!        PRINT*,IRANK, LFM,' FIRST LFM IS ZERO'
+!        CALL STOPIT
+!      END IF
        ISPFAC = 2/NSPN
        NGRAD=4
-       FORALL (IPT=1:MPTS,IGR=1:NGRAD)
-         PSIG(IPT,IGR) = 0.0D0
+       FORALL (IWF=1:MAX_OCC,IPT=1:MPTS,IGR=1:NGRAD)
+         PSIG(IPT,IGR,IWF) = 0.0D0
        END FORALL
 c
 c      Get correct index for local orbital wave function
 c
-       LFN = LFM + (LSPN-1)*LFRM(1)
+       !LFN = LFM + (LSPN-1)*LFRM(1)
        IID=0
        DO 86 IFNCT=1,NFNCT
          LMAX1=LSYMMAX(IFNCT)+1
@@ -243,16 +290,18 @@ C
                 ILOC=ILOC+1
                 IF (ICOUNT(ICON,LI)) THEN
 c                DO IWF=1,NWF            !only need one orbital
+                 DO LFM=1,LFRM(LSPN) !now get all orbital at once
+                  LFN = LFM + (LSPN-1)*LFRM(1)
                   FACTOR=PSI(ILOC,LFN,1)
                   if(abs(FACTOR) .GT. 1.0d-10) then
                   DO IGR=1,NGRAD
                    DO LPV=1,NPV
-                    PSIG(IPT+LPV,IGR)=PSIG(IPT+LPV,IGR)
+                    PSIG(IPT+LPV,IGR,LFM)=PSIG(IPT+LPV,IGR,LFM)
      &              +FACTOR*GRAD(LPV,IGR,MU,ICON,LI)
                    END DO    !LPV:  fill in NSPEED points at a time
                   END DO     !IGR
                   end if
-c                END DO      !IWF
+                 END DO      !IWF
                 END IF
                END DO        !ICON
               END DO         !MU
@@ -265,11 +314,17 @@ c                END DO      !IWF
 C
 C CONSTRUCT TEST INTEGRALS:  <phi_i|phi_i>, and <phi_i|VSIC_i|phi_i>
 c
+         DO LFM=1,LFRM(LSPN)
+          !LFN = LFM + (LSPN-1)*LFRM(1)
           DO IPT=1,MPTS
            TESTSIC=TESTSIC + 
-     &     PSIG(IPT,1)*PSIG(IPT,1)*WMSA(IPT)*SICP(IPT)
-           OVER_test = over_test + psig(ipt,1)*psig(ipt,1)*wmsa(ipt)
+     &     PSIG(IPT,1,LFM)*PSIG(IPT,1,LFM)*WMSA(IPT)*SICP(IPT,LFM)
+           OVER_test=over_test + psig(ipt,1,LFM)
+     &                    *psig(ipt,1,LFM)*wmsa(ipt)
           END DO
+          !PRINT *,"TEST INTEGRAL <FLO|FLO> AND INDEX",over_test,LFM 
+          !PRINT *,"TEST INTEGRAL <FLO|VSIC|FLO>",TESTSIC,LFM
+         END DO
  1000  FORMAT(' ',5F12.5)
 c
 C  The following section computes dphi_i/dR = Sum_s {c^i_s * df_s/dR}
@@ -376,16 +431,20 @@ C
 C
 C  UPDATE MATRIX ELEMENTS
 C
+!Orbital loop added
+        DO LFM=1,LFRM(LSPN)
+         LFN = LFM + (LSPN-1)*LFRM(1)
          DO 3100 IPT=1,MPTS
 C         IWF=NWFS(1)*(ISPN-1)
 c         DO 390 JWF=1,NWFS(ISPN)
 c          IWF=IWF+1
            DO 391 IX=1,3
             DERSIC(IX,LFN,IID)=DERSIC(IX,LFN,IID) + ISPFAC*
-     &       PSID(IX,LFN,IPT)*SICP(IPT)*PSIG(IPT,1)*WMSA(IPT)
+     &       PSID(IX,LFN,IPT)*SICP(IPT,LFM)*PSIG(IPT,1,LFM)*WMSA(IPT)
   391      CONTINUE
   390     CONTINUE
  3100    CONTINUE
+        END DO
    30   CONTINUE
   483  CONTINUE
   485 CONTINUE
@@ -403,11 +462,15 @@ c       print 1000, (psid(1,LFN,ipt),ipt=1,5)
 C
 C CONSTRUCT TEST INTEGRALS:  <phi_i|phi_i>, and <phi_i|VSIC_i|phi_i>
 c
+! Orbital loop added
+!        DO LFM=1,LFRM(LSPN)          
+!         LFN = LFM + (LSPN-1)*LFRM(1)
 c         DO IPT=1,MPTS
 c          TESTSIC=TESTSIC + 
-c    &     PSIG(IPT,1)*PSIG(IPT,1)*WMSA(IPT)*SICP(IPT)
+c    &     PSIG(IPT,1,LFM)*PSIG(IPT,1,LFM)*WMSA(IPT)*SICP(IPT,LFM)
 c          OVER_test = over_test + psig(ipt,1)*psig(ipt,1)*wmsa(ipt)
 c         END DO
+!        END DO
 c1000  FORMAT(' ',15F12.5)
 c       call flush(6)
 c
