@@ -1,7 +1,29 @@
 C DENSOLD_CUBE BASED ON OLD VERSION OF APOTNL BY M. PEDERSON AND D. POREZAG
 C MODIFIED BY JUAN E. PERALTA, 2021
-C ATTENTION: FIRST TWO ARRAYS OF COMMON BLOCK TMP1 MUST BE IDENTICAL IN 
-C DENSOLD_CUBE AND APOTNL SINCE THEY ARE USED TO PASS DENSITY AND COULOMB POT
+C This version is intended for interactive use and includes simple OMP
+C paralelization. use export OMP_NUM_THREADS=8 or equivalent
+C RETURN:
+C RHOG(IPTS,1, 1)= rho_up   
+C RHOG(IPTS,2, 1)= d rho_up/dx
+C RHOG(IPTS,3, 1)= d rho_up/dy
+C RHOG(IPTS,4, 1)= d rho_up/dz
+C RHOG(IPTS,5, 1)= d^2 rho_up/dx^2
+C RHOG(IPTS,6, 1)= d^2 rho_up/dy^2
+C RHOG(IPTS,7, 1)= d^2 rho_up/dz^2
+C RHOG(IPTS,8, 1)= d^2 rho_up/dxdy
+C RHOG(IPTS,9, 1)= d^2 rho_up/dxdz
+C RHOG(IPTS,10,1)= d^2 rho_up/dydz
+C RHOG(IPTS,1, 2)= rho_dn   
+C RHOG(IPTS,2, 2)= d rho_dn/dx
+C RHOG(IPTS,3, 2)= d rho_dn/dy
+C RHOG(IPTS,4, 2)= d rho_dn/dz
+C RHOG(IPTS,5, 2)= d^2 rho_dn/dx^2
+C RHOG(IPTS,6, 2)= d^2 rho_dn/dy^2
+C RHOG(IPTS,7, 2)= d^2 rho_dn/dz^2
+C RHOG(IPTS,8, 2)= d^2 rho_dn/dxdy
+C RHOG(IPTS,9, 2)= d^2 rho_dn/dxdz
+C RHOG(IPTS,10,2)= d^2 rho_dn/dydz
+C 
 C
        SUBROUTINE DENS_CUBE(TIMEGORB,xyzmsh,nmsh,RHOG)
        use xtmp1a,only : PHIG
@@ -216,7 +238,7 @@ C
 !$OMP PARALLEL DO
             DO IPTS=1,MPTS
              RHOG(LPTS+IPTS,IGR,ISPN)=RHOG(LPTS+IPTS,IGR,ISPN)
-     &       +2*(PSIG(IPTS,JGR,JLOC)**2
+     &       +2.0D0*(PSIG(IPTS,JGR,JLOC)**2
      &          +PSIG(IPTS,IGR,JLOC)*PSIG(IPTS,1,JLOC))
             END DO
 !$OMP  END PARALLEL DO
@@ -230,7 +252,7 @@ C
 !$OMP PARALLEL DO
              DO IPTS=1,MPTS
               RHOG(LPTS+IPTS,KGR,ISPN)=RHOG(LPTS+IPTS,KGR,ISPN)
-     &        +2*(PSIG(IPTS,IGR,JLOC)*PSIG(IPTS,JGR,JLOC)
+     &        +2.0D0*(PSIG(IPTS,IGR,JLOC)*PSIG(IPTS,JGR,JLOC)
      &           +PSIG(IPTS,KGR,JLOC)*PSIG(IPTS,1,JLOC))
              END DO
 !$OMP END  PARALLEL DO
