@@ -1,6 +1,5 @@
-```
+
 **FLOSIC_CUBE2020**
-```
 ------------
 Cube utility generates cube files as a post-processing tool to the 
 FLOSIC code.
