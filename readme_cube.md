@@ -1,7 +1,7 @@
 
-**FLOSIC_CUBE2020** <h1> tag
+**FLOSIC_CUBE2020** <h1>
 ------------
-# This is an <h2> tag
+# This is an <h2>
 
 Cube utility generates cube files as a post-processing tool to the 
 FLOSIC code.
