@@ -1,4 +1,4 @@
-------------
+
 **FLOSIC_CUBE2020**
 ------------
 
@@ -6,6 +6,7 @@ Cube utility generates cube files as a post-processing tool to the
 FLOSIC code.
 
 **Brief instruction**
+------------
 
 To use cube utility, the user 
 
@@ -23,4 +24,5 @@ module load matplotlib
 export OMP_NUM_THREADS=8
 
 **Support**
+------------
 For any question regarding the cube utility, please contact peral1j@cmich.edu (Dr. Peralta) or nguye8t@cmich.edu
