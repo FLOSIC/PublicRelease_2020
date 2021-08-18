@@ -283,7 +283,7 @@ def gen_cube_data(options,parameters,atoms,coords):
     proc = subprocess.Popen(cube_string, shell=True, stdout=subprocess.PIPE)
     (output,err) = proc.communicate()
     output =  output.decode().split('\n')
-    print(output)
+#    print(output)
 
 
 #
