@@ -15,7 +15,7 @@ To use cube utility:
 - Mark the get_cube.py file as executable:  
  chmod +x get_cube.py  
 
-- Load necessary modules:
+- Load necessary modules:  
 ml -* iccifort/2019.5.281 impi/2018.5.288 SciPy-bundle/2019.10-Python-3.7.4  
 module load matplotlib  
 export OMP_NUM_THREADS=8  
