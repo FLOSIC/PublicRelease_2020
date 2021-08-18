@@ -1,5 +1,6 @@
-
+```
 **FLOSIC_CUBE2020**
+```
 ------------
 Cube utility generates cube files as a post-processing tool to the 
 FLOSIC code.
@@ -9,8 +10,8 @@ FLOSIC code.
 
 To use cube utility:
 - Compile the code:
- Make -f Makefile.hpcc
- Make -f Makefile.hpcc cube
+ Make -f Makefile.hpcc  
+ Make -f Makefile.hpcc cube  
 
 - Mark the get_cube.py file as executable:
  chmod +x get_cube.py
