@@ -1,5 +1,5 @@
 C DENSOLD_CUBE BASED ON OLD VERSION OF APOTNL BY M. PEDERSON AND D. POREZAG
-C MODIFIED BY JUAN E. PERALTA, 2021
+C MODIFIED BY JUAN E. PERALTA AND DUYEN B. NGUYEN, 2021
 C This version is intended for interactive use and includes simple OMP
 C paralelization. use export OMP_NUM_THREADS=8 or equivalent
 C RETURN:
