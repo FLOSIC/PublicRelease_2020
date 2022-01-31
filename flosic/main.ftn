@@ -106,13 +106,13 @@ C
 C     CALL FIXTMAT(-999)
 C       call system('touch SETUPFO')
 C       call system('touch SLOW')
-      call symfrm(1)
 !LB: SAVE REDUCED MESH IN SIC MATRIX CALCULATION
       MESH_SAV=.FALSE.
 !LB
 
       TIME_MAINSIC=0.0D0
       ELOWEST=0.0
+      call symfrm(1)
       INQUIRE(FILE='FRMORB',EXIST=EXIST)
       LSIC=.FALSE.
       UNIHAM1=.FALSE.
@@ -423,13 +423,15 @@ C
       MAXSCF=MAX(MAXSCF,100)
       ITSCF=ITSCF+1
 C
+!PB changed
       IF(FOD_LOOP) THEN ! read new FOD positions
-       INQUIRE(FILE='FRMIDT',EXIST=EXIST)
-       IF(EXIST) THEN
-        OPEN(68,FILE='FRMIDT')
-       ELSE
+       call symfrm(1)
+!      INQUIRE(FILE='FRMIDT',EXIST=EXIST)
+!      IF(EXIST) THEN
+!       OPEN(68,FILE='FRMIDT')
+!      ELSE
         OPEN(68,FILE='FRMORB')
-       END IF
+!      END IF
        READ(68,*)LFRM
        DO LSPN=1,2
         DO IFRM=1,LFRM(LSPN)
@@ -819,7 +821,7 @@ C
        !INQUIRE(FILE='FOD_OPT',EXIST=EXIST)
        !if(.not.exist) FOD_LOOP = .FALSE. 
        !if(NONSCF1.AND..NOT.NONSCFFORCES1) FOD_LOOP = .FALSE.
-       IF (FOD_LOOP.AND..NOT.FOD_CONVERGE.AND.ITER_FOD.lt.100) GOTO 400   !set max fod optimization steps here
+       IF (FOD_LOOP.AND..NOT.FOD_CONVERGE.AND.ITER_FOD.lt.200) GOTO 400   !set max fod optimization steps here
 c      print *, 'after FOD_LOOP'
       END IF
 
@@ -971,9 +973,11 @@ C     CALL WFOUT2
        IF(LSICF) then
         !IF(SCALEDLBFGS1) THEN
         IF(FOD_OPT2) THEN
-          CALL SCALEDLBFGS(ETOTAL)
+          CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
+!         CALL SCALEDLBFGS(ETOTAL)
         ELSE
           CALL ELECTRONIC_GEOMETRY(ETOTAL)
+          CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
         END IF
        END IF
        PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"

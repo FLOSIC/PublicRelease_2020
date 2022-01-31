@@ -8,10 +8,14 @@ C> @param[out] energy
 C> @param xvec : FOD positions
 C> @param gvec : FOD forces
 C> @param msite(2) : This array holds numbers of FODs for spin up/down. 
-         subroutine electronic_geometry(energy)
+         subroutine fod_opt(energy,fod_converge)
+!        subroutine electronic_geometry(energy)
+         use global_inputs,only : fod_opt1,fod_opt2,fod_opt3
+         use xmol,only : AU2ANG,NUM_ATMS,XMOL_LIST,GET_LETTER
          implicit real*8 (a-h,o-z)
          !INCLUDE  'PARAMA2' not yet.
-         logical exist
+         logical exist,reset,exist1
+         logical fod_converge
          dimension msite(2)
          dimension r(3,1000),f(3,1000),d2inv(1000),suggest(1000)
          dimension xvec(3000),gvec(3000)
@@ -25,14 +29,26 @@ C LBFGS
          !DIMENSION WORK(3*MXATMS*(2*NMUPMAX+1)+2*NMUPMAX)
          !dimension :: work(27008)   ! 3*1000* (2*4+1)+2*4 = 3000*9+8
          real*8, allocatable :: work(:)
-         real*8 :: fmax
-         logical :: LFODLBF
+         real*8 :: fmax,dist
+         logical :: LFODLBF,scaled
+         real(8) :: len1, len2, len3                ! lengths of forces etc.
+         real(8) :: len4, len5, len6                ! evaluation of energy convergence -> reset LBFGS or not
+         integer :: constraint,i,ig
          integer :: frozen(1000) ! 0: frozen 1: not frozen
+         integer             :: n_atoms             ! number of atoms
+         integer :: counter, count_hess          
+         real(8),allocatable :: r_atoms(:,:)        ! atomic coodinates
+         real(8), allocatable :: hess_D(:)          ! HESS_D used in the scaledLBFGS                     (former HESS_D)
+         character(len=2),allocatable :: species(:) ! atomic species
+         character(2)  :: LETTER
+         allocate(r_atoms(NUM_ATMS,3))
+         allocate(species(NUM_ATMS))
+
+
 
          do i=1,1000
            d2inv  (i)=1.0d0
            suggest(i)=1.0d0
-           frozen(i) =1
          end do
          inquire(file='FRMIDT',exist=exist)
          if(exist)call symfrm(2) 
@@ -65,27 +81,63 @@ C LBFGS
            read(90,*)(f(j,if),j=1,3)
           end do
           close(90)
-          open(3000,file='frozen.tmp',status='old')
-          rewind(3000)
-          do if=1,msite(1)+msite(2)
-           read(3000,*) frozen(if)
-          end do
-          close(3000,status='delete')
          end if
+
+         scaled     = .false.
+         call check_inputs 
+         LFODLBF=fod_opt1
+          scaled = fod_opt2
+          constraint = fod_opt3 
+          do ig=1,msite(1)+msite(2)
+           do i=1,NUM_ATMS
+             CALL GET_LETTER(XMOL_LIST(i)%ANUM,LETTER)
+             species(i)=LETTER
+             r_atoms(i,1)=XMOL_LIST(i)%RX
+             r_atoms(i,2)=XMOL_LIST(i)%Ry
+             r_atoms(i,3)=XMOL_LIST(i)%Rz
+             dist=(r(1,ig)-r_atoms(i,1))**2.0d0+(r(2,ig)-r_atoms(i,2))
+     &       **2.0d0 +(r(3,ig)-r_atoms(i,3))**2.0d0
+             dist=sqrt(dist)
+             frozen(ig)=1
+             if (constraint .eq. 1) then
+             if (trim(adjustl(species(i))).ne.'H') then
+             if  (dist .lt. 0.1d0 ) then
+             frozen(ig)=0
+             GO TO 227
+             else 
+             frozen(ig)=1
+             end if
+             end if
+             end if
+           end do
+ 227           CONTINUE 
+          end do
+!          open(3000,file='frozen.tmp',status='old')
+!          rewind(3000)
+!          do if=1,msite(1)+msite(2)
+!           read(3000,*) frozen(if)
+!          end do
+!          close(3000,status='delete')
+
          gabs=0.0d0
          fmax=0.0d0
-         do if=1,msite(1)+msite(2)
+!!PB changed
+           nopt=0
+         do ig=1,msite(1)+msite(2)
+          if (frozen(ig).ne. 0) then
            do j=1,3
-             gabs=gabs+f(j,if)**2
+             gabs=gabs+f(j,ig)**2
            end do
-           fmax=max(fmax,f(1,if)**2+f(2,if)**2+f(3,if)**2)
-c          print*,(f(j,if),j=1,3)
+           fmax=max(fmax,f(1,ig)**2+f(2,ig)**2+f(3,ig)**2)
            do j=1,3
              nopt=nopt+1
-             xvec(nopt)= r(j,if)
-             gvec(nopt)= f(j,if) *dble(frozen(if))
+             xvec(nopt)= r(j,ig)
+             gvec(nopt)= f(j,ig) *dble(frozen(ig))
            end do
+          end if 
          end do
+         gabs1=gabs/nopt
+         gabs1=sqrt(gabs1)
          gabs=sqrt(gabs)
          fmax=sqrt(fmax)
          open(80,file='fande.dat')
@@ -100,23 +152,99 @@ c          print*,(f(j,if),j=1,3)
  80      format(i5,f20.12,4g20.12,f20.12)
          gtol=0.000001d0
          ftol=0.000001d0
-c        print*,'nopt:',nopt
          mopt=1000 !1000 => 3000
 
+           ! KAJ: check for convergence -- is the max force on an FOD less than
+           ! the tolerance?
+           !
+           if(fmax.lt.0.0001) then       !set force tolerance here
+             fod_converge=.true.
+            if (fod_opt1) then
+           open(99,file='FDIAG.LBF',form='formatted',status='unknown')
+           close(99,status='delete')
+           open(99,file='FSEARCH.LBF',form='formatted',status='unknown')
+           close(99,status='delete')
+           open(99,file='FSTEP.LBF',form='formatted',status='unknown') 
+           close(99,status='delete')
+             print *, 'Converged in ELECTRONIC GEOMETRY deleting LBF
+     &         files'
+              else
+           open(99,file='FGRAD',form='formatted',status='unknown')
+           close(99,status='delete')
+           open(99,file='FGRLOG',form='formatted',status='unknown')
+           close(99,status='delete')
+            end if
+             return
+           end if
+!END OF COPIED LINES
 !YY. In case you don't want to optimized FODs, change this to .true.
          if(.false.) return
 
-         inquire(file='FODLBF',exist=exist)
-         if (.not. exist) THEN
-          open(unit=1199,file='FODLBF',status='new')
-          write(1199,*) "F    0.1"
-         end if
+!         inquire(file='FODLBF',exist=exist)
+!         if (.not. exist) THEN
+!          open(unit=1199,file='FODLBF',status='new')
+!          write(1199,*) "F    0.1"
+!         end if
          DGUESS = 0.1d0
-         open(unit=1199,file='FODLBF')
-         rewind(1199)
-         read(1199,*) LFODLBF,DGUESS
-         close(1199)
+!         open(unit=1199,file='FODLBF')
+!         rewind(1199)
+!         read(1199,*) LFODLBF,DGUESS
+!         close(1199)
+!PB changed for scaled LBFGS
+
+         if (scaled) then
+           call write_table_constr ! included this in this subroutine here. no need for an extra subroutine
+           inquire(file='HESS_DIAG',exist=exist1)
+           if (.not.exist1) then
+             !
+             ! If HESS_DIAG doesn't exist -> create it
+             !
+             call write_HD_constr()
+           end if
+           !
+           ! Allocate hess_D array -> storing the scaling factors
+           !
+           allocate(hess_D(3*(msite(1)+msite(2))))
+           !
+           ! open HESS_DIAG file
+           !
+           open(95,file='HESS_DIAG',status='old',action='read')
+           !
+           ! Write the corresponding array
+           !
+           count_hess = 0
+           do ig=1,msite(1)+msite(2)
+             do j = 1, 3
+               count_hess = count_hess + 1
+               read(95,*) hess_D(count_hess)
+             end do
+           end do
+           close(95)
+         end if
+        
+        if (scaled) then
+         nopt=0
+         count_hess = 0
+         do ig=1,msite(1)+msite(2)
+          do j = 1, 3
+           count_hess = count_hess + 1
+           if (frozen(ig).ne. 0) then
+            nopt=nopt+1
+            xvec(nopt)= r(j,ig)
+            gvec(nopt)= f(j,ig)
+            xvec(nopt)=xvec(nopt)/hess_D(count_hess)
+            gvec(nopt)=gvec(nopt)*hess_D(count_hess)
+            r(j,ig)=xvec(nopt)
+            f(j,ig)=gvec(nopt)
+            end if
+           end do
+          end do  
+        end if
+!END of scaled LBFGS part
          if(LFODLBF) then
+          print * ,'LFODLBF',LFODLBF
+
+
 c !YY LBFGS parameters
           !DGUESS=0.03d0
           !Default value used in DFT update is 0.1d0
@@ -126,12 +254,13 @@ c !YY LBFGS parameters
           IPRINT(1)=-1
           IPRINT(2)=0
           MUPDATE=4
-          ACCSOLN=1.0D-4
+          ACCSOLN=1.0D-6
           XTOL=10D-16
+          IFLAG=0
 c !Preparation
           GMAX= 0.0d0
           GSUM= 0.0d0
-          NPAR= 3*(msite(1)+msite(2))
+!          NPAR= 3*(msite(1)+msite(2))
           ! 3(xyz)*(no. FOD UP + no. FOD DN)
           allocate(work(27008))
 c Read
@@ -140,24 +269,77 @@ c Read
            open(unit=4,file='FDIAG.LBF',status='old')
            read(4,*)iflag
            read(4,*)
-           do i=1,npar
+           do i=1,nopt
             read(4,*)diag(i)
            end do
            read(4,*)
-           do i=1,npar*(2*MUPDATE+1)+2*MUPDATE
+           do i=1,nopt*(2*MUPDATE+1)+2*MUPDATE
             read(4,*)work(i)
            end do
            close(4)
           end if
-          iflag=0
-          call folbfgs(npar,mupdate,xvec(1:npar),energy,gvec(1:npar),
+!PB modification
+         counter = 0
+         OPEN (90, file = 'fande.out')
+         DO
+             READ (90,*, END=20)
+             counter = counter + 1
+         END DO
+ 20      CLOSE (90)
+
+           reset = .false.
+           if (counter > 3) then
+             open(90,file='fande.out',status='old',action='read')
+             !
+             ! skip all but the last three entries
+             !
+             do j = 1, counter-3
+               read(90,*)
+             end do
+             !
+             ! Read the last three entries 
+             !
+             read(90,*) i, len4, len1 
+             read(90,*) i, len5, len2 
+             read(90,*) i, len6, len3
+             close(90)
+             !
+             ! Compare the energies and forces.
+             ! If energies are within 1.0D-6, and
+             ! forces are within 1.0D-4 -> LFBGS is 
+             ! stuck (or it is simply converged).
+             ! This way or another -> reset!
+             !
+             if ((abs(len6-len5)<1.0D-6)
+     &.and.(abs(len5-len4)<1.0D-6).and.(abs(len6-len4)<1.0D-6)) then
+               !
+               ! If forces are greater than 5.0D-5
+               ! - Rather abort if forces are 0?
+               !
+               if ((len1.ge.5.0D-5)
+     &.and.(len2.ge.5.0D-5).and.(len3.ge.5.0D-5)) then
+                 if (abs(len3-len2) < 1.0D-4) then
+                   if (abs(len2-len1) < 1.0D-4) then
+                     if (abs(len3-len1) < 1.0D-4) then
+                       reset = .true.
+                     end if
+                   end if
+                 end if
+               end if
+             end if
+           end if      
+         if (reset) then
+             write(6,*) 'LBFGS is stuck'
+             iflag=0
+         end if
+
+          call folbfgs(nopt,mupdate,xvec(1:nopt),energy,gvec(1:nopt),
      &         .false.,diag,iprint,accsoln,xtol,work,iflag,dguess)
 ! xvec should be the updated FOD position
-          !print *,"iflag",ifalg
           if(iflag .eq. 0) then
            open(99,file='FDIAG.LBF',form='formatted',status='unknown')
            close(99,status='delete')
-           open(99,file='FSEARCH.LBF',form='formatted',status='unknown') 
+           open(99,file='FSEARCH.LBF',form='formatted',status='unknown')
            close(99,status='delete')
            open(99,file='FSTEP.LBF',form='formatted',status='unknown') 
            close(99,status='delete')
@@ -165,11 +347,11 @@ c Read
            open(unit=4,file='FDIAG.LBF',status='unknown') 
            write(4,*)iflag, "  IFLAG"
            write(4,*)"=====DIAG===="
-           do i=1,npar
+           do i=1,nopt
              write(4,*)DIAG(I)
            END DO
            write(4,*)"====WORK===="
-           do I=1,NPAR*(2*MUPDATE+1)+2*MUPDATE
+           do I=1,NOPT*(2*MUPDATE+1)+2*MUPDATE
             write(4,*)WORK(I)
            end do
            close(4)
@@ -179,7 +361,26 @@ c Read
 
          else
           call fodcgrad(nopt,mopt,energy,xvec,gvec,gtol,ftol,scrv,istat) 
+         print *,'CONJUGATE GRADIENT'
          end if
+
+!PB changed to rescale r and f 
+         nopt=0
+         count_hess = 0
+         if (scaled) then
+          do ig=1,msite(1)+msite(2)
+           do j = 1, 3
+            count_hess = count_hess + 1
+            if (frozen(ig).ne. 0) then
+             nopt=nopt+1
+             xvec(nopt)=xvec(nopt)*hess_D(count_hess)
+             gvec(nopt)=gvec(nopt)/hess_D(count_hess)
+             r(j,ig)=xvec(nopt)
+             f(j,ig)=gvec(nopt)
+            end if
+           end do
+          end do
+         end if  
 
 c        print*,'istat:',istat
          inquire(file='FRMIDT',exist=exist) !YY recheck if FRMIDT is there 
@@ -190,14 +391,19 @@ c        print*,'istat:',istat
          end if
          rewind(90)
          write(90,*)msite(1),msite(2)
+
          nopt=0
-         do if=1,msite(1)+msite(2)
+         do ig=1,msite(1)+msite(2)
+          if (frozen(ig).ne.0) then
            do j=1,3
              nopt=nopt+1
-             r(j,if)=xvec(nopt)
+             r(j,ig)=xvec(nopt)
+             f(j,ig)=gvec(nopt)
            end do
-           write(90,90)(r(j,if),j=1,3),int(frozen(if)),
-     &                  d2inv(if),suggest(if)
+c           print*,'frozenif',frozen(if)
+          end if
+           write(90,90)(r(j,ig),j=1,3),int(frozen(ig)),
+     &                  d2inv(ig),suggest(ig)
            !print*,"New FOD position",(r(j,if),j=1,3)
          end do
          close(90)
@@ -206,7 +412,172 @@ c        call system('echo "4 4" >> RUNS')
 c        call system('echo "0  " >> RUNS')
          !call stopit
  90      format(3d20.12,I3,'  D2INV=',F12.4,' SUGGEST= ',F12.4)
+
+
          end
+
+        subroutine write_HD_constr()
+        real*8  rf,ra,HD,
+     &  r,D,tab,DD,HS
+        dimension rf(3,1000),ra(3,1000)
+        dimension HD(1000),D(1000)
+        dimension tab(36,5)
+        integer nup,ndn,na,nz(1000),id
+        character(6) :: FODFILESTR
+        logical :: exist
+
+        inquire(file='FRMIDT',exist=exist)
+        if(.not.exist)then
+          write(FODFILESTR,'(A)')'FRMORB'
+        else
+          write(FODFILESTR,'(A)')'FRMIDT'
+        end if
+
+
+
+        open(4,file=FODFILESTR)
+        read(4,*) nup,ndn
+        do i=1,nup+ndn
+         read(4,*)(rf(j,i),j=1,3)
+        end do
+        close(4)
+C tab contains the distance of the shells of FODs
+C tab  is currntly read in as an input file Table based on previous
+C FLOSIC calculations.
+        open(unit=3,file='Table')
+        do i=1,36
+         read(3,*)(tab(i,j),j=1,5)
+        end do
+        close(3)
+c reading atomic data
+        open(unit=2,file='XMOL.DAT')
+        read(2,*) na
+        read(2,*)
+        do i=1,na
+         read(2,*)nz(i),(ra(j,i),j=1,3)
+        end do
+        close(2)
+
+c converting atomic coordinates to bohr
+
+        do i=1,na
+         do j=1,3
+          ra(j,i)=ra(j,i)*1.889725989d0
+         end do
+        end do
+c start of the process of finding right inversed Hessian element
+c finding the closest atom to each FOD
+        do i=1,nup+ndn
+         DD=1000.D0
+         id=1
+         do j=1,na
+          D(j)=dsqrt((ra(1,j)-rf(1,i))**2 + (ra(2,j)-rf(2,i))**2
+     &  +(ra(3,j)-rf(3,i))**2)
+          if (D(j).lt.DD) then
+           id=j
+           DD=D(j)
+          end if
+         end do
+         print *,DD
+         call chooseit_constr(i,nz(id),HS,DD,tab)
+         HD(i)=HS
+
+        end do
+c writing the  inversed Hessian diagonals
+        open(unit=2,file='HESS_DIAG')
+        do i=1,nup+ndn
+         write(2,*) dsqrt(1.D0/HD(i))
+         write(2,*) dsqrt(1.D0/HD(i))
+         write(2,*) dsqrt(1.D0/HD(i))
+        end do
+        close(2)
+        end  subroutine
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+        subroutine write_table_constr
+        logical :: EXIST
+
+        inquire(file='Table',EXIST=EXIST)
+        if(EXIST) then
+          return
+        else
+          open(86,file='Table')
+          write(86,'(A)') "0.50 100.00 101.00 102.00 103.00"
+          write(86,'(A)') "0.50 100.00 101.00 102.00 103.00"
+          write(86,'(A)') "0.50 4.00   101.00 102.00 103.00"
+          write(86,'(A)') "0.50 4.00   101.00 102.00 103.00"
+          write(86,'(A)') "0.40 4.00   101.00 102.00 103.00"
+          write(86,'(A)') "0.30 4.00   101.00 102.00 103.00"
+          write(86,'(A)') "0.30 3.50   101.00 102.00 103.00"
+          write(86,'(A)') "0.30 2.50   101.00 102.00 103.00"
+          write(86,'(A)') "0.30 2.00   101.00 102.00 103.00"
+          write(86,'(A)') "0.30 2.50   101.00 102.00 103.00"
+          write(86,'(A)') "0.20 2.09   8.00   102.00 103.00"
+          write(86,'(A)') "0.20 1.83   8.00   102.00 103.00"
+          write(86,'(A)') "0.10 1.33   5.00   102.00 103.00"
+          write(86,'(A)') "0.10 1.19   5.00   102.00 103.00"
+          write(86,'(A)') "0.05 1.05   4.00   102.00 103.00"
+          write(86,'(A)') "0.05 0.88   4.00   102.00 103.00"
+          write(86,'(A)') "0.05 0.81   3.00   102.00 103.00"
+          write(86,'(A)') "0.04 0.72   3.00   102.00 103.00"
+          write(86,'(A)') "0.03 0.66   2.43   7.00   103.00"
+          write(86,'(A)') "0.03 0.63   2.23   7.00   103.00"
+          write(86,'(A)') "0.03 0.60   2.28   7.00   103.00"
+          write(86,'(A)') "0.02 0.54   2.24   7.00   103.00"
+          write(86,'(A)') "0.02 0.53   2.00   7.00   103.00"
+          write(86,'(A)') "0.02 0.48   2.21   7.00   103.00"
+          write(86,'(A)') "0.02 0.46   2.46   7.00   103.00"
+          write(86,'(A)') "0.02 0.78   2.14   7.00   103.00"
+          write(86,'(A)') "0.02 0.61   2.11   7.00   103.00"
+          write(86,'(A)') "0.02 0.39   1.86   7.00   103.00"
+          write(86,'(A)') "0.02 0.55   2.34   8.00   103.00"
+          write(86,'(A)') "0.01 0.37   1.94   7.00   103.00"
+          write(86,'(A)') "0.01 0.36   1.75   7.00   103.00"
+          write(86,'(A)') "0.01 0.34   1.49   7.00   103.00"
+          write(86,'(A)') "0.01 0.33   1.41   7.00   103.00"
+          write(86,'(A)') "0.01 0.31   1.38   6.00   103.00"
+          write(86,'(A)') "0.01 0.30   1.22   6.00   103.00"
+          write(86,'(A)') "0.01 0.28   1.14   6.00   103.00"
+          close(86)
+          return
+        end if
+        end subroutine write_table_constr
+
+        subroutine chooseit_constr(i,nz,HS,DD,tab)
+        real*8 HS,tab,DD,HESS_constr
+        dimension tab(36,5)
+        integer  nz,is,i
+
+c lets find the shell
+        do is=1,5
+         if(DD.LT.tab(nz,is)) then
+          HS= HESS_constr(nz,is)
+          go to  100
+         end if
+        end do
+ 100    end subroutine
+
+        function HESS_constr(nz,is)
+        real*8 HESS_constr,z
+        integer nz,is
+        z=dble(nz)
+        if(is.eq.1)then
+         if(nz.lt.10) then
+          HESS_constr=1.D0*z/10.D0
+         else
+          HESS_constr= 0.0029d0*z**3-0.0526d0*z**2 + 0.4*z-0.8762D0
+         end if
+        end if
+        if(is.eq.2.and.nz.lt.10) HESS_constr=0.021D0*z/10.D0
+        if(is.eq.2.and.nz.ge.10) then
+         HESS_constr=0.0012d0*z**3 -0.0382d0*z**2+0.4146D0*z-1.442d0
+        end if
+        if(is.eq.3.and.nz.ge.18) then
+         HESS_constr=0.00009d0*z**3-0.004d0*z**2+0.0623D0*z - 0.3225d0
+        end if
+        if(is.eq.3.and.nz.lt.18) HESS_constr=0.0124D0*z/18.D0
+        if(is.eq.4)HESS_constr=0.0022D0*z/36.0D0
+        end function
 
 C##############################################################
 C 9/15/2017
