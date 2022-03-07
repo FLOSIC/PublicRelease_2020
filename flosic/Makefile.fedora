@@ -205,8 +205,8 @@ GROUPOBJ = senddata_managers.o ckworker_grp_manager.o pamapotnl_grp.o cpuhog_gro
 else
 GROUPOBJ=
 endif
-
-CUBEOBJ = $(CUBEBASICS) $(FBASICS) $(METAGGA) $(EXTRAFIL) $(POSTACTIVE) $(BASIS) $(DISP) $(WFX) $(DMAT) $(GROUPOBJ) $(EFPOBJ)  $(SIC)  $(LEVY_PERDEW)
+CUBEEXTRAOBJ = ckworker.o pampoiss.o sdiagge_exc.o pmat_mul.o pamfpul.o pamhamil.o pammesh.o global_call.o gettid.o freetid.o pashamil.o pamvlxc.o pasvlxc.o pasfpul.o pasmesh.o glbarrier.o gtntid.o
+CUBEOBJ = $(CUBEBASICS) $(FBASICS) $(METAGGA) $(EXTRAFIL) $(POSTACTIVE) $(BASIS) $(DISP) $(WFX) $(DMAT) $(GROUPOBJ) $(EFPOBJ)  $(SIC)   $(SIC2) $(CUBEEXTRAOBJ) $(LEVY_PERDEW)
 
 BLAS= libgoto_opteron-r1.13.a
 ATLAS= libatlas.a
