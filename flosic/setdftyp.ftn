@@ -11,19 +11,20 @@ C
        use global_inputs, only : libxc1
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:58 MDT 2017
 
-!      INCLUDE  'PARAMAS'  
-       INCLUDE  'PARAMA2'  
+!      INCLUDE  'PARAMAS'
+       INCLUDE  'PARAMA2'
        INTEGER :: I, IEND, ILEN, ISTART, ISTGGA, IXC, NDFTYP, FUNC_ID
-       REAL*8 :: SYMBOL 
+       REAL*8 :: SYMBOL
          SAVE
-         PARAMETER(NDFTYP=13)
+         PARAMETER(NDFTYP=15)
          PARAMETER(ISTGGA=6)
          CHARACTER*35 STRING
          CHARACTER*6  NAMDF(0:NDFTYP)
          CHARACTER*25 NAMPR(0:NDFTYP)
          DATA NAMDF/'NONE  ','PERZUN','CEPERL','RPA   ','WIGNER',
      &              'GUNLUN','PW91  ','PBE   ','REVPBE','RPBE  ',
-     &              'B88   ','SCAN  ','MSCAN', 'RSCAN'/
+     &              'B88   ','SCAN  ','MSCAN', 'RSCAN', 'R2SCAN',
+     &              'SDBG'/
          DATA NAMPR/'NONE                     ',
      &              'PERDEW-ZUNGER 81         ',
      &              'CEPERLEY                 ',
@@ -37,11 +38,13 @@ C
      &              'BECKE 88                 ',
      &              'SCAN                     ',
      &              'modSCAN                  ',
-     &              'regularizedSCAN          '/
+     &              'regularizedSCAN          ',
+     &              'r2SCAN                   ',
+     &              'SCAN_debug               '/
          CHARACTER*40 DEFSTR
          DATA DEFSTR/'[A.D. Becke, J.Chem.Phys.96, 2155, 1992]'/
 C
-C LOOP OVER EXCHANGE AND CORRELATION 
+C LOOP OVER EXCHANGE AND CORRELATION
 C
          IGGA(1)= -1
          IGGA(2)= -1
@@ -68,11 +71,11 @@ C
           IF (STRING(ISTART+3:ISTART+3) .NE. '-') GOTO 900
           ISTART=ISTART+4
           DO I=ISTART,35
-           IF ((STRING(I:I) .EQ. '*') .OR. 
+           IF ((STRING(I:I) .EQ. '*') .OR.
      &         (STRING(I:I) .EQ. ' ')) GOTO 10
           END DO
           GOTO 900
-   10     IEND=I-1 
+   10     IEND=I-1
           ILEN=IEND-ISTART+1
           IF (ILEN .GT. 6) GOTO 900
           DO I=0,NDFTYP
@@ -126,7 +129,7 @@ C check_input.F91 FILE)
           PRINT '(A)','> SCAN mesh will be used. < '
          END IF
          IF(IGGA(1).EQ.3 .OR. IGGA(2).EQ.3) THEN
-          PRINT '(A)','> Meta-GGA detected. <' 
+          PRINT '(A)','> Meta-GGA detected. <'
           PRINT '(A)','> Hamiltonian mixing will be used. <'
          END IF
 

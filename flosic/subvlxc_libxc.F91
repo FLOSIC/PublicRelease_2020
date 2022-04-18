@@ -12,6 +12,10 @@
 
 ! 12/*/2015
 ! MGGA SCAN functioanal is added
+
+! 3/30/2022
+! MGGA r2SCAN added, Aaron D. Kaplan and James W. Furness
+
 ! ***************original description**********************************
 !
 ! SUBVLXC DIRK POREZAG AUGUST 1999
@@ -38,8 +42,9 @@ real*8 :: THIRD,THIRD2,TRPI2,FRDPI,DKF2RS,EPS,DELTA,FAC, &
           ZET,DKS,RS,G,T,UU,VV,WW,ECRS,ECZET,ALFC,       &
           REC1,REC2,REC22,REC3,DREC,                     &
           timing1,timing2
+real*8 :: DUP_REG, DDN_REG, GRDU_REG, GRDD_REG
 SAVE
-PARAMETER (MXDFTYP=13)        ! This value must match with NDFTYP in setdftyp.ftn
+PARAMETER (MXDFTYP=15)        ! This value must match with NDFTYP in setdftyp.ftn
 integer, intent(in)  :: MODE
 integer, intent(in)  :: LPTS  ! Subvlxc is called with a LPTS loop from getvlxc
 integer, intent(in)  :: MPTS  ! Number of points to be processed
@@ -352,7 +357,7 @@ if(.NOT. libxc1 .OR. MODE==1) then
                 mixins(1,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(2,ISPN)/DGRAD
                 mixins(2,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(3,ISPN)/DGRAD
                 mixins(3,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(4,ISPN)/DGRAD
-                mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0 
+                mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0
                else if(NSPN == 2) then
                !2's cancel out: DGRAD is twice the grad rho_up. NSPN is 2.
                 if(ISPN == 1) then
@@ -376,11 +381,11 @@ if(.NOT. libxc1 .OR. MODE==1) then
                !prepare hamiltonian ingridients
                if(ABS(DGRAD) < 1.0D-100) DGRAD = 1.0d-100
                if(NSPN == 1) then
-               !2's cancel out: DGRAD is twice the grad rho_up. RHT(2:4) is also twice the RHT_up. NSPN is 1. 
+               !2's cancel out: DGRAD is twice the grad rho_up. RHT(2:4) is also twice the RHT_up. NSPN is 1.
                 mixins(1,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(2,ISPN)/DGRAD
                 mixins(2,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(3,ISPN)/DGRAD
                 mixins(3,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(4,ISPN)/DGRAD
-                mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0 
+                mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0
                else if(NSPN == 2) then
                !2's cancel out: DGRAD is twice the grad rho_up. NSPN is 2.
                 if(ISPN == 1) then
@@ -395,6 +400,68 @@ if(.NOT. libxc1 .OR. MODE==1) then
                  mixins(4,IPTS+MPTS)=AMUXD*0.5d0
                 end if
                end if
+
+             case(14)
+! r2 SCAN MGGA
+               call eps_SCANx(D, DGRAD,2.0d0*tauchop(IPTS,ISPN), &
+                  &           EX,VX,VXDD,AMUXD,                  &
+                  &           2, 1, 1)
+               DEX = 0.0d0
+
+               !prepare hamiltonian ingridients
+               if(ABS(DGRAD) < 1.0D-100) DGRAD = 1.0d-100
+               if(NSPN == 1) then
+               !2's cancel out: DGRAD is twice the grad rho_up. RHT(2:4) is also twice the RHT_up. NSPN is 1.
+                mixins(1,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(2,ISPN)/DGRAD
+                mixins(2,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(3,ISPN)/DGRAD
+                mixins(3,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(4,ISPN)/DGRAD
+                mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0
+               else if(NSPN == 2) then
+               !2's cancel out: DGRAD is twice the grad rho_up. NSPN is 2.
+                if(ISPN == 1) then
+                 mixins(1,IPTS)=VXDD*NSPN*(RHT(2,1)-RHT(2,2))/DGRAD
+                 mixins(2,IPTS)=VXDD*NSPN*(RHT(3,1)-RHT(3,2))/DGRAD
+                 mixins(3,IPTS)=VXDD*NSPN*(RHT(4,1)-RHT(4,2))/DGRAD
+                 mixins(4,IPTS)=AMUXD*0.5d0
+                else if(ISPN == 2) then
+                 mixins(1,IPTS+MPTS)=VXDD*NSPN*RHT(2,2)/DGRAD
+                 mixins(2,IPTS+MPTS)=VXDD*NSPN*RHT(3,2)/DGRAD
+                 mixins(3,IPTS+MPTS)=VXDD*NSPN*RHT(4,2)/DGRAD
+                 mixins(4,IPTS+MPTS)=AMUXD*0.5d0
+                end if
+               end if
+
+            case(15)
+! SCAN MGGA for validation
+              call eps_SCANx(D, DGRAD,2.0d0*tauchop(IPTS,ISPN), &
+                 &           EX,VX,VXDD,AMUXD,                  &
+                 &           0, 0, 0)
+              DEX = 0.0d0
+
+              !prepare hamiltonian ingridients
+              if(ABS(DGRAD) < 1.0D-100) DGRAD = 1.0d-100
+              if(NSPN == 1) then
+              !2's cancel out: DGRAD is twice the grad rho_up. RHT(2:4) is also twice the RHT_up. NSPN is 1.
+               mixins(1,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(2,ISPN)/DGRAD
+               mixins(2,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(3,ISPN)/DGRAD
+               mixins(3,IPTS+MPTS*(ISPN-1))=VXDD*NSPN*RHT(4,ISPN)/DGRAD
+               mixins(4,IPTS+MPTS*(ISPN-1))=AMUXD*0.5d0
+              else if(NSPN == 2) then
+              !2's cancel out: DGRAD is twice the grad rho_up. NSPN is 2.
+               if(ISPN == 1) then
+                mixins(1,IPTS)=VXDD*NSPN*(RHT(2,1)-RHT(2,2))/DGRAD
+                mixins(2,IPTS)=VXDD*NSPN*(RHT(3,1)-RHT(3,2))/DGRAD
+                mixins(3,IPTS)=VXDD*NSPN*(RHT(4,1)-RHT(4,2))/DGRAD
+                mixins(4,IPTS)=AMUXD*0.5d0
+               else if(ISPN == 2) then
+                mixins(1,IPTS+MPTS)=VXDD*NSPN*RHT(2,2)/DGRAD
+                mixins(2,IPTS+MPTS)=VXDD*NSPN*RHT(3,2)/DGRAD
+                mixins(3,IPTS+MPTS)=VXDD*NSPN*RHT(4,2)/DGRAD
+                mixins(4,IPTS+MPTS)=AMUXD*0.5d0
+               end if
+              end if
+
+
             END SELECT
 ! LB: END OF NEW CODE
 
@@ -421,7 +488,7 @@ if(.NOT. libxc1 .OR. MODE==1) then
       RS= DKF2RS/DKF
       G= 0.5D0*((1.0D0+ZET)**THIRD2+(1.0D0-ZET)**THIRD2)
 
-      !A fix for NaN issue on Cori 
+      !A fix for NaN issue on Cori
       if(ZET .EQ. -1.0D0) G= 0.5D0*(2.0D0**THIRD2)
       if(ZET .EQ.  1.0D0) G= 0.5D0*(2.0D0**THIRD2)
 
@@ -528,6 +595,85 @@ if(.NOT. libxc1 .OR. MODE==1) then
             mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)+VCDD2*RHT(4,2)/sqrt(DG2(3))
             mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)+AMUCD2*0.5d0
          end if
+! r2 SCAN MGGA
+      else if (IDFTYP(2) == 14) then
+
+        DUP_REG = max(1.d-100,DUP)
+        DDN_REG = max(1.d-100,DDN)
+        GRDU_REG = max(1.d-100,sqrt(DG2(2)))
+        GRDD_REG = max(1.d-100,sqrt(DG2(3)))
+        call vrSCANc(&
+            &  DUP_REG,DDN_REG,GRDU_REG,GRDD_REG,sqrt(DG2(1)), &
+            &  tauchop(IPTS,1),tauchop(IPTS,NSPN), EC, &
+            &  VCUP, VCDN, VCDD1, VCDD2, AMUCD1, AMUCD2, &
+            &  2, 1, 1)
+
+        DEC=0.0d0
+        DVCUP=0.0d0
+        DVCDN=0.0d0
+
+        !prepare hamiltonian ingridients
+        if(ABS(DG2(2)) < 1.0d-100) DG2(2) = 1.0d-100
+        if(ABS(DG2(3)) < 1.0d-100) DG2(3) = 1.0d-100
+        if(ABS(DG2(1)) < 1.0d-100) DG2(1) = 1.0d-100
+        if(NSPN == 1) then
+           !RHT(:,1)'s here are up and down combined. 2 in RHT and 4 in DG2(1) will cancel out
+           mixins(1,IPTS)=mixins(1,IPTS)+VCDD1*RHT(2,1)/sqrt(DG2(1))
+           mixins(2,IPTS)=mixins(2,IPTS)+VCDD1*RHT(3,1)/sqrt(DG2(1))
+           mixins(3,IPTS)=mixins(3,IPTS)+VCDD1*RHT(4,1)/sqrt(DG2(1))
+           mixins(4,IPTS)=mixins(4,IPTS)+AMUCD1*0.5d0
+        else if(NSPN == 2) then
+           mixins(1,IPTS)=mixins(1,IPTS)+VCDD1*(RHT(2,1)-RHT(2,2))/sqrt(DG2(2))
+           mixins(2,IPTS)=mixins(2,IPTS)+VCDD1*(RHT(3,1)-RHT(3,2))/sqrt(DG2(2))
+           mixins(3,IPTS)=mixins(3,IPTS)+VCDD1*(RHT(4,1)-RHT(4,2))/sqrt(DG2(2))
+           mixins(4,IPTS)=mixins(4,IPTS)+AMUCD1*0.5d0
+
+           mixins(1,IPTS+MPTS)=mixins(1,IPTS+MPTS)+VCDD2*RHT(2,2)/sqrt(DG2(3))
+           mixins(2,IPTS+MPTS)=mixins(2,IPTS+MPTS)+VCDD2*RHT(3,2)/sqrt(DG2(3))
+           mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)+VCDD2*RHT(4,2)/sqrt(DG2(3))
+           mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)+AMUCD2*0.5d0
+        end if
+
+! SCAN MGGA for validation
+      else if (IDFTYP(2) == 15) then
+
+        DUP_REG = max(1.d-100,DUP)
+        DDN_REG = max(1.d-100,DDN)
+        GRDU_REG = max(1.d-100,sqrt(DG2(2)))
+        GRDD_REG = max(1.d-100,sqrt(DG2(3)))
+
+        call vrSCANc(&
+            &  DUP_REG,DDN_REG,GRDU_REG,GRDD_REG,sqrt(DG2(1)), &
+            &  tauchop(IPTS,1),tauchop(IPTS,NSPN), EC, &
+            &  VCUP, VCDN, VCDD1, VCDD2, AMUCD1, AMUCD2, &
+            &  0, 0, 0)
+
+        DEC=0.0d0
+        DVCUP=0.0d0
+        DVCDN=0.0d0
+
+        !prepare hamiltonian ingridients
+        if(ABS(DG2(2)) < 1.0d-100) DG2(2) = 1.0d-100
+        if(ABS(DG2(3)) < 1.0d-100) DG2(3) = 1.0d-100
+        if(ABS(DG2(1)) < 1.0d-100) DG2(1) = 1.0d-100
+        if(NSPN == 1) then
+           !RHT(:,1)'s here are up and down combined. 2 in RHT and 4 in DG2(1) will cancel out
+           mixins(1,IPTS)=mixins(1,IPTS)+VCDD1*RHT(2,1)/sqrt(DG2(1))
+           mixins(2,IPTS)=mixins(2,IPTS)+VCDD1*RHT(3,1)/sqrt(DG2(1))
+           mixins(3,IPTS)=mixins(3,IPTS)+VCDD1*RHT(4,1)/sqrt(DG2(1))
+           mixins(4,IPTS)=mixins(4,IPTS)+AMUCD1*0.5d0
+        else if(NSPN == 2) then
+           mixins(1,IPTS)=mixins(1,IPTS)+VCDD1*(RHT(2,1)-RHT(2,2))/sqrt(DG2(2))
+           mixins(2,IPTS)=mixins(2,IPTS)+VCDD1*(RHT(3,1)-RHT(3,2))/sqrt(DG2(2))
+           mixins(3,IPTS)=mixins(3,IPTS)+VCDD1*(RHT(4,1)-RHT(4,2))/sqrt(DG2(2))
+           mixins(4,IPTS)=mixins(4,IPTS)+AMUCD1*0.5d0
+
+           mixins(1,IPTS+MPTS)=mixins(1,IPTS+MPTS)+VCDD2*RHT(2,2)/sqrt(DG2(3))
+           mixins(2,IPTS+MPTS)=mixins(2,IPTS+MPTS)+VCDD2*RHT(3,2)/sqrt(DG2(3))
+           mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)+VCDD2*RHT(4,2)/sqrt(DG2(3))
+           mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)+AMUCD2*0.5d0
+        end if
+
       end if
 
       ECL= ECL+ EC*D*WMSH(LPTS+IPTS)    !YY. add returned Ec here
