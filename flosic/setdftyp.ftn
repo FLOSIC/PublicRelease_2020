@@ -16,14 +16,15 @@ C
        INTEGER :: I, IEND, ILEN, ISTART, ISTGGA, IXC, NDFTYP, FUNC_ID
        REAL*8 :: SYMBOL 
          SAVE
-         PARAMETER(NDFTYP=13)
+         PARAMETER(NDFTYP=15)
          PARAMETER(ISTGGA=6)
          CHARACTER*35 STRING
          CHARACTER*6  NAMDF(0:NDFTYP)
          CHARACTER*25 NAMPR(0:NDFTYP)
          DATA NAMDF/'NONE  ','PERZUN','CEPERL','RPA   ','WIGNER',
      &              'GUNLUN','PW91  ','PBE   ','REVPBE','RPBE  ',
-     &              'B88   ','SCAN  ','MSCAN', 'RSCAN'/
+     &              'B88   ','SCAN  ','MSCAN', 'RSCAN', 'R2SCAN',
+     &              'PBEIBP'/
          DATA NAMPR/'NONE                     ',
      &              'PERDEW-ZUNGER 81         ',
      &              'CEPERLEY                 ',
@@ -37,7 +38,9 @@ C
      &              'BECKE 88                 ',
      &              'SCAN                     ',
      &              'modSCAN                  ',
-     &              'regularizedSCAN          '/
+     &              'regularizedSCAN          ',
+     &              'r2SCAN                   ',
+     &              'PBE integration by parts '/
          CHARACTER*40 DEFSTR
          DATA DEFSTR/'[A.D. Becke, J.Chem.Phys.96, 2155, 1992]'/
 C
@@ -48,6 +51,8 @@ C
 
 ! YY. Libxc functional string should be family_kind_type e.g GGA_X_PBE*GGA_C_PBE
          call CHECK_INPUTS
+         libxc1=.false.
+         !use built in functionals
          if(libxc1) then
             print *, "LIBXC DISABLED IN CODE. TERMINATING"
             call stopit
