@@ -1,18 +1,16 @@
 ! UTEP Electronic Structure Lab (2020)
-! SUBVLXC_LIBXC.F90 is a substantially edited version of subvlxc.ftn.
-! It is capable of calling Libxc Library.
-! To use libxc, look up a functional string on 
-! https://www.tddft.org/programs/libxc/functionals/ 
-! and use it in the CLUSTER/SYMBOL file
-
-! YY. 5/12/2015
-! SUBVLXC modified to accomodate LIBXC library
-
-! 11/15/2015
-! Working on meta-GGA
-
-! 12/2015
-! MGGA SCAN functioanal is added
+!> @file subvlxc_libxc.F91
+!> @author Yoh Yamamoto
+!> @details subvlxc_libxc.F91 is a substantially edited version of 
+!>  subvlxc.ftn. It is capable of calling Libxc Library. To use 
+!>  libxc, look up a functional string on 
+!>  https://www.tddft.org/programs/libxc/functionals/ 
+!>  and use it in the CLUSTER/SYMBOL file
+!
+!> @note  5/12/2015 SUBVLXC modified to accomodate LIBXC library
+!>       11/15/2015 Working on meta-GGA
+!>       12/2015 MGGA SCAN functioanal is added
+!
 ! ***************original description (LDA/PBE only subvlxc)****************
 !
 ! SUBVLXC DIRK POREZAG AUGUST 1999

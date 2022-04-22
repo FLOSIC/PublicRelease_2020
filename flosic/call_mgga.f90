@@ -1,8 +1,10 @@
-!2021-7-20
-!Yoh Yamamoto
-!This subroutine call a meta-GGA functional and returns
-!Ex, Vx, and matrix elemets in MIXINS array
-!MIXINS array is zeroed at subvlxc
+!> @file call_mgga.f90
+!> @author Yoh Yamamoto
+!> @brief subvlxc interface for calling meta-GGA functionals
+!> @note 2021-7-20 UTEP ESLab   
+!> @details This subroutine call a meta-GGA functional and returns
+!>          Ex, Vx, and matrix elemets in MIXINS array
+!>          MIXINS array is zeroed at subvlxc
 subroutine call_mgga_ex(ipts,mpts,ISPN,D,DGRAD,TAU,RHTUP,RHTDN,EX,VX)
 
 use common2,only  : IDFTYP, NSPN
@@ -43,10 +45,11 @@ RHT(:,NSPN)=RHTDN(:)
   case(13) !Regularized SCAN
     call RSCANxUNP(D,DGRAD,TAU,EX,VX,VXDD,AMUXD)
   case(14) !r2SCAN 
+    call xscan_r1(D,DGRAD,TAU,VX,VXDD,AMUXD,EX,2,1,1)
     contraction=1
-    call stopit
   case(15) !pbe integration by parts
     !call exchpbe(D,DGRAD,EX,VX,VXDD)
+    call stopit
     AMUXD=0.0d0
   end select
 
@@ -124,9 +127,30 @@ RHT(:,NSPN)=RHTDN(:)
   case(13) ! Regularized SCAN
     call RSCANc(DUP,DDN,sqrt(DG2(2)),sqrt(DG2(3)),sqrt(DG2(1)),tauup,taudn,  &
                         EC,VCUP,VCDD1,VCDN,VCDD2,AMUCD1,AMUCD2)
-!  case(14) ! r2SCAN
-!    !r2SCAN uses contracted grad like libxc. We prepare contracted grad here.
-!    contraction=1
+  case(14) ! r2SCAN
+    !r2SCAN uses contracted grad like libxc. We prepare contracted grad here.
+    contraction=1
+    if(NSPN.EQ.1) then
+     sig1 = RHT(2,1)**2 +RHT(3,1)**2 +RHT(4,1)**2
+     sig1 = sig1/4.0d0
+     sig2 = sig1
+     sig3 = sig1
+    else !NSPN.EQ.2
+     sig1 = (RHT(2,1)-RHT(2,2))**2 &
+          + (RHT(3,1)-RHT(3,2))**2 &
+          + (RHT(4,1)-RHT(4,2))**2
+
+     sig2 = (RHT(2,1)-RHT(2,2))*RHT(2,2) &
+          + (RHT(3,1)-RHT(3,2))*RHT(3,2) &
+          + (RHT(4,1)-RHT(4,2))*RHT(4,2)
+
+     sig3 = RHT(2,2)**2 &
+          + RHT(3,2)**2 &
+          + RHT(4,2)**2
+    end if
+    CALL cscan_u1(DUP,DDN,sig1,sig2,sig3,tauup,taudn,  &
+                   VCUP,VCDN,vsigma1,vsigma2,vsigma3,AMUCD1,AMUCD2,EC, &
+                   2,1,1)
   case(15) !pbe integratin by parts
     !call ecorpbe(DUP+DDN, sqrt(DG2(1)), (DUP-DDN)/(DUP+DDN), EC, VCUP, VCDN, VCDD1, NSPN)
     !subroutine ecorpbe(rho,agrad,zet,ectot,decup,decdn,decdg,nspin)
