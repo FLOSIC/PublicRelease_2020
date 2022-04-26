@@ -4,9 +4,6 @@
 !
 ! JWF : this subroutine computes the exchange energy of SCAN
 !  and some of its regularised variants.
-!  Wrapper routines have been created to abuse the spin-polarized
-!  routine for computation of the closed-shell results, and then
-!  use those same routines for the spin-polarized case.
 !
 !  Three Integer flags are required to select SCAN variant:
 !   IALPHA  :  iso-orbital indicator
@@ -31,12 +28,6 @@
 !   r2SCAN:     (2, 1, 1)
 !   r4SCAN:     (2, 1, 2)
 !
-! Interface follows the original SCAN interface
-! Author: Jefferson E Bates
-! eMail : jeb@temple.edu
-! Date  : 23.06.2016
-!
-! Updated:
 ! Author: James W. Furness
 ! eMail : jfurness@tulane.edu (james.w.furness.1@gmail.com)
 ! Date  : 24/06/2020
@@ -71,44 +62,52 @@
 ! as is and no warranties or guarantees are given.
 !***********************************************************************
 
+!>>>> moved from previous r2scan interface -- comment of this interface is copied below.
+!  Wrapper routines have been created to abuse the spin-polarized
+!  routine for computation of the closed-shell results, and then
+!  use those same routines for the spin-polarized case.
+! Interface follows the original SCAN interface
+! Author: Jefferson E Bates
+! eMail : jeb@temple.edu
+! Date  : 23.06.2016
 subroutine xscan_r0(d0, g00, t0, f, IALPHA, IINTERP, IDELFX)
 ! SCAN exchange functional, 0th derivative
     IMPLICIT NONE
 !    include 'fortrankinds.h'
-    integer, PARAMETER :: kdp = KIND(1.0d0)
+!    integer, PARAMETER :: kdp = KIND(1.0d0)
 
-    real(kdp), intent(in) :: d0, g00, t0
-    real(kdp), intent(out) :: f
+    real(8), intent(in) :: d0, g00, t0
+    real(8), intent(out) :: f
     integer, intent(in) :: IALPHA, IINTERP, IDELFX
 
-    real(kdp) :: vxd0 = 0.0d0
-    real(kdp) :: vxg0 = 0.0d0
-    real(kdp) :: vxt0 = 0.0d0
+    real(8) :: vxd0 = 0.0d0
+    real(8) :: vxg0 = 0.0d0
+    real(8) :: vxt0 = 0.0d0
 
     ! Input densities are already twice the actual spin 0 density
 
     call eps_SCANx(d0, sqrt(g00), t0, f, vxd0, vxg0, vxt0, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
 end subroutine xscan_r0
 
 subroutine xscan_r1(d0, g00, t0, vxd0, vxg00, vxt0, f, &
-   &                IALPHA, IINTERP, IDELFX)
+                    IALPHA, IINTERP, IDELFX)
     IMPLICIT NONE
 !    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
+!integer, PARAMETER :: kdp = KIND(1.0d0)
 ! SCAN exchange functional, 1st derivatives
 
-    real(kdp), intent(in) :: d0, g00, t0
-    real(kdp), intent(out) :: f, vxd0, vxg00, vxt0
+    real(8), intent(in) :: d0, g00, t0
+    real(8), intent(out) :: f, vxd0, vxg00, vxt0
     integer, intent(in) :: IALPHA, IINTERP, IDELFX
 
-    real(kdp) :: vxg0 = 0.0d0
+    real(8) :: vxg0 = 0.0d0
 
 !    call eps_SCANx(2.0d0*d0, 2.0d0*sqrt(g00), 2.0d0*t0, f, vxd0, vxg0, vxt0, &
-!   &               IALPHA, IINTERP, IDELFX)
+!                   IALPHA, IINTERP, IDELFX)
     call eps_SCANx(d0, g00, t0, f, vxd0, vxg0, vxt0, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
     vxd0 = vxd0
     !vxg00 = vxg0/(2.0d0*sqrt(g00))
@@ -118,19 +117,19 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
 end subroutine xscan_r1
 
 subroutine xscan_u0(d0, d1, g00, g11, t0, t1, f, &
-   &                IALPHA, IINTERP, IDELFX)
+                    IALPHA, IINTERP, IDELFX)
     IMPLICIT NONE
 !    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
+!integer, PARAMETER :: kdp = KIND(1.0d0)
 ! SCAN exchange functional, 1st derivatives
 
-    real(kdp), intent(in) :: d0, d1, g00, g11, t0, t1
-    real(kdp), intent(out) :: f
+    real(8), intent(in) :: d0, d1, g00, g11, t0, t1
+    real(8), intent(out) :: f
     integer, intent(in) :: IALPHA, IINTERP, IDELFX
 
-    real(kdp) :: vxd0, vxg0, vxt0
-    real(kdp) :: den, grd, tau
-    real(kdp) :: ex0, ex1
+    real(8) :: vxd0, vxg0, vxt0
+    real(8) :: den, grd, tau
+    real(8) :: ex0, ex1
 
     ! Dummy potential
     vxd0 = 0.0d0
@@ -142,87 +141,107 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
     tau = 2.0d0*t0
 
     call eps_SCANx(den, grd, tau, ex0, vxd0, vxg0, vxt0, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
     den = 2.0d0*d1
     grd = 2.0d0*sqrt(g11)
     tau = 2.0d0*t1
 
     call eps_SCANx(den, grd, tau, ex1, vxd0, vxg0, vxt0, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
     f = (ex0 + ex1)/2.0d0
 
 end subroutine xscan_u0
 
-subroutine xscan_u1(d0, d1, g00, g11, t0, t1, vxd0, vxd1, vxg00, vxg11, vxt0, vxt1, f, &
-   &                IALPHA, IINTERP, IDELFX)
+subroutine xscan_u1(d0, d1, g00, g11, t0, t1, &
+                    vxd0, vxd1, vxg00, vxg11, vxt0, vxt1, f, &
+                    IALPHA, IINTERP, IDELFX)
     IMPLICIT NONE
 !    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
+!integer, PARAMETER :: kdp = KIND(1.0d0)
 ! SCAN exchange functional, 1st derivatives
 
-    real(kdp), intent(in) :: d0, d1, g00, g11, t0, t1
-    real(kdp), intent(out) :: f, vxd0, vxd1, vxg00, vxg11, vxt0, vxt1
+    real(8), intent(in) :: d0, d1, g00, g11, t0, t1
+    real(8), intent(out) :: f, vxd0, vxd1, vxg00, vxg11, vxt0, vxt1
     integer, intent(in) :: IALPHA, IINTERP, IDELFX
 
-    real(kdp) :: vxg0, vxg1
+    real(8) :: vxg0, vxg1
 
-    real(kdp) :: den, grd, tau
-    real(kdp) :: ex0, ex1
+    real(8) :: den, grd, tau
+    real(8) :: ex0, ex1
 
     den = 2.0d0*d0
     grd = 2.0d0*sqrt(g00)
     tau = 2.0d0*t0
 
     call eps_SCANx(den, grd, tau, ex0, vxd0, vxg0, vxt0, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
     den = 2.0d0*d1
     grd = 2.0d0*sqrt(g11)
     tau = 2.0d0*t1
 
     call eps_SCANx(den, grd, tau, ex1, vxd1, vxg1, vxt1, &
-   &               IALPHA, IINTERP, IDELFX)
+                   IALPHA, IINTERP, IDELFX)
 
     f = (ex0 + ex1)/2.0d0
 
     vxg00 = vxg0/(2.0d0*sqrt(g00))
     vxg11 = vxg1/(2.0d0*sqrt(g11))
 end subroutine xscan_u1
+!<<<< end of interface
 
 subroutine eps_SCANx(den, grd, tau, eps_x, dedd, dedg, dedt, &
-   &                 IALPHA, IINTERP, IDELFX)
+                     IALPHA, IINTERP, IDELFX)
     IMPLICIT NONE
-!    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
+!       Note that this routine expects spin scaling relation to be
+!       used for total exchange energy.
+!       e.g.
+!           ex_total = (eps_SCANx(2*d0, 2*g0, 2*t0) + eps_SCANx(2*d1, 2*g1, 2*t1))/2.0
+!               where d0 is density for spin 0 etc.
+!
+!       Inputs:
+!           den : electron density (n)
+!           grd : |grad n|. Note this is not squared!
+!           tau : Kinetic energy density
+!       Outputs:
+!           eps_x : energy density
+!           dedd  : energy density derivative w.r.t. density
+!           dedg  : energy density derivative w.r.t. gradient
+!           dedt  : energy density derivative w.r.t. tau
+!       Parameters: (see top of file)
+!           IALPHA  : selects alpha regularisation
+!           IINTERP : selects interpolation function
+!           IDELFX  : selects gradient expansion corrections
 
-    real(kdp), intent(in) :: den, grd, tau
-    real(kdp), intent(out) :: eps_x, dedd, dedg, dedt
+
+    real(8), intent(in) :: den, grd, tau
+    real(8), intent(out) :: eps_x, dedd, dedg, dedt
     integer, intent(in) :: IALPHA, IINTERP, IDELFX
 
-    real(kdp) :: cp, den83, den53
-    real(kdp) :: exlda, dexldadd, fx, dfxdp, dfxda
-    real(kdp) :: p, dpdd, dpdg
-    real(kdp) :: alpha, dadd, dadg, dadt, reg, dreg
-    real(kdp) :: tueg, dtuegdd, tueg_con
-    real(kdp) :: tauw, dtauwdd, dtauwdg
+    real(8) :: cp, den83, den53
+    real(8) :: exlda, dexldadd, fx, dfxdp, dfxda
+    real(8) :: p, dpdd, dpdg
+    real(8) :: alpha, dadd, dadg, dadt, reg, dreg
+    real(8) :: tueg, dtuegdd, tueg_con
+    real(8) :: tauw, dtauwdd, dtauwdg
 
-    real(kdp), parameter :: AX = -0.7385587663820224058842300326808360d0
-    real(kdp), parameter :: PI =  3.141592653589793238462643383279503d0 !3.1415927d0
-    real(kdp), parameter :: PI2 = PI*PI
-    real(kdp), parameter :: ETA = 1.0d-3
-    real(kdp), parameter :: TAU_R = 1.0d-4
-    real(kdp), parameter :: A_REG = 1.0d-3
+    real(8), parameter :: AX = -0.7385587663820224058842300326808360d0
+    real(8), parameter :: PI =  3.1415926535897932384626433832795d0
+    real(8), parameter :: PI2 = PI*PI
+    real(8), parameter :: ETA = 1.0d-3
+    real(8), parameter :: TAU_R = 1.0d-4
+    real(8), parameter :: A_REG = 1.0d-3
 
-!       Reduced density gradient [FD]
+!       Reduced density gradient
     den83 = den**(8.0d0/3.0d0)
     cp = 4.0d0*(3.0d0*PI2)**(2.0d0/3.0d0)
     p = grd**2/(cp*den83)
     dpdd = -8.0d0/3.0d0*p/den
     dpdg = 2.0d0*p/grd
 
-!       Regularised Alpha [FD]
+!       Regularised Alpha
     tueg_con = 3.0d0/10.0d0*(3.0d0*PI2)**(2.0d0/3.0d0)
     den53 = den**(5.0d0/3.0d0)
     if (IALPHA .eq. 1) then ! regularised tau_ueg for rSCAN \tilde{alpha}
@@ -230,7 +249,6 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
     else                    ! Unregularised tau_ueg
         tueg = tueg_con*den53
     end if
-    !dtuegdd = 5.0d0/3.0d0*tueg/den
     dtuegdd = 5.0d0/3.0d0*tueg_con*den53/den
 
     tauw = grd**2/8.0d0/den
@@ -261,28 +279,28 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
     else if (IALPHA .eq. 2) then ! \bar{alpha} for r2scan and r4scan
         alpha = (tau - tauw)/(tueg + ETA*tauw)
         dadd = -dtauwdd/(tueg + ETA*tauw) &
-       &    - (tau - tauw)*(dtuegdd + ETA*dtauwdd)/(tueg + ETA*tauw)**2
+             - (tau - tauw)*(dtuegdd + ETA*dtauwdd)/(tueg + ETA*tauw)**2
         dadg = -ETA*(tau - tauw)*dtauwdg/(tueg + ETA*tauw)**2 &
-       &    - dtauwdg/(tueg + ETA*tauw)
+             - dtauwdg/(tueg + ETA*tauw)
         dadt = 1.0d0/(tueg + ETA*tauw)
 
     else
-        !call quit('ERROR: Unknown IALPHA in SCAN')
-        print *,'ERROR: Unknown IALPHA in SCAN'
+        write(*,*) 'ERROR: Unknown IDELFX in SCAN'
         call stopit
     end if
 
 !       UEG exchange density [FD]
     !exlda = AX*den**(4.0d0/3.0d0)
-    exlda = AX*den**(1.0d0/3.0d0) !YY Ex per particle
+    exlda = AX*den**(1.0d0/3.0d0) ! Ex per particle
     dexldadd = 4.0d0*AX*den**(1.0d0/3.0d0)/3.0d0
 
     call exchange_enhancement(p, alpha, fx, dfxdp, dfxda, ETA, IINTERP, IDELFX)
 
 !       Exchange Energy[FD]
+    !eps_x = AX*den**(1.0d0/3.0d0)*fx
     eps_x = exlda*fx
-    !YY multiplying density back to exlda
-    exlda=exlda*den ! This is needed for derivatives
+    !multiplying density back to exlda
+    exlda=exlda*den ! This quantity is needed for derivatives
     dedd = dexldadd*fx + exlda*(dfxdp*dpdd + dfxda*dadd)
     dedg = exlda*(dfxdp*dpdg + dfxda*dadg)
     dedt = exlda*dfxda*dadt
@@ -291,44 +309,42 @@ end subroutine
 
 subroutine exchange_enhancement(p, alpha, Fx, dfxdp, dfxda, ETA, IINTERP, IDELFX)
     IMPLICIT NONE
-!    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
 
-    real(kdp), intent(in) :: p, alpha
-    real(kdp), intent(out) :: Fx, dfxdp, dfxda
-    real(kdp), intent(in) :: ETA
+    real(8), intent(in) :: p, alpha
+    real(8), intent(out) :: Fx, dfxdp, dfxda
+    real(8), intent(in) :: ETA
     integer, intent(in) :: IINTERP, IDELFX
 
 
-    real(kdp) :: ief, diefda, oma
-    real(kdp) :: h0x
-    real(kdp) :: h1x, dh1xdp, dh1xda
-    real(kdp) :: gx, dgxdp
-    real(kdp) :: del_f2, C2, ALPHA_GE, damp, ddampdp
-    real(kdp) :: del_fx, ddel_fxdp, ddel_fxda
-    real(kdp) :: wfac, dwfacdp, vfac, dvfacdp, dvfacda
-    real(kdp) :: yfac, dyfacdp, dyfacda
+    real(8) :: ief, diefda, oma
+    real(8) :: h0x
+    real(8) :: h1x, dh1xdp, dh1xda
+    real(8) :: gx, dgxdp
+    real(8) :: del_f2, C2, ALPHA_GE, damp, ddampdp
+    real(8) :: del_fx, ddel_fxdp, ddel_fxda
+    real(8) :: wfac, dwfacdp, vfac, dvfacdp, dvfacda
+    real(8) :: yfac, dyfacdp, dyfacda
 
-    real(kdp), parameter :: A1 = 4.9479d0
-    real(kdp), parameter :: K0 = 0.174d0
-    real(kdp), parameter :: MU = 10.0d0/81.0d0
-    real(kdp), parameter :: K1 = 0.065d0
+    real(8), parameter :: A1 = 4.9479d0
+    real(8), parameter :: K0 = 0.174d0
+    real(8), parameter :: MU = 10.0d0/81.0d0
+    real(8), parameter :: K1 = 0.065d0
 
-    real(kdp), parameter :: cfx1 = 0.667d0
-    real(kdp), parameter :: cfx2 = 0.800d0
-    real(kdp), parameter :: cfdx1 = 1.24d0
+    real(8), parameter :: cfx1 = 0.667d0
+    real(8), parameter :: cfx2 = 0.800d0
+    real(8), parameter :: cfdx1 = 1.24d0
 
-    real(kdp), parameter :: B1 = 0.156632d0
-    real(kdp), parameter :: B2 = 0.12083d0
-    real(kdp), parameter :: B3 = 0.5d0
-    real(kdp), parameter :: B4 = MU*MU/K1 - 0.112654d0
+    real(8), parameter :: B1 = 0.156632d0
+    real(8), parameter :: B2 = 0.12083d0
+    real(8), parameter :: B3 = 0.5d0
+    real(8), parameter :: B4 = MU*MU/K1 - 0.112654d0
 
-    real(kdp), parameter, dimension(8) :: PARAMS = (/ &
-    &      -0.023185843322d0,0.234528941479d0,-0.887998041597d0, &
-    &      1.451297044490d0,-0.663086601049d0,-0.4445555d0,-0.667d0, &
-    &      1.0d0/)
+    real(8), parameter, dimension(8) :: PARAMS = (/ &
+         -0.023185843322d0,0.234528941479d0,-0.887998041597d0, &
+         1.451297044490d0,-0.663086601049d0,-0.4445555d0,-0.667d0, &
+         1.0d0 /)
     integer, dimension(8), parameter :: f_x_e = (/7,6,5,4,3,2,1,0/)
-    real(kdp), parameter :: D_DAMP2 = 0.361d0
+    real(8), parameter :: D_DAMP2 = 0.361d0
 
     ALPHA_GE = 20.0d0/27.0d0 + ETA*5.0d0/3.0d0
 
@@ -357,8 +373,7 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
         endif
 
     else
-        !call quit('ERROR: Unknown IINERP in SCAN')
-        print *,'ERROR: Unknown IINERP in SCAN'
+        write(*,*) 'ERROR: Unknown IINTERP in SCAN'
         call stopit
     end if
 
@@ -393,12 +408,11 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
 !       Slowly varying contribution [FD]
         h1x = 1.0d0 + K1 - K1/(1.0d0 + p*(MU + ALPHA_GE*C2*damp)/K1)
         dh1xdp = K1**2*(MU + ALPHA_GE*C2*(damp + p*ddampdp)) &
-        &              /(K1 + MU*p + ALPHA_GE*C2*p*damp)**2
+                       /(K1 + MU*p + ALPHA_GE*C2*p*damp)**2
         dh1xda = 0.0d0
 
     else
-        !call quit('ERROR: Unknown IDELFX in SCAN')
-        print *,'ERROR: Unknown IDELFX in SCAN'
+        write(*,*) 'ERROR: Unknown IDELFX in SCAN'
         call stopit
     end if
 
@@ -407,7 +421,7 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
 
     if (IDELFX .eq. 2) then  ! 4th order corrections for r4scan
         call get_del_fx(p, alpha, del_fx, ddel_fxdp, ddel_fxda, &
-        &                        K0, K1, C2, ETA, ALPHA_GE, PARAMS, f_x_e)
+                        K0, K1, C2, ETA, ALPHA_GE, PARAMS, f_x_e)
     else
         del_fx = 0.0d0
         ddel_fxdp = 0.0d0
@@ -416,26 +430,24 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
 
     fx = (h1x + ief*(h0x - h1x) + del_fx)*gx
     dfxdp = (del_fx + h1x + (h0x - h1x)*ief)*dgxdp &
-    &       + gx*(ddel_fxdp + dh1xdp - ief*dh1xdp)
+          + gx*(ddel_fxdp + dh1xdp - ief*dh1xdp)
     dfxda = gx*((h0x - h1x)*diefda + ddel_fxda + dh1xda - ief*dh1xda)
 
 end subroutine
 
 subroutine get_del_fx(p, alpha, del_fx, ddel_fxdp, ddel_fxda, &
-&                        K0, K1, C2, ETA, ALPHA_GE, PARAMS, f_x_e)
+                         K0, K1, C2, ETA, ALPHA_GE, PARAMS, f_x_e)
     IMPLICIT NONE
-!    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
 
-    real(kdp), intent(in) :: p, alpha, K0, K1, C2, ETA, ALPHA_GE
-    real(kdp), dimension(8), intent(in) :: PARAMS
+    real(8), intent(in) :: p, alpha, K0, K1, C2, ETA, ALPHA_GE
+    real(8), dimension(8), intent(in) :: PARAMS
     integer, dimension(8), intent(in) :: f_x_e
-    real(kdp), intent(out) :: del_fx, ddel_fxdp, ddel_fxda
-    real(kdp) :: order_1, dorder_1dp, dorder_1da, C_pa, C_aa, C_pp
-    real(kdp) :: oma, damp, t1, dt1dp, dt1da, ddampdp, ddampda
+    real(8), intent(out) :: del_fx, ddel_fxdp, ddel_fxda
+    real(8) :: order_1, dorder_1dp, dorder_1da, C_pa, C_aa, C_pp
+    real(8) :: oma, damp, t1, dt1dp, dt1da, ddampdp, ddampda
 
     call get_dx_terms(C_aa, C_pa, C_pp, &
-    &              K0, K1, C2, ETA, PARAMS, f_x_e)
+                   K0, K1, C2, ETA, PARAMS, f_x_e)
 
     oma = 1.0d0 - alpha
 
@@ -443,7 +455,7 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
     dorder_1dp = -C2*ALPHA_GE
     dorder_1da = -C2
 
-!       Correcting contribution [FD]
+!       Correcting contribution
     t1 = order_1 + C_aa*oma**2 + C_pa*p*oma + C_pp*p**2
     dt1dp = dorder_1dp + 2*C_pp*p + C_pa*oma
     dt1da = dorder_1da - 2*C_aa*oma - C_pa*p
@@ -457,19 +469,17 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
 end subroutine get_del_fx
 
 subroutine get_dx_terms(C_aa, C_pa, C_pp, K0, K1, C2, ETA, &
-&                  PARAMS, f_x_e)
+                   PARAMS, f_x_e)
     IMPLICIT NONE
-!    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
 
-    real(kdp), intent(in) :: K0, K1, C2, ETA
-    real(kdp), dimension(8), intent(in) :: PARAMS
+    real(8), intent(in) :: K0, K1, C2, ETA
+    real(8), dimension(8), intent(in) :: PARAMS
     integer, dimension(8), intent(in) :: f_x_e
-    real(kdp), intent(out) :: C_aa, C_pa, C_pp
-    real(kdp) :: h0x, eta_term, del_f2, del_f4
-    real(kdp) :: ALPHA_GE
+    real(8), intent(out) :: C_aa, C_pa, C_pp
+    real(8) :: h0x, eta_term, del_f2, del_f4
+    real(8) :: ALPHA_GE
 
-    real(kdp), parameter :: MU = 10.0d0/81.0d0
+    real(8), parameter :: MU = 10.0d0/81.0d0
 
     ALPHA_GE = 20.0d0/27.0d0 + ETA*5.0d0/3.0d0
 
@@ -482,24 +492,22 @@ integer, PARAMETER :: kdp = KIND(1.0d0)
     C_aa = 73.0d0/5000.0d0 - 0.5d0*del_f4*(h0x - 1.0d0)
 
     C_pa = 511.0d0/13500.0d0 - 73.0d0/1500.0d0*ETA &
-    &            - del_f2*(ALPHA_GE*C2 + MU)
+                 - del_f2*(ALPHA_GE*C2 + MU)
 
     C_pp = 146.0d0/2025.0d0*eta_term**2 - 73.0d0/405.0d0*eta_term &
-    &            + (ALPHA_GE*C2 + MU)**2/K1
+                 + (ALPHA_GE*C2 + MU)**2/K1
 
 end subroutine
 
 subroutine get_fourth_order_damp(p, alpha, damp4, &
-&            ddamp4dp, ddamp4da)
+            ddamp4dp, ddamp4da)
     implicit NONE
-!    include 'fortrankinds.h'
-integer, PARAMETER :: kdp = KIND(1.0d0)
 
-    real(kdp), intent(in) :: p, alpha
-    real(kdp), intent(out) :: damp4, ddamp4dp, ddamp4da
-    real(kdp) :: t1, t2, dt1da, dt2dp, dt2da, oma
-    real(kdp), parameter :: DX_DAMP4_P = 0.232d0
-    real(kdp), parameter :: DX_DAMP4_A = 0.232d0
+    real(8), intent(in) :: p, alpha
+    real(8), intent(out) :: damp4, ddamp4dp, ddamp4da
+    real(8) :: t1, t2, dt1da, dt2dp, dt2da, oma
+    real(8), parameter :: DX_DAMP4_P = 0.802d0  !different from the previous version
+    real(8), parameter :: DX_DAMP4_A = 0.178d0  !different from the previous version
 
     oma = 1.0d0 - alpha
 
