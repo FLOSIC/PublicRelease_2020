@@ -15,6 +15,7 @@ c
        use common8,only : REP
        use mpidat1,only : IRANK, MYCOMM
        use XTMP2A,only : MIXINS,ISMGGA
+       use scaledpzsic,only : SICEXCS,scaledsic
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:56 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -62,8 +63,14 @@ c
        MXXD=  ITRANS(4)
        KXXS=  ITRANS(5)
        KXXO=  ITRANS(6)
-       ALLOCATE(MIXINS(4,MPTS*MXSPN),STAT=IERR)
-       IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR ALLOCATING MIXINS'
+       IF(LIBXC1.or.ISMGGA)THEN
+         ALLOCATE(MIXINS(4,MPTS*MXSPN),STAT=IERR)
+         IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR ALLOCATING MIXINS'
+       ENDIF
+       IF(scaledsic)THEN
+         ALLOCATE(SICEXCS(MPTS),STAT=IERR)
+         IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR ALLOCATING SICEXCS'
+       ENDIF
        TAG= 702
        CALL MPI_RECV(RHOV(1),NSIZE,MPI_DOUBLE_PRECISION,0,TAG,
      &               MPI_COMM_WORLD,IRECVSTAT,IERR)
@@ -98,8 +105,19 @@ c
          CALL MPI_SSEND(MIXINS,MPTS*MXSPN*4,MPI_DOUBLE_PRECISION,
      &                0,TAG,MPI_COMM_WORLD,IERR)
        ENDIF
-       DEALLOCATE(MIXINS,STAT=IERR)
-       IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR DEALLOCATING MIXINS'
+       IF(scaledsic)THEN
+         TAG= 710
+         CALL MPI_SSEND(SICEXCS,MPTS,MPI_DOUBLE_PRECISION,
+     &                0,TAG,MPI_COMM_WORLD,IERR)
+       ENDIF
+       IF(LIBXC1.OR.ISMGGA)THEN
+         DEALLOCATE(MIXINS,STAT=IERR)
+         IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR DEALLOCATING MIXINS'
+       ENDIF
+       IF(scaledsic)THEN
+         DEALLOCATE(SICEXCS,STAT=IERR)
+         IF(IERR/=0)WRITE(6,*)'PASVLXC:ERROR DEALLOCATING SICEXCS'
+       ENDIF
 !
 ! Deallocate local arrays
 !
