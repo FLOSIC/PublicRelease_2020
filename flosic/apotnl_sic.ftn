@@ -51,6 +51,10 @@ C> @param[out] RESULTS(13) ERGCN: Nonlocal correlation
        use SICMAT,only  : SIC,DERSIC,ZPOT
 !      use DIRECTIONS !NSPN_SKIP
        use LOCORB,only : IRBSIC
+!MGGA module
+       USE XTMP2A,ONLY : TAUW_TAU,BETA
+       use scaledpzsic,only : LSICON,ORBSICON,GSICON,AVGSICON,SDSICON,
+     &                        AVGSIC,SICEXC,SDSICSAV,oneshot,scaledsic
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:46 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -58,12 +62,15 @@ C> @param[out] RESULTS(13) ERGCN: Nonlocal correlation
        INTEGER :: LSPX, IORBX, I, IAT, IMSH, IPTS, ITER, IWF, IERR,
      & J, JCALC, JMS2, JMS3, JRBSIC, JWF, KNT, LSPN, LSXX, MMSH, MXXD,
      & NSPN_SAV, IX, IID
-       REAL*8 :: TOTQNUM , ADDIT, APT1, ASY, AVG, COU_TIME_TOT, DEL2,
+       REAL(8) :: TOTQNUM , ADDIT, APT1, ASY, AVG, COU_TIME_TOT, DEL2,
      & DEL3, DERIV, DINT, EXCSIC, FRMTIM, PI, R2, R4, R6, RAD, RM0,
      & RM2, RM4, RM6, RMX, SIC_COU, SIC_ENG, SIC_EXO, SUM1, TIME0,
      & TIME1, TIME2, TIME3, TIME4, TIME_GETFRMFRC, TIME_GETSICMAT,
      & TMEL1, TMEL2, XALPHA, XCGV, XCH1, XCH2, XCOU, XDEL, XENG, XEXC,
      & XEXX, YCGV, ZCGV,ZCOUL,DINT2,DINT3,ZEXCH,ZSUM,FACT
+       real(8) :: FPARAMA,FPARAMB,FPARAMC,CHI,POW,SDSCALE,SDSCALE1,
+     &            SDSCALE2
+       real(8),allocatable :: ZFACT(:,:),ZLSIC(:,:)
 !      INCLUDE 'commons.inc'
        SAVE
 C
@@ -80,11 +87,12 @@ C       COMMON/LOCORB/TMAT(MAX_OCC,MAX_OCC,MXSPN),MORB(2),IRBSIC,ZSIC
 !       COMMON/SICMAT/SIC(MAX_OCC,MAX_OCC,MXSPN)
 !       COMMON/DIRECTIONS/NSPN_SKIP
        LOGICAL FIRST,AVERAGE,EXIST,FIRST_MSH
-       CHARACTER*7 NAMES
-       CHARACTER*30 FILENAME
-       CHARACTER*3 ORBTXT
-       CHARACTER*3 ITTOTTXT
-       CHARACTER*12 :: ZPOTSTR
+!      LOGICAL LSICON, ORBSICON, GSICON, AVGSICON, SDSICON 
+       CHARACTER(7)  NAMES
+       CHARACTER(30) FILENAME
+       CHARACTER(3)  ORBTXT
+       CHARACTER(3)  ITTOTTXT
+       CHARACTER(12) ZPOTSTR,LSICSTR
        DIMENSION NAMES(3),DERIV(3)
 C
        DATA FIRST/.TRUE./
@@ -263,6 +271,72 @@ C ORBITAL LOOP
        WRITE(6+IRANK,*)'TIME FOR COUPOT2:',TIME2-TIME1,COU_TIME_TOT,
      &     COU_TIME_TOT/TIME2,LSPN,NMSH,IRBSIC
        CALL FLUSH(6+IRANK)
+!Scaling
+!Read RSIC factor here 
+       IF(scaledsic.and.(LSICON.or.ORBSICON.or.SDSICON)) THEN
+        IF(LSPX .EQ. 1) THEN
+         OPEN(214,FILE='tauw_tau1.dat',status='OLD')
+        ELSE
+         OPEN(214,FILE='tauw_tau2.dat',status='OLD')
+        END IF
+        REWIND(214)
+        allocate(TAUW_TAU(NMSH))
+        READ(214,*) (TAUW_TAU(IMSH),IMSH=1,NMSH)
+        !TAUW_TAU(:)=1.0d0 !Debugging - restore pure PZSIC
+        CLOSE(214)
+! Scuseria's Orbital-Scaling start
+        if(ORBSICON) then
+         !open(888,file='orbsicpower',form='formatted',status='old')
+         !rewind(888)
+         !read(888,*) POW
+         !close(888)
+         POW=1.0d0
+         CHI=0.0d0
+         DO IMSH=1,NMSH
+          CHI = CHI + (TAUW_TAU(IMSH)**POW)*RHOG(IMSH,1,1)*WMSH(IMSH)
+         END DO
+         print *,"OrbSIC scaling factor (Spin,Orb,Chi)",LSPX,IORBX,CHI
+         !Overwrite TAUW_TAU array with the same value (for simplicity)
+         DO IMSH=1,NMSH
+          TAUW_TAU(IMSH) = CHI
+         END DO
+        end if
+! Orbital-Scaling end
+        CALL SENDDATA(216) !Broadcast TAUW_TAU
+        !DO IMSH=1,NMSH
+        ! COULOMB(IMSH)=(TAUW_TAU(IMSH)**1)*COULOMB(IMSH)
+        !END DO
+       END IF
+!John's GSIC modSCAN
+       IF(scaledsic.and.GSICON) THEN
+        !In case of modSCANx, read the fitting params.
+!        open(888,file='modscanfitparam',form='formatted',status='old')
+!        rewind(888)
+!        read(888,*) FPARAMA,FPARAMB,FPARAMC
+!        close(888)
+
+        FPARAMA = 0.349741D-01
+        FPARAMB = -0.281332D00    
+        FPARAMC = 0.127402D00 
+        
+        IF(LSPX .EQ. 1) THEN
+         OPEN(214,FILE='beta1.dat',STATUS='OLD')
+        ELSE
+         OPEN(214,FILE='beta2.dat',STATUS='OLD')
+        END IF
+        REWIND(214)
+        allocate(BETA(NMSH))
+        READ(214,*) (BETA(IMSH),IMSH=1,NMSH)
+        CLOSE(214)
+        DO IMSH=1,NMSH
+         BETA(IMSH) = 1.0d0+FPARAMA*BETA(IMSH)
+     &                     +FPARAMB*BETA(IMSH)*BETA(IMSH)
+     &                     +FPARAMC*BETA(IMSH)*BETA(IMSH)*BETA(IMSH)
+        END DO
+        CALL SENDDATA(214) !Broadcast beta
+       END IF
+
+
        JMS2=0
        JMS3=0
        DEL2=0.0D0
@@ -317,7 +391,7 @@ C ORBITAL LOOP
 !           READ(99)(WMSH(I),I=1,MMSH)
 !           CLOSE(99)
          ENDIF
-       ELSE
+!      ELSE
 ! JUST CALCULATE YOUR REDUCED MESH FOR THIS ORBITAL
 !        WRITE(ORBTXT,'(I0.3)')IORBX
 !        WRITE(ITTOTTXT,'(I0.3)')ITTOT
@@ -458,7 +532,43 @@ C CALCULATE LOCAL CHARGE:
 C      PRINT*,'SIC WRITE:',LSPN,JRBSIC,KNT
 C      WRITE(41)(POT(IMSH)+COULOMB(IMSH),IMSH=1,NMSH)
 
-! Subtract coulomb potential from SIC potential (= XC potential)
+
+       if(scaledsic.and.(LSICON.OR.ORBSICON)) then 
+        !Scaling COULOMB and POT 
+        DO IMSH=1,NMSH
+         COULOMB(IMSH)=(TAUW_TAU(IMSH))*COULOMB(IMSH)
+         POT(IMSH)=(TAUW_TAU(IMSH))*POT(IMSH)
+        END DO
+       end if
+
+       if(scaledsic.and.SDSICON) then
+!obtain exterior scaling
+        SDSCALE1=0.0d0
+        SDSCALE2=0.0d0
+        DO IMSH=1,NMSH
+         SDSCALE1=SDSCALE1+SICEXC(IMSH)*WMSH(IMSH)
+     &           *(3.0d0*TAUW_TAU(IMSH)**3.0d0 
+     &           - 2.0d0*TAUW_TAU(IMSH)**4.0d0)
+         SDSCALE2=SDSCALE2+SICEXC(IMSH)*WMSH(IMSH)
+        END DO
+        SDSCALE=SDSCALE1/SDSCALE2
+        print *,"SDSIC",IORBX,SDSCALE
+!SD scaling -multiple energy
+        ERGXL = ERGXL*SDSCALE
+        ERGXN = ERGXN*SDSCALE
+        ERGCL = ERGCL*SDSCALE
+        ERGCN = ERGCN*SDSCALE
+!SD scaling - multiply potential here
+!Coulomb energy is scaled with this
+        DO IMSH=1,NMSH
+         POT(IMSH)=POT(IMSH)*SDSCALE
+         COULOMB(IMSH)=COULOMB(IMSH)*SDSCALE
+        END DO
+        SDSICSAV(IORBX,LSPX)=SDSCALE
+       end if
+
+! Adding coulomb potential to POT. 
+! Later, subtract coulomb potential from SIC potential (= XC potential)
 ! for calculating RESULT array.
        DO IMSH=1,NMSH
          POT(IMSH)=POT(IMSH)+COULOMB(IMSH)
@@ -491,13 +601,26 @@ C      WRITE(41)(POT(IMSH)+COULOMB(IMSH),IMSH=1,NMSH)
         OPEN(206+IRBSIC,FILE=ZPOTSTR,FORM='UNFORMATTED',STATUS='OLD')
         CLOSE(206+IRBSIC,STATUS='DELETE')
        END IF
+!Average SIC potential
+       if(AVGSICON) then
+        DO IMSH=1,NMSH
+         !LSIC components
+         IF(LSPN.EQ.1) THEN
+          AVGSIC(IMSH)= AVGSIC(IMSH)+RHOG(IMSH,1,1)*POT(IMSH)
+         ELSEIF(LSPN.EQ.2) THEN
+          AVGSIC(IMSH+NMSH)= AVGSIC(IMSH+NMSH)+RHOG(IMSH,1,1)*POT(IMSH)
+         END IF
+        END DO
+
+       else !Not AVGSIC potential
 !Write file
-       OPEN(206+IRBSIC,FILE=ZPOTSTR,FORM='UNFORMATTED',STATUS='NEW')
-       print *,"ZPOT  created",IRBSIC
-       DO IMSH=1,NMSH
-        WRITE(206+IRBSIC) POT(IMSH)
-       END DO
-       CLOSE(206+IRBSIC)
+        OPEN(206+IRBSIC,FILE=ZPOTSTR,FORM='UNFORMATTED',STATUS='NEW')
+        print *,"ZPOT  created",IRBSIC
+        DO IMSH=1,NMSH
+         WRITE(206+IRBSIC) POT(IMSH)
+        END DO
+        CLOSE(206+IRBSIC)
+       endif
 
 !      CALL SICLAGM(LSPN,JRBSIC) !>>>> Moving outside of apotnl_sic
        CALL GTTIME(TIME3)
@@ -581,15 +704,15 @@ C     &ERGXL,ERGCL,ERGXN,ERGCN
 !> XEXX = (3/4)*(6/pi)^(1/3) * sum(WMSH*|RHOG|^(4/3))
 !>      -> LDA Energy
        RESULTS(6, IORBX,LSPN) = -XCOU/2.0d0
-!> -XCOU/2 = sum(-WMSH*RHOG*COULOMB)/2
+!> -XCOU/2 = sum(-WMSH*RHOG*COULOMB)/2 !E_coul 
 !>         -> Coulomb energy (nspn=2) or Coulomb energy/2 (nspn=1).
        RESULTS(7, IORBX,LSPN) = XDEL
 !> XDEL = sum(-WMSH*RHOG*(POT+COULOMB)).
 !> where POT=POT-COULOMB=XCPOT, so it's sum(-WMSH*RHOG*SICPOT).
        RESULTS(8, IORBX,LSPN) = XENG
-!> XENG = -Exc -sum(WMSH*RHOG*COULOMB)/2    
+!> XENG = -Exc -sum(WMSH*RHOG*COULOMB)/2 !E_sic per spin    
        RESULTS(9, IORBX,LSPN) = SIC_ENG
-!> SIC_ENG = (-Exc -sum(WMSH*RHOG*COULOMB)/2) * (2/NSPN)
+!> SIC_ENG = (-Exc -sum(WMSH*RHOG*COULOMB)/2) * (2/NSPN) !E_sic 
 !>         -> This will be the value used in E(SIC).
        RESULTS(10, IORBX,LSPN) = ERGXL
 !> Ex local from GETVLXC.
@@ -628,6 +751,18 @@ C      CALL GTTIME(TIME2)
          READ(99)(WMSH(I),I=1,NMSH)
          CLOSE(99)
        END IF
+
+       IF(scaledsic.and.(LSICON.or.ORBSICON.or.SDSICON)) THEN
+%ifndef MPI
+        deallocate(TAUW_TAU) !Serial
+%else
+        CALL SENDDATA(217)    !MPI
+%endif
+       END IF
+       IF(scaledsic.and.GSICON) THEN
+        CALL SENDDATA(215)   !Deallocate BETA
+       END IF
+C
 C LB
 C      CALL FLUSH(INITOUT)
 C      CLOSE(INITOUT)

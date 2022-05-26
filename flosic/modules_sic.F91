@@ -111,3 +111,16 @@ integer            :: NORB
 real*8,allocatable :: PHIRES(:,:),PHIRES_TMP(:,:)
 
 end module DIAGV1
+
+module scaledpzsic
+logical ::  scaledsic = .TRUE. !scaledsic flag to turn off all scaling
+logical ::  LSICON   = .TRUE.  !LSIC
+logical ::  ORBSICON = .FALSE. !OrbSIC
+logical ::  GSICON   = .FALSE. !GSIC
+logical ::  AVGSICON = .FALSE. !Average SIC potential
+logical ::  SDSICON  = .FALSE. !sdSIC
+logical ::  oneshot  = .TRUE. 
+real*8, allocatable :: AVGSIC(:) !For average sic potential
+REAL*8,ALLOCATABLE :: SICEXCS(:), SICEXC(:)
+REAL*8 :: SDSICSAV(50,2)
+end module scaledpzsic
