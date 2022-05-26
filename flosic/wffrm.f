@@ -32,7 +32,7 @@ C
      &            MPTS,MU,M_NUC,
      &            NDIM,NDM,NPV,NSTORE,NUNSYM,NWAVF
      &            ,IWOFS,IDIM,IORBX,LFN
-       REAL*8 :: CHR,FACT,FACTOR,X,Y,Z
+       REAL*8 :: CHG(MAX_OCC),CHR,FACT,FACTOR,X,Y,Z
 !       COMMON/TMP2/PSIG(MPBLOCK,MAX_OCC)
 !     &  ,PTS(NSPEED,3),GRAD(NSPEED,10,6,MAX_CON,3)
 !     &  ,RVECA(3,MX_GRP),RBAS(3,4),RGRID(3,MPBLOCK)
@@ -198,7 +198,7 @@ C Allocate INFOWF
         ELSE
          IBS(I)=I-NWFS(1)
         ENDIF
-        WRITE(6,*)'STATE :', ISP(I),IRP(I),IBS(I)
+!        WRITE(6,*)'STATE :', ISP(I),IRP(I),IBS(I)
         NDIM=NDMREP(IRP(I))
         IF ((ISP(I) .LT. 1) .OR. (ISP(I) .GT. NSPN)) THEN
          PRINT *,'WFGRID: SPIN FOR STATE ',I,' IS INVALID'
@@ -232,7 +232,7 @@ C
 c
 C
        FILEN='WFFRMI'
-
+!        print *, "NWAVF PUSKAR",NWAVF
        DO I=1,NWAVF
 !YY exclude non Fermi orbitals
         if(I .GT. NWFS(1)+NFRM(2)) cycle
@@ -248,7 +248,7 @@ C
 
 C
 C WRITE FILE HEADER
-C
+C Grid data RBAS converted to angstrom PUSKAR 01/24/2022
         IUNIT=90+I
         OPEN(IUNIT,FILE=FILENAME(I),FORM=FORMSTR,STATUS='UNKNOWN')
         REWIND(IUNIT)
@@ -256,7 +256,7 @@ C
          WRITE(IUNIT) ITYPE,NSPN
          WRITE(IUNIT)(NGRID(J), J=1,3),MPBLOCK
          IF (ITYPE .EQ. 1) THEN
-          WRITE(IUNIT)((RBAS(J,K), J=1,3), K=1,4)
+          WRITE(IUNIT)((RBAS(J,K)*0.529177d0, J=1,3), K=1,4)
          END IF
          WRITE(IUNIT) NWAVF
          WRITE(IUNIT)(INFOWF(J,I), J=1,4),EVLOCC(I)
@@ -271,14 +271,18 @@ C
          REWIND(77)
          READ(77,*) NATOM
          READ(77,*)
-         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,
+     &   (0.529177d0*RBAS(J,1),J=1,3)
          DO K=1,3
-          WRITE(IUNIT,'(1X,I10,3F20.12)') NGRID(K),(RBAS(J,K+1),J=1,3)
+          WRITE(IUNIT,'(1X,I10,3F20.12)') NGRID(K),
+     &   (0.529177d0*RBAS(J,K+1),J=1,3)
          ENDDO
          DO K=1,NATOM
           READ(77,*)IZ, X, Y, Z
           CHR=REAL(IZ) 
+!PB converted Angstrom to Bohr
           WRITE(IUNIT,2002)IZ, CHR, X, Y, Z
+
          END DO
          CLOSE(77)
  2002    FORMAT(I6,4F16.10)
@@ -308,7 +312,9 @@ C
         NDM=NDMREP(K_REP)
         ITOTWF=ITOTWF+NDM
        END DO
-
+!        print *,"ITOTWF PUSKAR", ITOTWF
+!PB changed
+!        CHG=0.0d0
        DO 800 IX=1,NGRID(1)
         DO 790 IY=1,NGRID(2)
          NMSH=NGRID(3)
@@ -412,6 +418,7 @@ C
            IWF=IWF+1
            DO IPTS=1,MPTS
              PSIG(IPTS,IW)=PSIG(IPTS,IWF)**2
+             CHG(IW)=CHG(IW)+PSIG(IPTS,IW)*RBAS(3,4)**3
            END DO
 C          DO IDIM=2,NDIM
 C           IWF=IWF+1
@@ -421,6 +428,7 @@ C     &                   +PSIG(IPTS,IWF)**2
 C           END DO
 C          END DO
           END DO
+!          print *,"NWF",NWF
           IF(IWF.GT.ITOTWF) THEN
            WRITE(6,*) 'WFGRID: THE TOTAL NUMBER OF STATES DO NOT MATCH'
            WRITE(6,*)  IWF, ' VS ', NWF
@@ -438,24 +446,27 @@ C
            if(IWF .GT. NFRM(1) .AND. IWF .LE. NWFS(1)) cycle
 
            IUNIT=90+IWF
-
+!PSIG is converted from Bohr^-3 to Angstrom^-3 
            IF (ITYPE .EQ. 1) THEN
             IF (IFORM .EQ. 1) THEN
-             WRITE(IUNIT)(PSIG(IPTS,IWF)*FACT, IPTS=1,MPTS)
+             WRITE(IUNIT)(PSIG(IPTS,IWF)/FACT, IPTS=1,MPTS)
             ELSE
-             WRITE(IUNIT,'(3(1X,E20.12))')(PSIG(IPTS,IWF)*FACT,
+             WRITE(IUNIT,'(3(1X,E20.12))')(PSIG(IPTS,IWF)/FACT,
      &        IPTS=1,MPTS)
             END IF
            ELSE
             DO IPTS=1,MPTS
              WRITE(IUNIT,'(3(1X,F20.12))')(RGRID(I,IPTS), I=1,3)
-             WRITE(IUNIT,'(3(1X,E20.12))')(PSIG(IPTS,IWF))
+             WRITE(IUNIT,'(3(1X,E20.12))')(PSIG(IPTS,IWF))/FACT
             END DO
            END IF
           END DO
   780    CONTINUE
   790   CONTINUE
   800  CONTINUE
+!       print *,"CHARGE PUSKAR"
+!       print 737,(CHG(IW),IW=1,NFRM(1))
+!  737  FORMAT(5(F10.6))
 C
 C Deallocate arrays
 C

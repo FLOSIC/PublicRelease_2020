@@ -1,0 +1,20 @@
+Change Log: 2020-2-2
+
+electronic_geometry_lbfgs.f
+
+    • Modified to introduce fix1s (constraint to keep 1s FOD positions fixed) under 3 conditions:
+    i) If FOD_OPT3V=1 in NRLMOL_INPUT.DAT file
+    ii) If the species are not hydrogen atoms.
+    iii) If the distance between the atomic position and the 1s FOD is less than 0.1 Bohr
+    • Modified to introduce the scaling of FOD forces and gradients if FOD_OPT3V=”Y”
+    • Modified to reset LBFGS, if it is stuck. 
+    • Allows FOD optimizations that are constrained by symmetry. Symmetry operations are entered in FRMGRP; FOD positions that are symmetry independent are entered in FRMIDT. 
+    • Works when  FOD_LOOPV     = 'N', or FOD_LOOPV     = 'Y'. 
+
+wffrm.f
+
+    • Modified to express the grid origin, basis vector coordinates, atomic positions, and electronic density in consistent Angstrom units in the WFFRMIXX files (“XX” is the FLO number)
+    • WFFRMIXX can be copied to WFFRMIXX.cube and read by Vesta, JMOL, or other cube file viewers.
+
+
+

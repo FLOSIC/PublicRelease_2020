@@ -347,7 +347,10 @@ C KT
           r_atoms(i,3)=XMOL_LIST(i)%Rz
           print *,species(i), r_atoms(i,1:3)
          end do
-
+c
+c KAJ  need to define n_atoms for use in fix1s constraint below
+c
+         n_atoms = NUM_ATMS
 !        open(unit=90,file='XMOL.xyz',status='old',action='read')
 !        read(90,*) n_atoms
 !        ! Allocate arrays

@@ -6,6 +6,7 @@ subroutine check_inputs
   implicit none
   logical   :: exist,lopen
   integer   :: ios
+  character*80 :: line,linebuff
   character*10 :: calctypev  = 'LBFGS'
   character*30 :: basisv     = 'DEFAULT'
   character :: jntdosv       = 'F'
@@ -150,15 +151,38 @@ subroutine check_inputs
   ELSE
     inquire(unit=68,opened=lopen)
     if(lopen) write(6,'(A)')'CHECK_INPUTS:Unit 68 is already open!!'
+5   continue
     OPEN(68,FILE='NRLMOL_INPUT.DAT')
     read(68,input_data,ERR = 10,IOSTAT=ios)
     !read(68,input_data,IOSTAT=ios)
+    !read(68,input_data)
     if(ios .eq. 0) goto 20
 10  continue
     print *,"#################### WARNING ####################"
-    print *," ONE OR MORE NRLMOL_INPUT.DAT VARIABLES ARE NOT  "
+    print *," THE FOLLOWING NRLMOL_INPUT.DAT VARIABLES IS NOT "
     print *," AVAILABE IN THIS SOFTWARE VERSION AND IGNORED.  "
+    backspace(68)
+    read(68,'(A)') line
+    print*,"Undefiend line: "//trim(line)
     print *,"#################################################"
+!Create a temp NRLMOL_INPUT file to process remaining inputs after the problematic line
+!This will update NRLMOL_INPUT.DAT with the problematic option commented out
+    call system('cat NRLMOL_INPUT.DAT > NRLMOL_INPUT.tmp')
+    rewind(68)
+    open(69,FILE='NRLMOL_INPUT.tmp')
+    do 
+      read(69,'(A)', END=15) linebuff
+      if(linebuff .eq. line) then
+        write(68,'(A)') "!"//trim(linebuff)
+      else
+        write(68,'(A)') linebuff
+      end if
+    end do
+15  continue
+    close(69,status='DELETE')
+    close(68)
+    goto 5
+
 20  continue
     CLOSE(68)
     idiag1=diag1v
@@ -587,18 +611,18 @@ subroutine check_inputs
       wffrm1=.FALSE.
     endif
 ! YY. Check for LIBXC  
-    if(libxcv=='Y'.or.libxcv=='y')then
-      libxc1=.TRUE.
-    elseif(libxcv=='N'.or.libxcv=='n')then
-      libxc1=.FALSE.
-    else
-     if(clibxc) then
-      write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for LIBXCV'
-      write(6,'(A)')'Assuming N'
-      libxc1=.FALSE.
-      clibxc=.FALSE.
-     endif
-    endif
+!    if(libxcv=='Y'.or.libxcv=='y')then
+!      libxc1=.TRUE.
+!    elseif(libxcv=='N'.or.libxcv=='n')then
+!      libxc1=.FALSE.
+!    else
+!     if(clibxc) then
+!      write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for LIBXCV'
+!      write(6,'(A)')'Assuming N'
+!      libxc1=.FALSE.
+!      clibxc=.FALSE.
+!     endif
+!    endif
 ! Check for DMATV
     if(dmatv=='Y'.or.dmatv=='y')then
       dmat1=.TRUE.
@@ -726,5 +750,10 @@ subroutine check_inputs
       FOD_OPT3=0
     end if
    ENDIF
+!Print out name_list for testing and debugging this subroutine
+!  open(5,file='NRLMOL_OUTPUT.DAT')
+!  write(5,input_data)
+!  close(5)
+!  call stopit
   RETURN
 end subroutine check_inputs

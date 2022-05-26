@@ -7,7 +7,7 @@
 # COMPILING OPTIONS, set Y or N for these options
 #
 # Parallel compilation
-MPI=N
+MPI=Y
 # Group calculation
 GROUP=N
 # Atomic force in the FLOSIC calculation
@@ -158,15 +158,18 @@ OPTIONS = $(MPI1) $(GROUP1) $(ATOMFORCE1)
 
 # Object modules
 #
-SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevsvd.o allocate_sic.o allocate_diag1.o frmiorb.o apotnl_dft.o apotnl_sic.o coupot_sic.o diagv_fo.o electronic_geometry.o focgrad.o frmorb2.o loravel.o lowden_files.o moravel.o newwaves.o readmesh.o scfsicw.o swapfgi.o symfrm.o unravel2.o readwfsic.o orbsic.o wffrm.o write_phires.o siclag_der.o lagmult_slv.o scaledlbfgs.o write_table.o delete_oldfiles.o fod_opt.o
+SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevsvd.o allocate_sic.o allocate_diag1.o frmiorb.o apotnl_dft.o apotnl_sic.o coupot_sic.o diagv_fo.o focgrad.o frmorb2.o loravel.o lowden_files.o moravel.o newwaves.o readmesh.o scfsicw.o swapfgi.o symfrm.o unravel2.o readwfsic.o orbsic.o wffrm.o write_phires.o siclag_der.o lagmult_slv.o scaledlbfgs.o write_table.o delete_oldfiles.o electronic_geometry_lbfgs.o
 
 #SIC orbital subroutine 
 SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o
 
-METAGGA = normh.o hammixdrv.o subvlxc_libxc.o gettau_par.o getvlxc.o setdftyp.o regscan.o scan.o overnum_libxc.o pamhamil_libxc.o pashamil_libxc.o gethold_libxc.o gethold_mgga.o atomscfvlxc.o gtgraddrv.o
+METAGGA = normh.o hammixdrv.o subvlxc_libxc.o gettau_par.o getvlxc.o setdftyp.o r2scanex.o r2scancor.o regscan.o scan.o overnum_libxc.o pamhamil_libxc.o pashamil_libxc.o gethold_libxc.o gethold_mgga.o atomscfvlxc.o gtgraddrv.o call_mgga.o
 #For the original rSCAN, use regscan_jcp.o in place of regscan.o.
 
 FTNBASICS = banner.o modules_sic.o modules.o modules2.o addpts.o alcutoff.o angmsh.o apotnl.o atcube.o ax2thet.o bfsa.o brtfrc.o cbrt.o ckworker.o coresplit.o cosf.o coupot1.o densold.o doint.o dvpmesh.o expnl.o fctrl.o fermilv.o fffmt3.o fffmt4.o fffmtc.o fillist.o fixit.o flacub.o mfpulay.o frcslv.o frcslv0.o frcsym.o freetid.o ftime.o g1dint.o gaussp.o gausspp.o getbas.o gethold.o gettid.o gft.o ginted.o glbarrier.o gtdncf.o gtenrgy.o gtgrad.o gtntid.o gtorbnh.o hammat.o hfflocal.o is1dim.o ixnmab.o ldacor.o lebedev.o cpuhog.o mpiclus.o pamfpul.o pamhamil.o pammesh.o pampoiss.o pamvlxc.o pasfpul.o pashamil.o pasmesh.o paspoiss.o pasvlxc.o pversion.o senddata.o newwave_serial.o numforce.o numham.o optrigr.o optrmsh.o optvmsh.o overlap.o overnum.o ovlons.o patch.o poisson1.o poisson2.o polyx.o radmsh.o rcutoff.o readinp.o readwf.o readwf2.o reormsh.o rgcmsh.o rhofft.o rhofftpar.o sinf.o spcpart.o splithere.o stopit.o stroud.o symbol.o testbas.o tstmsh.o update.o vmesh.o vstart.o wfout.o wfout2.o wparamas.o main.o writefrc.o call_forces.o global_call.o
+
+CUBEBASICS = modules_sic.o modules.o modules2.o cube.o dens_cube.o addpts.o alcutoff.o angmsh.o atcube.o ax2thet.o bfsa.o brtfrc.o cbrt.o coresplit.o coupot1.o cosf.o  densold.o dvpmesh.o fctrl.o fermilv.o fffmt3.o fffmt4.o fffmtc.o fillist.o  flacub.o fixit.o mfpulay.o frcslv.o frcslv0.o   frcsym.o g1dint.o gaussp.o getbas.o gausspp.o  gethold.o ginted.o gft.o gtdncf.o gtgrad.o gtorbnh.o hfflocal.o hammat.o is1dim.o ldacor.o lebedev.o senddata.o newwave_serial.o numforce.o numham.o optrigr.o optrmsh.o overlap.o overnum.o optvmsh.o ovlons.o patch.o rcutoff.o readinp.o readwf.o readwf2.o splithere.o stopit.o vmesh.o testbas.o tstmsh.o vstart.o stroud.o spcpart.o sinf.o rgcmsh.o reormsh.o radmsh.o poisson1.o poisson2.o polyx.o expnl.o ckworker.o pammesh.o pampoiss.o pamfpul.o pamhamil.o pmat_mul.o sdiagge_exc.o freetid.o pamvlxc.o gettid.o global_call.o gtntid.o
+
 
 FBASICSMPI = diag_s_sym.o
 
@@ -203,6 +206,8 @@ else
 GROUPOBJ=
 endif
 
+CUBEOBJ = $(CUBEBASICS) $(FBASICS) $(METAGGA) $(EXTRAFIL) $(POSTACTIVE) $(BASIS) $(DISP) $(WFX) $(DMAT) $(GROUPOBJ) $(EFPOBJ) $(SIC) $(SIC2) $(LEVY_PERDEW)
+
 BLAS= libgoto_opteron-r1.13.a
 ATLAS= libatlas.a
 LAPACK= liblapack.a
@@ -234,6 +239,15 @@ condcomp:
 	python ./make_git_version.py
 	$(FC) $(LOGINNODE) $(LFLAGS) -o condcomp condcomp.f 
 
+# Instruction to compile utility cube
+cube: condcomp $(CUBEOBJ)
+	$(FFF) $(LFLAGS) $(CUBEOBJ) -o cube_exe -llapack -lblas
+#	$(FFF) $(LFLAGS) $(CUBEOBJ) -fopenmp -o cube_exe -Wl,-rpath,$(UT_MKL_LIB) -L$(UT_MKL_LIB) -Wl,--start-group  --enable-static   \
+#	-lmkl_scalapack_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lmkl_blacs_intelmpi_lp64 -Wl,--end-group -lpthread -lm
+
+
+
+
 #
 # LINKING OPTIONS
 #
@@ -242,7 +256,7 @@ nrlmol: condcomp $(OBJ)
 #       $(FFF) $(LFLAGS) $(OBJ) $(BLAS) $(ATLAS) $(LAPACK) -o $(BIN)
 # TACC
 #	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -Wl,-rpath,$(TACC_MKL_LIB) -L$(TACC_MKL_LIB) -Wl,--start-group \
-        -lmkl_scalapack_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lmkl_blacs_intelmpi_lp64 -Wl,--end-group -lpthread -lm
+#        -lmkl_scalapack_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lmkl_blacs_intelmpi_lp64 -Wl,--end-group -lpthread -lm
 # Fedora (Quantum/Luis local)
 	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -llapack -lblas $(LIBS)
 # Ubuntu
@@ -282,7 +296,7 @@ fragment: condcomp $(FRAGBASICS)
 # clean up
 #
 clean:
-	rm -f $(OBJ) $(EXTRAFIL) $(POSTACTIVE) $(FRAGBASICS) *.mod condcomp $(BIN) $(BINFRAG) 
+	rm -f $(OBJ) $(CUBEBASICS) $(EXTRAFIL) $(POSTACTIVE) $(FRAGBASICS) *.mod condcomp $(BIN) $(BINFRAG)
 
 subclean:
 	rm -f $(BASICS)
