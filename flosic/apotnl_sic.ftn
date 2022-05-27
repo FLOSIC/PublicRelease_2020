@@ -537,7 +537,8 @@ C      WRITE(41)(POT(IMSH)+COULOMB(IMSH),IMSH=1,NMSH)
         !Scaling COULOMB and POT 
         DO IMSH=1,NMSH
          COULOMB(IMSH)=(TAUW_TAU(IMSH))*COULOMB(IMSH)
-         POT(IMSH)=(TAUW_TAU(IMSH))*POT(IMSH)
+         !POT(IMSH)=(TAUW_TAU(IMSH))*POT(IMSH)
+         !Scaling of Vxc is done inside subvlxc
         END DO
        end if
 

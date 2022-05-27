@@ -13,7 +13,6 @@ C      !use pot_dens,only : rhog
        use common2,only : RIDT, N_CON, LSYMMAX, N_POS, NFNCT, IGGA,
      &     ISPN, NSPN
        use common5,only : PSI, NWF, NWFS
-       use scaledpzsic,only : oneshot
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:48 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -291,42 +290,6 @@ C
          WRITE(215,*) (TAUW(IPTS,2)/TAU(IPTS,2),IPTS=1,NMSH)
          CLOSE(215)
         END IF
-! For self-consistency, we need additional information
-        if(.not. oneshot) then
-         OPEN(216,FILE='lsictemp1.dat',STATUS='UNKNOWN')
-         CLOSE(216,STATUS='DELETE')
-
-         OPEN(217,FILE='lsictemp2.dat',STATUS='UNKNOWN')
-         CLOSE(217,STATUS='DELETE')
-
-         OPEN(216,FILE='lsictemp1.dat',FORM='FORMATTED',STATUS='NEW')
-         WRITE(216,*)
-     &   (TAUW(IPTS,1)/TAU(IPTS,1)/RHOG(IPTS,1,1),IPTS=1,NMSH)
-         WRITE(216,*) 
-     &   (RHOG(IPTS,2,1)/4.0d0/TAU(IPTS,1)/RHOG(IPTS,1,1),IPTS=1,NMSH)
-         WRITE(216,*) 
-     &   (RHOG(IPTS,3,1)/4.0d0/TAU(IPTS,1)/RHOG(IPTS,1,1),IPTS=1,NMSH)
-         WRITE(216,*) 
-     &   (RHOG(IPTS,4,1)/4.0d0/TAU(IPTS,1)/RHOG(IPTS,1,1),IPTS=1,NMSH)
-         WRITE(216,*) 
-     &   (TAUW(IPTS,1)/TAU(IPTS,1)/TAU(IPTS,1),IPTS=1,NMSH)
-         CLOSE(216)
-         IF(NSPN.EQ.2) THEN
-          OPEN(217,FILE='lsictemp2.dat',FORM='FORMATTED',STATUS='NEW')
-          WRITE(217,*)
-     &    (TAUW(IPTS,2)/TAU(IPTS,2)/RHOG(IPTS,1,2),IPTS=1,NMSH)
-          WRITE(217,*) 
-     &    (RHOG(IPTS,2,2)/4.0d0/TAU(IPTS,2)/RHOG(IPTS,1,2),IPTS=1,NMSH)
-          WRITE(217,*) 
-     &    (RHOG(IPTS,3,2)/4.0d0/TAU(IPTS,2)/RHOG(IPTS,1,2),IPTS=1,NMSH)
-          WRITE(217,*) 
-     &    (RHOG(IPTS,4,2)/4.0d0/TAU(IPTS,2)/RHOG(IPTS,1,2),IPTS=1,NMSH)
-          WRITE(217,*) 
-     &    (TAUW(IPTS,2)/TAU(IPTS,2)/TAU(IPTS,2),IPTS=1,NMSH)
-          CLOSE(217)
-         END IF
-        end if
-
 
         !Saving densities 
 !       OPEN(214,FILE='rho1.dat',STATUS='UNKNOWN')

@@ -359,12 +359,12 @@ if(.NOT. libxc1 .OR. MODE==1) then
               VXCS(JPTS)= VXCS(JPTS)+VX
               EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)
               EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)
-             else if(GSICON) THEN
+             else if(GSICON)then
               VXCS(JPTS)= VXCS(JPTS)+VX
               EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)*BETA(LPTS+IPTS)
               EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)*BETA(LPTS+IPTS)
              else
-              !First implementation of VXCS with scaling factor
+              !Implementation of VXCS with scaling factor
               VXCS(JPTS)= VXCS(JPTS)+VX*TAUW_TAU(LPTS+IPTS)
               EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
               EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
@@ -472,6 +472,9 @@ if(.NOT. libxc1 .OR. MODE==1) then
        SICEXCS(IPTS)=SICEXCS(IPTS) + EC*D
 
        if (NSPN == 2) then
+        if(SDSICON) then
+         VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS) + VCDN+DVCDN
+        else
          VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS) +(VCDN+DVCDN)*TAUW_TAU(LPTS+IPTS)
          if(ISMGGA) then
           mixins(1,IPTS+MPTS)=mixins(1,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
@@ -479,6 +482,7 @@ if(.NOT. libxc1 .OR. MODE==1) then
           mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
           mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
          end if
+        end if
        end if
       else
        ECL= ECL+ EC*D*WMSH(LPTS+IPTS)    !YY. add returned Ec here
