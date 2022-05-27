@@ -5,12 +5,13 @@
 !> @details This subroutine call a meta-GGA functional and returns
 !>          Ex, Vx, and matrix elemets in MIXINS array
 !>          MIXINS array is zeroed at subvlxc
-subroutine call_mgga_ex(ipts,mpts,ISPN,D,DGRAD,TAU,RHTUP,RHTDN,EX,VX)
+subroutine call_mgga_ex(ipts,mpts,ISPN,D,DGRAD,TAU,RHTUP,RHTDN,EX,VX,LDFTF)
 
 use common2,only  : IDFTYP, NSPN
 !use xcmod,only   : MIXINS
 use XTMP2A,only   : MIXINS
 IMPLICIT NONE
+logical, intent(in) :: LDFTF
 !integer, intent(in) :: functional_id
 integer, intent(in) :: ipts
 integer, intent(in) :: mpts
@@ -40,8 +41,12 @@ RHT(:,NSPN)=RHTDN(:)
   select case(IDFTYP(1))
   case(11) !SCAN
     call VSCANxUNP(D,DGRAD,TAU,EX,VX,VXDD,AMUXD)
-  !case(12) 
-  !modSCAN used for GSIC
+  case(12) !modSCAN used for GSIC
+    if(LDFTF) then
+     call VSCANxUNP(D,DGRAD,TAU,EX,VX,VXDD,AMUXD)
+    else !(sic)
+     call MODVSCANxUNP(D,DGRAD,TAU,EX,VX,VXDD,AMUXD)
+    endif
   case(13) !Regularized SCAN
     call RSCANxUNP(D,DGRAD,TAU,EX,VX,VXDD,AMUXD)
   case(14) !r2SCAN 
@@ -94,18 +99,20 @@ end subroutine call_mgga_ex
 !#################################################################################
 
 !call call_mgga_cor(DUP,DDN,DG2(1:3),RHT(1:4,1:2),tauchop(IPTS,1),tauchop(IPTS,NSPN)
-subroutine call_mgga_cor(ipts,mpts,DUP,DDN,DG2,RHTUP,RHTDN,tauup,taudn,EC,VCUP,VCDN)
+subroutine call_mgga_cor(ipts,mpts,DUP,DDN,DG2,RHTUP,RHTDN,tauup,taudn,EC,VCUP,VCDN,LDFTF)
 
 use common2,only  : IDFTYP, NSPN
 !use xcmod,only   : MIXINS
 use XTMP2A,only   : MIXINS
 IMPLICIT NONE
 !integer,intent(in) :: functional_id
+logical,intent(in) :: LDFTF
 integer,intent(in) :: ipts,mpts
 real(8),intent(in) :: DUP,DDN,DG2(3),RHTUP(4),RHTDN(4),tauup,taudn
 real(8),intent(out) :: EC,VCUP,VCDN
 integer :: contraction ! =1 contracted grad used for libxc style functional
                        ! =0 grad used for original SCAN style functional
+                       ! =-1 do nothing
 real(8) :: VCDD1,VCDD2, &
            AMUCD1,AMUCD2, &
            sig1,sig2,sig3, &
@@ -124,6 +131,16 @@ RHT(:,NSPN)=RHTDN(:)
   case(11) ! SCAN
     call VSCANc(DUP,DDN,sqrt(DG2(2)),sqrt(DG2(3)),sqrt(DG2(1)),tauup,taudn,  &
                         EC,VCUP,VCDD1,VCDN,VCDD2,AMUCD1,AMUCD2)
+  case(12) ! modSCAN
+    if(LDFTF) then !Do the regular SCANc
+     call VSCANc(DUP,DDN,sqrt(DG2(2)),sqrt(DG2(3)),sqrt(DG2(1)),tauup,taudn,  &
+                         EC,VCUP,VCDD1,VCDN,VCDD2,AMUCD1,AMUCD2)
+    else !(sic) Do nothing
+     contraction=-1
+     EC=0.0d0
+     VCUP=0.0d0
+     VCDN=0.0d0
+    end if
   case(13) ! Regularized SCAN
     call RSCANc(DUP,DDN,sqrt(DG2(2)),sqrt(DG2(3)),sqrt(DG2(1)),tauup,taudn,  &
                         EC,VCUP,VCDD1,VCDN,VCDD2,AMUCD1,AMUCD2)
@@ -202,6 +219,8 @@ RHT(:,NSPN)=RHTDN(:)
       mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)+2.0d0*vsigma3*RHT(4,2)+vsigma2*(RHT(4,1)-RHT(4,2))
       mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)+AMUCD2*0.5d0
     end if
+  case(-1)
+    continue ! do nothing
   end select
 
 

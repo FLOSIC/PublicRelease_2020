@@ -1,7 +1,7 @@
 SUBROUTINE GITVERSION
 
-PRINT '(A)','commit 997ec8668ff1277e5551c3533f0631873a6f994e'
+PRINT '(A)','commit bcd6961794e0c7221d11216867d0a07a96c5fdbc'
 PRINT '(A)','Author: Yoh Yamamoto <yamamoto@localhost.localdomain>'
-PRINT '(A)','Date:   Wed May 25 20:36:48 2022 -0600'
+PRINT '(A)','Date:   Wed May 25 21:33:37 2022 -0600'
 
 END SUBROUTINE GITVERSION

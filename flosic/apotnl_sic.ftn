@@ -545,14 +545,15 @@ C      WRITE(41)(POT(IMSH)+COULOMB(IMSH),IMSH=1,NMSH)
 !obtain exterior scaling
         SDSCALE1=0.0d0
         SDSCALE2=0.0d0
+        POW=3.0d0
         DO IMSH=1,NMSH
          SDSCALE1=SDSCALE1+SICEXC(IMSH)*WMSH(IMSH)
-     &           *(3.0d0*TAUW_TAU(IMSH)**3.0d0 
-     &           - 2.0d0*TAUW_TAU(IMSH)**4.0d0)
+     &             *(POW*TAUW_TAU(IMSH)**POW
+     &      -(POW-1.0d0)*TAUW_TAU(IMSH)**(POW+1.0d0))
          SDSCALE2=SDSCALE2+SICEXC(IMSH)*WMSH(IMSH)
         END DO
         SDSCALE=SDSCALE1/SDSCALE2
-        print *,"SDSIC",IORBX,SDSCALE
+        print *,"SDSIC",IORBX,POW,SDSCALE
 !SD scaling -multiple energy
         ERGXL = ERGXL*SDSCALE
         ERGXN = ERGXN*SDSCALE

@@ -798,7 +798,7 @@ C
 ! Local-SIC and GSIC exit here. Orb-SIC continues calculation.
       if(oneshot) then
        print *,"End of calculation"
-       print *,"LSIC is done non self-consistently" 
+       print *,"Calculation is done non self-consistently" 
        return !exit here
       end if
 C
