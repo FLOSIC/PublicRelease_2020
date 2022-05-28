@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a>
+  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a><img src="doc/logo2.jpeg">
 </h1>
 
 # PublicRelease_2020
@@ -57,6 +57,8 @@ Y. Yamamoto, A. Salcedo, C. M. Diaz, M. S. Alam, T. Baruah and R. R. Zope, Phys.
 ADSIC, Slater averaging of SIC potential, FLOSIC-KLI: \
 C. M. Diaz, T. Baruah, and R. R. Zope, Phys. Rev. A 103, 042811 (2021); \
 C. M. Diaz, P. Suryanarayana, Q. Xu, T. Baruah, J. E. Pask, and R. R. Zope, J. Chem. Phys. 154, 084112 (2021).
+
+## For scaled SIC work, please cite these articles where it is relevant to your use.
 
 Local self-interaction correction (LSIC) method: \
 R. R. Zope, Y. Yamamoto, C. M. Diaz, T. Baruah, J. E. Peralta, K. A. Jackson, B. Santra, and J. P. Perdew, J. Chem. Phys. 151, 214108 (2019).
