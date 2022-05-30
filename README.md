@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a><img src="doc/logo2.jpeg">
+  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a><img src="doc/logo2.jpeg" width="145">
 </h1>
 
 # PublicRelease_2020
