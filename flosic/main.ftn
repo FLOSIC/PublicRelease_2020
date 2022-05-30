@@ -197,6 +197,7 @@ C LB
       CALL SYSTEM('hostname')
       CALL SYSTEM('uname -a')
 C     CALL BANNER
+      CALL printscaledpzsic
       PRINT '(A)',' '
       CALL WPARAMS
 C

@@ -831,15 +831,7 @@ c
            if(ierr/=0)write(6,*)'SENDDATA:ERROR DEALLOCATING mixin'
          END IF
        END IF
-!Broadcast tauw/tau for exchange-correlation integration
-       IF(JOB .EQ. 216) THEN
-        IF(IRANK/=0) ALLOCATE(TAUW_TAU(NMSH))
-        CALL MPI_BCAST(TAUW_TAU,NMSH,MPI_DOUBLE_PRECISION,ROOT,
-     &                 MPI_COMM_WORLD,IERR)
-       END IF
-       IF(JOB .EQ. 217) THEN
-        DEALLOCATE(TAUW_TAU)
-       END IF
+!Broadcast beta or tauw/tau for exchange-correlation integration
        IF(JOB .EQ. 214) THEN
         IF(IRANK/=0) ALLOCATE(BETA(NMSH))
         CALL MPI_BCAST(BETA    ,NMSH,MPI_DOUBLE_PRECISION,ROOT,
@@ -848,5 +840,14 @@ c
        IF(JOB .EQ. 215) THEN
         DEALLOCATE(BETA) 
        END IF
+       IF(JOB .EQ. 216) THEN
+        IF(IRANK/=0) ALLOCATE(TAUW_TAU(NMSH))
+        CALL MPI_BCAST(TAUW_TAU,NMSH,MPI_DOUBLE_PRECISION,ROOT,
+     &                 MPI_COMM_WORLD,IERR)
+       END IF
+       IF(JOB .EQ. 217) THEN
+        DEALLOCATE(TAUW_TAU)
+       END IF
+ 
 %endif   
       END
