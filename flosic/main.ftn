@@ -783,12 +783,6 @@ C
       ETOTAL=ETOTAL+ZSIC
       ELOWEST=MIN(ETOTAL,ELOWEST)
       CLOSE(54)
-!
-!  YY. Adding feature here
-!
-      !IF(ITSCF.EQ.1) THEN
-      !  CALL WEIZSACKER(2)
-      !END IF
       !The lines below are for gsic modscan 
       if(GSICON)then
        open(55,file='modscane',position='append')
