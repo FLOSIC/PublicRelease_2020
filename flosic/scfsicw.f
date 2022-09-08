@@ -196,7 +196,7 @@ C
 !#    HAM MIXING SECTION     #
 !#############################
        CALL CHECK_INPUTS
-       print *,"MIXING",MIXING1," 1:POTENTIAL,2:HAMILT,3:DENMAT"
+       print *,"MIXING",MIXING1," 0:POTENTIAL,1:DENMAT,2:HAMILT"
        IF(MIXING1.EQ.2)THEN !copied from DFT newwave
          DO ISPN=1,NSPN
            !YY. Calculate hamiltonian. This will create HAMOLD.
@@ -243,7 +243,8 @@ c       IF (ISPN.EQ.2) ELEC=E_DN
         IF (DEBUG) PRINT *,'NEWWAVE CALLS OVERLAP MODE: 2'
         CALL CHECK_INPUTS
 !        if(MIXING1.EQ.0) CALL OVERLAP(2)
-        IF(MIXING1.EQ.0) THEN
+        !IF(MIXING1.EQ.0) THEN
+        IF(MIXING1.NE.2) THEN  !do this for pot mix or dmat mix 
           CALL OVERLAP(2)
         ELSE !copied from DFT newwave
           OPEN(99,FILE='HAMOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
@@ -632,7 +633,8 @@ C ROTATE BACK INTO BASIS SET REPRESENTATION
 C            PRINT *, 'CALCULATE FOOVR2 O(N^4)', NBAS
 !YY allocatable FOOVR2
              if(printmore)then
-              allocate(FOOVR2(NDH,NDH))
+              !allocate(FOOVR2(NDH,NDH))
+              allocate(FOOVR2(nbas,nbas))
               FOOVR2=0.0d0
               do inew=1,nbas
                do jnew=1,nbas
