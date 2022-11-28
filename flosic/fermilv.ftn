@@ -162,6 +162,7 @@ C
        CLOSE(47)
   100  CONTINUE
  1020  FORMAT(' MIN,FERMI,MAX,CHARGE:',4(1X,G14.6))
-       CALL SYSTEM('cp FRMLV FRMLVS')
+       !<LA: this does not need to be here 
+!       CALL SYSTEM('cp FRMLV FRMLVS')
        RETURN
        END

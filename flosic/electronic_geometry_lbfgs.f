@@ -11,6 +11,7 @@ C> @param msite(2) : This array holds numbers of FODs for spin up/down.
          subroutine fod_opt(energy,fod_converge)
 !        subroutine electronic_geometry(energy)
          use global_inputs,only : fod_opt1,fod_opt2,fod_opt3
+         use common9, only: old_mode
          use xmol,only : AU2ANG,NUM_ATMS,XMOL_LIST,GET_LETTER
          implicit real*8 (a-h,o-z)
          !INCLUDE  'PARAMA2' not yet.
@@ -31,8 +32,8 @@ C LBFGS
          real*8, allocatable :: work(:)
          real*8 :: fmax,dist
          logical :: LFODLBF,scaled
-         real(8) :: len1, len2, len3                ! lengths of forces etc.
-         real(8) :: len4, len5, len6                ! evaluation of energy convergence -> reset LBFGS or not
+         real(8) :: len1, len2, len3        ! lengths of forces etc.
+         real(8) :: len4, len5, len6        ! evaluation of energy convergence -> reset LBFGS or not
          integer :: constraint,i,ig
          integer :: frozen(1000) ! 0: frozen 1: not frozen
          integer             :: n_atoms             ! number of atoms
@@ -41,6 +42,7 @@ C LBFGS
          real(8), allocatable :: hess_D(:)          ! HESS_D used in the scaledLBFGS                     (former HESS_D)
          character(len=2),allocatable :: species(:) ! atomic species
          character(2)  :: LETTER
+         integer :: iff
          allocate(r_atoms(NUM_ATMS,3))
          allocate(species(NUM_ATMS))
 
@@ -66,9 +68,13 @@ C LBFGS
           open(91,file='fforce.dat')
           read(90,*)msite(1),msite(2)
           nopt=0
-          do if=1,msite(1)+msite(2)
-           read(90,*)(r(j,if),j=1,3)
-           read(91,*)(f(j,if),j=1,3)
+          !<LA: changing if to iff
+!          do if=1,msite(1)+msite(2)
+!           read(90,*)(r(j,if),j=1,3)
+!           read(91,*)(f(j,if),j=1,3)
+          do iff=1,msite(1)+msite(2)
+           read(90,*)(r(j,iff),j=1,3)
+           read(91,*)(f(j,iff),j=1,3)
           end do
           close(90)
           close(91)
@@ -76,42 +82,45 @@ C LBFGS
           open(90,file='gforce.dat')
           read(90,*)msite(1),msite(2)
           nopt=0
-          do if=1,msite(1)+msite(2)
-           read(90,*)(r(j,if),j=1,3)
-           read(90,*)(f(j,if),j=1,3)
+!          do if=1,msite(1)+msite(2)
+!           read(90,*)(r(j,if),j=1,3)
+!           read(90,*)(f(j,if),j=1,3)
+          do iff=1,msite(1)+msite(2)
+           read(90,*)(r(j,iff),j=1,3)
+           read(90,*)(f(j,iff),j=1,3)
           end do
           close(90)
          end if
 
          scaled     = .false.
-         call check_inputs 
+         if (old_mode) call check_inputs
          LFODLBF=fod_opt1
-          scaled = fod_opt2
-          constraint = fod_opt3 
-          do ig=1,msite(1)+msite(2)
-           do i=1,NUM_ATMS
-             CALL GET_LETTER(XMOL_LIST(i)%ANUM,LETTER)
-             species(i)=LETTER
-             r_atoms(i,1)=XMOL_LIST(i)%RX
-             r_atoms(i,2)=XMOL_LIST(i)%Ry
-             r_atoms(i,3)=XMOL_LIST(i)%Rz
-             dist=(r(1,ig)-r_atoms(i,1))**2.0d0+(r(2,ig)-r_atoms(i,2))
-     &       **2.0d0 +(r(3,ig)-r_atoms(i,3))**2.0d0
-             dist=sqrt(dist)
-             frozen(ig)=1
-             if (constraint .eq. 1) then
+         scaled = fod_opt2
+         constraint = fod_opt3 
+         do ig=1,msite(1)+msite(2)
+          do i=1,NUM_ATMS
+            CALL GET_LETTER(XMOL_LIST(i)%ANUM,LETTER)
+            species(i)=LETTER
+            r_atoms(i,1)=XMOL_LIST(i)%RX
+            r_atoms(i,2)=XMOL_LIST(i)%Ry
+            r_atoms(i,3)=XMOL_LIST(i)%Rz
+            dist=(r(1,ig)-r_atoms(i,1))**2.0d0+(r(2,ig)-r_atoms(i,2))
+     &      **2.0d0 +(r(3,ig)-r_atoms(i,3))**2.0d0
+            dist=sqrt(dist)
+            frozen(ig)=1
+            if (constraint .eq. 1) then
              if (trim(adjustl(species(i))).ne.'H') then
-             if  (dist .lt. 0.1d0 ) then
-             frozen(ig)=0
-             GO TO 227
-             else 
-             frozen(ig)=1
+              if  (dist .lt. 0.1d0 ) then
+               frozen(ig)=0
+               GO TO 227
+              else 
+               frozen(ig)=1
+              end if
              end if
-             end if
-             end if
-           end do
- 227           CONTINUE 
+            end if
           end do
+ 227          CONTINUE 
+         end do
 !          open(3000,file='frozen.tmp',status='old')
 !          rewind(3000)
 !          do if=1,msite(1)+msite(2)
@@ -122,7 +131,7 @@ C LBFGS
          gabs=0.0d0
          fmax=0.0d0
 !!PB changed
-           nopt=0
+         nopt=0
          do ig=1,msite(1)+msite(2)
           if (frozen(ig).ne. 0) then
            do j=1,3
@@ -196,22 +205,18 @@ C LBFGS
            call write_table_constr ! included this in this subroutine here. no need for an extra subroutine
            inquire(file='HESS_DIAG',exist=exist1)
            if (.not.exist1) then
-             !
+
              ! If HESS_DIAG doesn't exist -> create it
-             !
              call write_HD_constr()
            end if
-           !
+
            ! Allocate hess_D array -> storing the scaling factors
-           !
            allocate(hess_D(3*(msite(1)+msite(2))))
-           !
+
            ! open HESS_DIAG file
-           !
            open(95,file='HESS_DIAG',status='old',action='read')
-           !
+
            ! Write the corresponding array
-           !
            count_hess = 0
            do ig=1,msite(1)+msite(2)
              do j = 1, 3
@@ -417,6 +422,7 @@ c        call system('echo "0  " >> RUNS')
          end
 
         subroutine write_HD_constr()
+        use xmol,only : au2ang, num_atms, xmol_list, ang2au
         real*8  rf,ra,HD,
      &  r,D,tab,DD,HS
         dimension rf(3,1000),ra(3,1000)
@@ -450,21 +456,30 @@ C FLOSIC calculations.
         end do
         close(3)
 c reading atomic data
-        open(unit=2,file='XMOL.DAT')
-        read(2,*) na
-        read(2,*)
-        do i=1,na
-         read(2,*)nz(i),(ra(j,i),j=1,3)
-        end do
-        close(2)
+        !<LA: Update this to use the xmol module
+!        open(unit=2,file='XMOL.DAT')
+!        read(2,*) na
+!        read(2,*)
+!        do i=1,na
+!         read(2,*)nz(i),(ra(j,i),j=1,3)
+!        end do
+!        close(2)
+        !<LA: new way 
+        na = num_atms
+        do i=1, na
+            nz(i) = xmol_list(i)%anum
+            ra(1,i) = xmol_list(i)%rx
+            ra(2,i) = xmol_list(i)%ry
+            ra(3,i) = xmol_list(i)%rz
+        enddo 
 
 c converting atomic coordinates to bohr
-
-        do i=1,na
-         do j=1,3
-          ra(j,i)=ra(j,i)*1.889725989d0
-         end do
-        end do
+        !<LA: already in bohr
+!        do i=1,na
+!         do j=1,3
+!          ra(j,i)=ra(j,i)*1.889725989d0
+!         end do
+!        end do
 c start of the process of finding right inversed Hessian element
 c finding the closest atom to each FOD
         do i=1,nup+ndn
@@ -1267,7 +1282,7 @@ C
       WIDTH = STPMAX - STPMIN
       WIDTH1 = WIDTH/P5
 
-	DO 20 J = 1, N
+       DO 20 J = 1, N
          WA(J) = X(J)
    20    CONTINUE
 C

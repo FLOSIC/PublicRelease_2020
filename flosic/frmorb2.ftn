@@ -40,24 +40,10 @@ C ----- FRMORB2() ------------
        PARAMETER (NMAX=MPBLOCK)
 !      LOGICAL ICOUNT,EXIST
 !      LOGICAL LGGA,IUPDAT
-!      COMMON/MIXPOT/POTIN(MAX_PTS*MXSPN),POT(MAX_PTS*MXSPN)
-C      COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),JJJJJJ,ZTZL
-!      COMMON/TMP1/COULOMB(MAX_PTS),RHOG(MAX_PTS,10,MXSPN)
 
        REAL*8,allocatable :: PSIG(:,:,:),PTS(:,:)
      &                      ,GRAD(:,:,:,:,:),RVECA(:,:)
        LOGICAL,allocatable :: ICOUNT(:,:)
-!      COMMON/TMP2/PSIG(NMAX,10,MAX_OCC)
-!    &  ,PTS(NSPEED,3),GRAD(NSPEED,10,6,MAX_CON,3)
-!    &  ,RVECA(3,MX_GRP),ICOUNT(MAX_CON,3)
-!Common for SIC
-!      COMMON/SICMAT/SIC(MAX_OCC,MAX_OCC,MXSPN)
-!      COMMON/FRM/BFRM(3,MAX_OCC,MXSPN),RESULTS(13, MAX_OCC,MXSPN),
-!    &   LFRM(MXSPN),DEBDAX(3,MAX_OCC,MXSPN)
-!      COMMON/HMATSIC/ OVTM(MAX_OCC,MAX_OCC,2),HMTM(MAX_OCC,MAX_OCC,2)
-!      COMMON/FOR_DIAG/OVER(NDH,NDH),HAM(NDH,NDH),FILO(NDH,NDH),
-!    &  EVAL(NDH),SC1(NDH),SC2(NDH)
-!      COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),ZTZL,JJJJJJ
 
        LOGICAL EXIST
        LOGICAL LGGA,IUPDAT
@@ -485,6 +471,7 @@ C        IF(K.EQ.4)WRITE(INITOUT,*)'<dFj/dZj|Fi>:'
 C         WRITE(INITOUT,50) (OVER(JFM,IFM),JFM=1,NFRM(ISPN))
          END DO
          IF(ISPN.EQ.LSPN)THEN
+             !>>LA should change index name here
           DO IF=1,NFRM(ISPN)
            DO JF=1,NFRM(ISPN)
             VER(JF,IF,K)=OVER(JF,IF)
@@ -560,8 +547,7 @@ C Calculate dQ_i/dAxj:  Derivative terms
             DO IA=1,NFRM(ISPN)
              DO MF=1,NFRM(ISPN)
               !YY This is T_aj T_ak
-              TMP(IA,MF)=TMP(IA,MF)+FILO(JF,IA)*FILO(KF,IA)*
-     &                 SC1(MF)
+              TMP(IA,MF)=TMP(IA,MF)+FILO(JF,IA)*FILO(KF,IA)*SC1(MF)
              END DO
             END DO
            END DO

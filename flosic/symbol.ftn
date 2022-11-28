@@ -18,6 +18,8 @@ C     ------------------------------------------------------------------
 C
       use common2,only : ATMSYM, RIDSYM, MOVING, SYMBS, NSCHAR,
      &                   NIDSYM, NSYMBS, SYMATM,MXSYMBS
+      !<LA: have first instance defined here 
+      use common2, only: natoms
       use common3,only : RMAT
       use common8,only : REP
 C
@@ -88,6 +90,7 @@ C
       READ(50,'(A7)') STRING
       IF (STRING(1:7) .EQ. 'OLDMESH') THEN
         IMESH= 1
+        !<LA: this routine appears to be obsolete 
       ELSE IF (STRING(1:7) .EQ. 'DVPMESH') THEN
         IMESH= 2
       ELSE
@@ -130,7 +133,12 @@ C     --- MOVING SHOULD BE 1 FOR NORMAL DEGREES OF ---
 C     --- FREEDOM AND 0 FOR FROZEN ONES            ---
 C
       READ(50,*) NSYMBS
+      !<LA: This is number of atoms, written as mmatoms from isetup
       READ(50,*) NIDSYM
+      !<LA: set global here
+      natoms = nidsym
+
+
       IF (NSYMBS .GT. MXSYMBS) THEN
         WRITE(6,*)'SYMBOL: MXSYMBS MUST BE AT LEAST: ',NSYMBS
         CALL STOPIT

@@ -1,10 +1,10 @@
-C UTEP Electronic Structure Lab (2020)
-C
-C *************************************************************
-C
-C GETVLXC DIRK POREZAG AUGUST 1999
-C CALCULATES THE LOCAL AND EXCHANGE-CORRELATION POTENTIALS ON THE MESH
-C
+! UTEP Electronic Structure Lab (2020)
+!
+! *************************************************************
+!
+! GETVLXC DIRK POREZAG AUGUST 1999
+! CALCULATES THE LOCAL AND EXCHANGE-CORRELATION POTENTIALS ON THE MESH
+!
        SUBROUTINE GETVLXC(NDIM,RHOG,VXC,VLO,LDFTF,MXXD,KXXS,KXXO)
        use mesh1,only : nmsh
        use common2,only : IGGA, ISPN, NSPN, ERGXL, ERGXN, ERGCL, ERGCN
@@ -30,9 +30,6 @@ C
        SAVE
        DIMENSION RHOG(NDIM,KRHOG,MXSPN)
        DIMENSION VXC(NDIM*MXSPN),VLO(NDIM)
-C      COMMON/TMP2/RHOV(10*MXSPN*MPBLOCK),VXCS(MXSPN*MPBLOCK)
-C    &  ,VLOS(MPBLOCK),RHOC(10,MPBLOCK),XTMP(3,MPBLOCK),DTMP(3,MPBLOCK)
-C    &  ,RTMP(MPBLOCK),VLOC(NSPEED)
        REAL*8,ALLOCATABLE :: RHOV(:),VXCS(:),VLOS(:)
        DIMENSION EXCVEC(4)
        LOGICAL ISGGA    ! .true. for gga and mgga
@@ -42,9 +39,9 @@ C    &  ,RTMP(MPBLOCK),VLOC(NSPEED)
 ! SIC orbital calculation uses NSPN=2 always.
 !
 !       IF(.NOT. LDFTF) NSPN=2
-C
-C ALLOCATE LOCAL ARRAYS
-C
+!
+! ALLOCATE LOCAL ARRAYS
+!
        ALLOCATE(RHOV(10*MXSPN*MPBLOCKXC),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR ALLOCATING RHOV'
        RHOV(:)=0.0d0
@@ -54,10 +51,10 @@ C
        ALLOCATE(VLOS(MPBLOCKXC),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR ALLOCATING VLOS'
        VLOS(:)=0.0d0
-C
-C FIGURE OUT SIZE OF NGRAD
-C INITIALIZE ENERGIES
-C
+!
+! FIGURE OUT SIZE OF NGRAD
+! INITIALIZE ENERGIES
+!
 ! YY. ISGGA is set to .true. for GGA and above the Jacob's ladder
 ! FYI: IGGA(IXC)= 0:LDA  1:GGA  3:MGGA
        !ISGGA= ((IGGA(1) .EQ. 1) .OR. (IGGA(2) .EQ. 1))
@@ -70,9 +67,9 @@ C
        ERGCL= 0.0D0
        ERGCN= 0.0D0
 
-C LB GET TIMINGS
+! LB GET TIMINGS
        CALL GTTIME(TIMEA)
-C LB
+! LB
 ! Allocate HSTOR_LIBXC with size of upper triangle of a Hamiltonian matrix
        IF(LIBXC1.OR.ISMGGA)THEN
         ALLOCATE(MIXIN(4,NMSH*MXSPN),STAT=IERR)
@@ -89,9 +86,9 @@ C LB
         !IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR ALLOCATING HSTOR_LIBXC'
         !HSTOR_LIBXC(:,:)=0.0D0
        ENDIF
-C
-C MPI: CALL PARALLEL VERSION 
-C
+!
+! MPI: CALL PARALLEL VERSION 
+!
 !YY Since there is mesh screening in apotnl_sic, mpi in getvlxc
 !   is disabled.
 %ifdef MPI
@@ -113,10 +110,10 @@ C
      &              LDFTF,MXXD,KXXS,KXXO)
 %endif
 %else
-C
-C MOVE RHOG DATA INTO TEMPORARY BLOCK
-C CALL SUBVLXC FOR CURRENT SET OF POINTS AND UPDATE ARRAYS
-C
+!
+! MOVE RHOG DATA INTO TEMPORARY BLOCK
+! CALL SUBVLXC FOR CURRENT SET OF POINTS AND UPDATE ARRAYS
+!
        DO LPTS=0,NMSH-1,MPBLOCKXC
         MPTS=MIN(NMSH-LPTS,MPBLOCKXC)
         IFAC= NSPN*NGRAD
@@ -188,17 +185,27 @@ C
 
          !Write MIXIN arrays to file. You use these in Pulay force
          !calculation.
-         open(12001,FILE='LIBXCFRC',FORM='UNFORMATTED',STATUS='NEW')
-         do IPTS=1,NMSH*NSPN
-          if(LIBXC1.OR.ISMGGA) then
-              write(12001) MIXIN(1,IPTS),MIXIN(2,IPTS),
+!         open(12001,FILE='LIBXCFRC',FORM='UNFORMATTED',STATUS='NEW')
+!         do IPTS=1,NMSH*NSPN
+!          if(LIBXC1.OR.ISMGGA) then
+!              write(12001) MIXIN(1,IPTS),MIXIN(2,IPTS),
+!     &                     MIXIN(3,IPTS),MIXIN(4,IPTS)
+!          else
+!              continue !Do nothing
+!              !write(12001) 0.0d0,0.0d0,0.0d0,0.0d0
+!          end if
+!         end do
+!         close(12001)
+        !<LA: doing it this way, else it opens a file with nothing in it 
+        ! if no libxc1 or ismgga
+         if (LIBXC1 .OR. ISMGGA) then
+           open(12001,FILE='LIBXCFRC',FORM='UNFORMATTED',STATUS='NEW')
+           do IPTS=1,NMSH*NSPN
+             write(12001) MIXIN(1,IPTS),MIXIN(2,IPTS),
      &                     MIXIN(3,IPTS),MIXIN(4,IPTS)
-          else
-              continue !Do nothing
-              !write(12001) 0.0d0,0.0d0,0.0d0,0.0d0
-          end if
-         end do
-         close(12001)
+           end do
+           close(12001)
+         endif
         END IF
        ELSE !SIC KXXO
         IF(LIBXC1 .OR. ISMGGA) THEN
@@ -227,14 +234,14 @@ C
         END IF
        ENDIF
 
-C LB PRINT TIME
+! LB PRINT TIME
        CALL GTTIME(TIMEB)
        CALL TIMOUT('EXCHANGE-CORRELATION:              ',TIMEB-TIMEA)
-C LB
-C
-C
-C DEALLOCATE LOCAL ARRAYS
-C
+! LB
+!
+!
+! DEALLOCATE LOCAL ARRAYS
+!
        DEALLOCATE(RHOV,STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR DEALLOCATING RHOV'
        DEALLOCATE(VXCS,STAT=IERR)
@@ -251,6 +258,6 @@ C
        !DEALLOCATE(HSTOR_LIBXC,STAT=IERR)
        !IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR DEALLOCATING HSTOR_LIBXC'
        ENDIF
-C
+!
        RETURN
        END

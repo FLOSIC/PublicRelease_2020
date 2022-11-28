@@ -9,6 +9,7 @@ C
        use common2,only : RIDT, NIDENT, FHELLF, FNONL, FTOT, FRC1, FRC2,
      &                    IFUIDT, ZNUC, EDISP, over1, ek, dftV, allH
        use common3,only : RMAT
+       use common9, only: old_mode
        use SICMAT,only  : DERSIC
        use FRM,only     : LFRM
        use SICFLAG,only : LSICF
@@ -26,7 +27,7 @@ C
        DIMENSION FPUL(3)
        DATA SMALL/1.0D-3/
 
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
        EDISP=0
 C
 C ZERO FRC ARRAYS

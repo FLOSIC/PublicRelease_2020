@@ -8,6 +8,7 @@ C DIRK POREZAG, AUGUST 1997
 C DEFINE DENSITY FUNCTIONAL
 C
        use common2,only : IGGA, IDFTYP
+       use common9, only: old_mode
        use global_inputs, only : libxc1
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:58 MDT 2017
 
@@ -50,7 +51,7 @@ C
          IGGA(2)= -1
 
 ! YY. Libxc functional string should be family_kind_type e.g GGA_X_PBE*GGA_C_PBE
-         call CHECK_INPUTS
+         if (old_mode) call check_inputs
          libxc1=.false.
          !use built in functionals
          if(libxc1) then

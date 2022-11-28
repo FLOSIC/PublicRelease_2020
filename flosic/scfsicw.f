@@ -24,6 +24,7 @@ c
        use common5,only : ISTSCF, IHIPOL, PSI_COEF, OCCUPANCY,
      &   N_OCC, PSI, NWF, NWFS, EFERMI, EVLOCC
        use common8,only : REP, N_REP, NDMREP, IGEN, NS_TOT, LDMREP
+       use common9, only: old_mode
        use mpidat1,only : NPROC, NCALLED
 !SIC module
        use LOCORB,only : TMAT,MORB,ZSIC,IRBSIC
@@ -101,6 +102,7 @@ C
 C
 C READ IN TEMPERATURE AND CALL OVERLAP
 C
+       !<LA: should be a better way to get temperature
        OPEN(39,FILE='TMPTRE',FORM='FORMATTED',STATUS='UNKNOWN')
        REWIND(39)
        READ(39,*,END=10)TEMP
@@ -141,7 +143,7 @@ C
        READ(97,1000,END=60,ERR=60)FLINE
  1000  FORMAT(A4)
 ************************************************************************
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
        IF(FIXM1) EF_MODE=.FALSE.
        IF ((FLINE.EQ.'FIXM' ).OR.(FLINE.EQ.'fixm'))
      &   EF_MODE=.FALSE.
@@ -195,8 +197,8 @@ C
 !#############################
 !#    HAM MIXING SECTION     #
 !#############################
-       CALL CHECK_INPUTS
-       print *,"MIXING",MIXING1," 0:POTENTIAL,1:DENMAT,2:HAMILT"
+       if (old_mode) call check_inputs
+       print *,"MIXING",MIXING1," 1:POTENTIAL,2:HAMILT,3:DENMAT"
        IF(MIXING1.EQ.2)THEN !copied from DFT newwave
          DO ISPN=1,NSPN
            !YY. Calculate hamiltonian. This will create HAMOLD.
@@ -241,10 +243,9 @@ c       IF (ISPN.EQ.2) ELEC=E_DN
 
         PRINT '(A,I1,A)','SPIN ',ISPN,':'
         IF (DEBUG) PRINT *,'NEWWAVE CALLS OVERLAP MODE: 2'
-        CALL CHECK_INPUTS
+        if (old_mode) call check_inputs
 !        if(MIXING1.EQ.0) CALL OVERLAP(2)
-        !IF(MIXING1.EQ.0) THEN
-        IF(MIXING1.NE.2) THEN  !do this for pot mix or dmat mix 
+        IF(MIXING1.EQ.0) THEN
           CALL OVERLAP(2)
         ELSE !copied from DFT newwave
           OPEN(99,FILE='HAMOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
@@ -407,6 +408,7 @@ C NEW WORKING AREA...
 c  Force 0.0
 c  store lagrange multiplier matrix to disc
 c
+             !<LA: why does this need to be written? it is never read in 
              do iwf = 1,nfrm(ispn)
                write(37,*) (HAM(JWF,IWF),JWF=1,NFRM(ISPN))
              end do
@@ -633,8 +635,7 @@ C ROTATE BACK INTO BASIS SET REPRESENTATION
 C            PRINT *, 'CALCULATE FOOVR2 O(N^4)', NBAS
 !YY allocatable FOOVR2
              if(printmore)then
-              !allocate(FOOVR2(NDH,NDH))
-              allocate(FOOVR2(nbas,nbas))
+              allocate(FOOVR2(NDH,NDH))
               FOOVR2=0.0d0
               do inew=1,nbas
                do jnew=1,nbas

@@ -15,6 +15,7 @@ C
        use common3,only : RMAT
        use common5,only : PSI_COEF, OCCUPANCY, N_OCC, PSI, NWF, NWFS, EVLOCC
        use common8,only : REP, N_REP, NDMREP, IGEN, NS_TOT
+       use xmol, only: au2ang, num_atms, xmol_list
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:35:06 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -350,20 +351,24 @@ C
         WRITE(IUNIT,*) 'ORBITAL DENSITY FOR WF'
         WRITE(IUNIT,'(A,I1,A,I2,A,I5)')'SPIN ',JSP,
      &     ' REPRESENTATION ',JRP, ' STATE ',JST
-         OPEN(77,FILE='XMOL.DAT')
-         REWIND(77)
-         READ(77,*) NATOM
-         READ(77,*)
-         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+!         OPEN(77,FILE='XMOL.DAT')
+!         REWIND(77)
+!         READ(77,*) NATOM
+!         READ(77,*)
+         WRITE(IUNIT,'(1X,I10,3F20.12)') num_atms,(RBAS(J,1),J=1,3)
          DO K=1,3
          WRITE(IUNIT,'(1X,I10,3F20.12)') NGRID(K),(RBAS(J,K+1),J=1,3)
          ENDDO
-         DO K=1,NATOM
-           READ(77,*)IZ, X, Y, Z
+         DO k=1,num_atms
+!           READ(77,*)IZ, X, Y, Z
+           iz = xmol_list(k)%anum
+           x = xmol_list(k)%rx
+           y = xmol_list(k)%ry
+           z = xmol_list(k)%rz
            CHR=REAL(IZ)
            WRITE(IUNIT,2002)IZ, CHR, X, Y, Z
          END DO
-         CLOSE(77)
+!         CLOSE(77)
  2002    FORMAT(I6,4F16.10)
        END IF
        END DO

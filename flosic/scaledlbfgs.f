@@ -211,6 +211,8 @@ c This subroutine will write the inverse of the esptimated
 c diagonal elements of the Hessian
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
         subroutine write_HD()
+        use xmol, only: au2ang, num_atms, xmol_list
+
         real*8  rf,ra,HD,
      &  r,D,tab,DD,HS
         dimension rf(3,1000),ra(3,1000)
@@ -233,21 +235,26 @@ C FLOSIC calculations.
         end do
         close(3)
 c reading atomic data
-        open(unit=2,file='XMOL.DAT')
-        read(2,*) na
-        read(2,*)
+!        open(unit=2,file='XMOL.DAT')
+!        read(2,*) na
+!        read(2,*)
+        na = num_atms
         do i=1,na
-         read(2,*)nz(i),(ra(j,i),j=1,3)
+!         read(2,*)nz(i),(ra(j,i),j=1,3)
+         nz(i) = xmol_list(i)%anum
+         ra(1,i) = xmol_list(i)%rx
+         ra(2,i) = xmol_list(i)%ry
+         ra(3,i) = xmol_list(i)%rz
         end do
-        close(2)
+!        close(2)
 
 c converting atomic coordinates to bohr
 
-        do i=1,na
-         do j=1,3
-          ra(j,i)=ra(j,i)*1.889725989d0
-         end do
-        end do
+!        do i=1,na
+!         do j=1,3
+!          ra(j,i)=ra(j,i)*1.889725989d0
+!         end do
+!        end do
 
 c start of the process of finding right inversed Hessian element
 c finding the closest atom to each FOD

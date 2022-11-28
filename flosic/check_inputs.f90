@@ -6,9 +6,9 @@ subroutine check_inputs
   implicit none
   logical   :: exist,lopen
   integer   :: ios
-  character*80 :: line,linebuff
-  character*10 :: calctypev  = 'LBFGS'
-  character*30 :: basisv     = 'DEFAULT'
+  character(80) :: line,linebuff
+  character(10) :: calctypev  = 'LBFGS'
+  character(30) :: basisv     = 'DEFAULT'
   character :: jntdosv       = 'F'
   character :: wfgridv       = 'F'
   character :: dosoccuv      = 'F'
@@ -48,14 +48,13 @@ subroutine check_inputs
   character :: unihamv       = 'F'
   character :: frozendenv    = 'F'
   character :: fod_loopv     = 'F'
-  character*5 :: fod_opt1v     = 'F'
+  character(5) :: fod_opt1v     = 'F'
   character :: fod_opt2v     = 'F'
   integer   :: fod_opt3v     = -1
-  namelist/input_data/atomsphv,diag1v,diag2v,diag3v,dosoccuv,excitedv,formfakv,jntdosv,matdipolev,nonscfv,nonscfforcesv,wfgridv, &
-                      dftd3v,calctypev,fragmentv,basisv,rhogridv,solventv,maxscfv,scftolv,moldenv,nbov,symmetryv,mpi_iov,spnorbv, &
-                      fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,spnpolv,efpv,populationv,meshsettingv,unihamv,&
-                      frozendenv, &
-                      fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v
+  namelist/input_data/atomsphv,diag1v,diag2v,diag3v,dosoccuv,excitedv,formfakv,jntdosv,matdipolev, &
+    nonscfv,nonscfforcesv,wfgridv,dftd3v,calctypev,fragmentv,basisv,rhogridv,solventv,maxscfv, &
+    scftolv,moldenv,nbov,symmetryv,mpi_iov,spnorbv,fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,&
+    spnpolv,efpv,populationv,meshsettingv,unihamv,frozendenv,fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v
 
   INQUIRE(FILE='NRLMOL_INPUT.DAT',EXIST=EXIST)
   IF (.NOT.EXIST) THEN
@@ -551,6 +550,7 @@ subroutine check_inputs
       endif
     endif
 ! Check for SYMMETRYV
+!<LA: is this supposed to be backwards? Y turns symmetry1 off?
     if(symmetryv=='Y'.or.symmetryv=='y')then
       symmetry1=.FALSE.
     elseif(symmetryv=='N'.or.symmetryv=='n')then
@@ -611,18 +611,18 @@ subroutine check_inputs
       wffrm1=.FALSE.
     endif
 ! YY. Check for LIBXC  
-!    if(libxcv=='Y'.or.libxcv=='y')then
-!      libxc1=.TRUE.
-!    elseif(libxcv=='N'.or.libxcv=='n')then
-!      libxc1=.FALSE.
-!    else
-!     if(clibxc) then
-!      write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for LIBXCV'
-!      write(6,'(A)')'Assuming N'
-!      libxc1=.FALSE.
-!      clibxc=.FALSE.
-!     endif
-!    endif
+    if(libxcv=='Y'.or.libxcv=='y')then
+      libxc1=.TRUE.
+    elseif(libxcv=='N'.or.libxcv=='n')then
+      libxc1=.FALSE.
+    else
+     if(clibxc) then
+      write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for LIBXCV'
+      write(6,'(A)')'Assuming N'
+      libxc1=.FALSE.
+      clibxc=.FALSE.
+     endif
+    endif
 ! Check for DMATV
     if(dmatv=='Y'.or.dmatv=='y')then
       dmat1=.TRUE.

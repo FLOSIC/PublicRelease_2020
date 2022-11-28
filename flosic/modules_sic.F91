@@ -64,6 +64,7 @@ module FRM
        INCLUDE  'PARAMA2'  
 
  real*8  :: BFRM(3,MAX_OCC,MXSPN)
+! real*8, allocatable  :: BFRM(:,:,:)
  real*8  :: RESULTS(13,MAX_OCC,MXSPN)
  integer :: LFRM(MXSPN)
  real*8  :: DEBDAX(3,MAX_OCC,MXSPN)

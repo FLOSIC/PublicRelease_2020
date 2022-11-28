@@ -13,6 +13,8 @@ C
 C       use debug1
        use mesh1,only   : WMSH,RMSH,NMSH
        use common2,only : RCNT, NCNT, IGGA, ISPN, NSPN
+!       use common2,only : natoms
+       use xmol,only : au2ang, num_atms, xmol_list
        use common7,only : MODDEN
        use pot_dens,only   : RHOG
        use xtmp1a,only  : PHIG
@@ -62,7 +64,6 @@ C
 C
 C READ IN NECESSARY INPUT DATA
 C
-C       CALL CHECK_INPUTS
        FNAME(1)='RHOGRID'
 C         INQUIRE(FILE=FNAME(1),EXIST=EXIST)
 C
@@ -185,19 +186,27 @@ C
          WRITE(IUNIT,*)'CLUSTER OUTPUT'
              IF(NSPN.EQ.1) WRITE(IUNIT,*)'SCF TOTAL DENSITY (ANG)'
              IF(NSPN.EQ.2) WRITE(IUNIT,*)'SCF DENSITY (ANG)'
-         OPEN(77,FILE='XMOL.DAT')
-         READ(77,*) NATOM
-         READ(77,*) 
-         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+         !<LA: removing this to use the common2 varialbe natoms
+         natom = num_atms
+!         OPEN(77,FILE='XMOL.DAT')
+!         READ(77,*) NATOM
+!         READ(77,*)
+!         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+         WRITE(IUNIT,'(1X,I10,3F20.12)') num_atms,(RBAS(J,1),J=1,3)
          DO I=1,3
          WRITE(IUNIT,'(1X,I10,3F20.12)') NGRID(I),(RBAS(J,I+1),J=1,3)
          ENDDO
-         DO I=1,NATOM
-           READ(77,*)IZ, X, Y, Z
+         do i=1, num_atms
+!         do i=1, natoms
+!           READ(77,*)IZ, X, Y, Z
+           iz = xmol_list(i)%anum
            CHR=REAL(IZ)
+           x = au2ang*xmol_list(i)%rx
+           y = au2ang*xmol_list(i)%ry
+           z = au2ang*xmol_list(i)%rz
            WRITE(IUNIT,2002)IZ, CHR, X, Y, Z
-         END DO
-         CLOSE(77)
+         enddo
+!         CLOSE(77)
         ENDIF
         ENDDO
         
@@ -207,22 +216,30 @@ C
           OPEN(IELF,FILE=FNAME(2+IS),FORM=FORMSTR,STATUS='UNKNOWN')
           WRITE(IELF,*)'CLUSTER OUTPUT'
           WRITE(IELF,*)'ELECTRON LOCALIZTION FUNCTION (ANG)'
-           OPEN(77,FILE='XMOL.DAT')
-           REWIND(77)
-           READ(77,*) NATOM
-           READ(77,*) 
-           WRITE(IELF,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
-           DO I=1,3
-            WRITE(IELF,'(1X,I10,3F20.12)') NGRID(I),(RBAS(J,I+1),J=1,3)
-           ENDDO
-           DO I=1,NATOM
-             READ(77,*)IZ, X, Y, Z
-             CHR=REAL(IZ)
-             WRITE(IELF,2002)IZ, CHR, X, Y, Z
-           END DO
-           CLOSE(77)
-          END DO
-         END IF
+          !<LA: Update to here 
+!          OPEN(77,FILE='XMOL.DAT')
+!          REWIND(77)
+!          READ(77,*) NATOM
+!          READ(77,*)
+!          WRITE(IELF,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+          WRITE(IELF,'(1X,I10,3F20.12)') num_atms,(RBAS(J,1),J=1,3)
+          DO I=1,3
+           WRITE(IELF,'(1X,I10,3F20.12)') NGRID(I),(RBAS(J,I+1),J=1,3)
+          ENDDO
+!          DO I=1,NATOM
+          do i=1, num_atms
+            iz = xmol_list(i)%anum
+            CHR=REAL(IZ)
+           x = au2ang*xmol_list(i)%rx
+           y = au2ang*xmol_list(i)%ry
+           z = au2ang*xmol_list(i)%rz
+!            READ(77,*)IZ, X, Y, Z
+            CHR=REAL(IZ)
+            WRITE(IELF,2002)IZ, CHR, X, Y, Z
+          enddo
+!          CLOSE(77)
+         END DO
+        END IF
 C        CALL TRACER('FINISHED WRITING GEOMETRY')
 2001    FORMAT(A25)
 2002    FORMAT(I6,4F16.10)

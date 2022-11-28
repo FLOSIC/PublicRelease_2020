@@ -1,10 +1,10 @@
-C UTEP Electronic Structure Lab (2020)
+! UTEP Electronic Structure Lab (2020)
        SUBROUTINE DOSJNT 
-C
-C DOSJNT BY MRP/DVP NOV 1996
-C modified by Luis Basurto 06/2013
-C CALCULATES THE JOINT DENSITY OF STATES WITH AND WITHOUT DIPOLE WEIGHTS
-C
+!
+! DOSJNT BY MRP/DVP NOV 1996
+! modified by Luis Basurto 06/2013
+! CALCULATES THE JOINT DENSITY OF STATES WITH AND WITHOUT DIPOLE WEIGHTS
+!
 
        use dosjnt_mod,only : H,PSIG,SPTOT,SPDIP,SOS_FREQ,
      &   RVECA,PTS,GRAD,ICOUNT,ESTEP,EALP,SOS_POL,VFAC,
@@ -17,6 +17,7 @@ C
      &   E_DN, ISPN, NSPN, DIPOLE
        use common3,only : RMAT, NGRP
        use common5,only : PSI, NWF, NWFS, EFERMI, EVLOCC
+       use common9,only : old_mode
        use mpidat1,only : NPROC, NCALLED
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:48 MDT 2017
 
@@ -29,45 +30,45 @@ C
        SAVE
        PARAMETER (MXSPEC=10000)
        PARAMETER (NMAX=MPBLOCK)
-C
-C FOOL THE COMPILER FOR MXSPN=1 TO SUPRESS WARNING MESSAGES
-C THAT ARE REALLY IRRELEVANT
-C
+!
+! FOOL THE COMPILER FOR MXSPN=1 TO SUPRESS WARNING MESSAGES
+! THAT ARE REALLY IRRELEVANT
+!
        LOGICAL IUPDAT,EXIST,LMKFIL,USEMPI,DMOM
-C       COMMON/TMP2/PSIG(NMAX,MAX_OCC)
-C
-C SCRATCH COMMON BLOCK FOR LOCAL ARRAYS
-C
-C       COMMON/TMP1/H(MAX_OCC,MAX_OCC,3)
-C     &  ,SPDIP(MXSPEC),SPTOT(MXSPEC),RVECA(3,MX_GRP)
-C     &  ,PTS(NSPEED,3),GRAD(NSPEED,10,6,MAX_CON,3)
-C     &  ,ICOUNT(MAX_CON,3)
-C       REAL*8,ALLOCATABLE :: H(:,:,:),SPDIP(:),SPTOT(:),RVECA(:,:),
-C     &                       PTS(:,:),GRAD(:,:,:,:,:)
-C       REAL*8,ALLOCATABLE :: RVECA(:,:),PTS(:,:),GRAD(:,:,:,:,:)
-C       LOGICAL,ALLOCATABLE :: ICOUNT(:,:)
-C       DIMENSION ISIZE(3)
-C       DIMENSION P(NMAX,3),Q(NMAX,3),V(NMAX)
+!       COMMON/TMP2/PSIG(NMAX,MAX_OCC)
+!
+! SCRATCH COMMON BLOCK FOR LOCAL ARRAYS
+!
+!       COMMON/TMP1/H(MAX_OCC,MAX_OCC,3)
+!     &  ,SPDIP(MXSPEC),SPTOT(MXSPEC),RVECA(3,MX_GRP)
+!     &  ,PTS(NSPEED,3),GRAD(NSPEED,10,6,MAX_CON,3)
+!     &  ,ICOUNT(MAX_CON,3)
+!       REAL*8,ALLOCATABLE :: H(:,:,:),SPDIP(:),SPTOT(:),RVECA(:,:),
+!     &                       PTS(:,:),GRAD(:,:,:,:,:)
+!       REAL*8,ALLOCATABLE :: RVECA(:,:),PTS(:,:),GRAD(:,:,:,:,:)
+!       LOGICAL,ALLOCATABLE :: ICOUNT(:,:)
+!       DIMENSION ISIZE(3)
+!       DIMENSION P(NMAX,3),Q(NMAX,3),V(NMAX)
        DATA USEMPI/.FALSE./
-C       DATA ISIZE/1,3,6/
-C       DATA HA2EV/27.2116D0/
-C       DATA TEMP/1.0D-4/
+!       DATA ISIZE/1,3,6/
+!       DATA HA2EV/27.2116D0/
+!       DATA TEMP/1.0D-4/
        DATA EMIN,EMAX/-10000.,1.0D0/
-C       DATA ENJD,EXJD/ 0.0,1.0D0/
+!       DATA ENJD,EXJD/ 0.0,1.0D0/
        DATA FWHM/0.05D0/
-C
-C RETURN IF INPUT FILE DOES NOT EXIST
-C
+!
+! RETURN IF INPUT FILE DOES NOT EXIST
+!
        PRINT '(A)','CALCULATING JOINT DENSITY OF STATES'
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
        IF (.NOT.DOSJNT1) THEN
         PRINT '(2A)','DOSJNT: CHECK NRLMOL_INPUT.DAT ',
      &               '--> NOTHING TO DO'
         RETURN
        END IF
-C
-C ALLOCATE LOCAL ARRAYS
-C
+!
+! ALLOCATE LOCAL ARRAYS
+!
        ALLOCATE(RVECA(3,MX_GRP),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'DOSJNT:ERROR ALLOCATING RVECA'
        ALLOCATE(PTS(NSPEED,3),STAT=IERR)
@@ -81,20 +82,20 @@ C
        TEMP=1.0D-4
        ENJD=0.0
        EXJD=1.0D0
-C
-C CREATE A STANDARD INPUT FILE IF THE CURRENT INPUT FILE IS EMPTY
-C
-C       CALL GTTIME(TIME1)
+!
+! CREATE A STANDARD INPUT FILE IF THE CURRENT INPUT FILE IS EMPTY
+!
+!       CALL GTTIME(TIME1)
        LMKFIL=.TRUE.
-C       OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
+!       OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
        OPEN(74,FILE='DOSJNT',FORM='FORMATTED')
        REWIND(74)
        READ(74,*,END=5,ERR=5) ISWITCH
        IF (ISWITCH .NE. 0) LMKFIL=.FALSE.
     5  CLOSE(74)
-C
+!
        IF (LMKFIL) THEN
-C        OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
+!        OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
          OPEN(74,FILE='DOSJNT',FORM='FORMATTED')
          REWIND(74)
          WRITE(74,*) '0  auto=0, otherwise user-defined'
@@ -104,17 +105,18 @@ C        OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
    98    FORMAT(2F14.5,16X,A)
    99    FORMAT(3F14.5,2X,A)
        END IF
-C
-C READ IN TEMPERATURE
-C
+!
+! READ IN TEMPERATURE
+!
+       !<LA: why do this when TEMP appears to be hardcoded
        OPEN(39,FILE='TMPTRE',FORM='FORMATTED',STATUS='UNKNOWN')
        REWIND(39)
        READ(39,*,END=10) TEMP
    10  CLOSE(39)
-C
-C READ IN NECESSARY INPUT DATA
-C
-C       OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
+!
+! READ IN NECESSARY INPUT DATA
+!
+!       OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
        OPEN(74,FILE='DOSJNT',FORM='FORMATTED')
        REWIND(74)
        READ(74,*,END=20) ISWITCH
@@ -124,44 +126,44 @@ C       OPEN(74,FILE='DOSJNT',FORM='FORMATTED',STATUS='OLD')
    20  CLOSE(74)
        PRINT *,'DOSJNT: FILE DOSJNT IS BROKEN'
        GOTO 900
-C
+!
    25  CLOSE(74)
        EWIND=(EXJD-ENJD)
        IF ((EWIND .LE. 0.0D0) .OR. (FWHM .LE. 0.0D0)) THEN
         PRINT '(A)','CALCULATION OF JDOS HAS BEEN SKIPPED'
         GOTO 900
        END IF
-C       NSPEC=INT(10*EWIND/FWHM)+2
+!       NSPEC=INT(10*EWIND/FWHM)+2
        EALP=4*LOG(2.0D0)/FWHM**2
        NSPEC=400
        PI=4*ATAN(1.0D0)
-C       VFAC=SQRT(EALP/PI)/HA2EV
-C LB: Use VFAC=1 to get same results as excite
+!       VFAC=SQRT(EALP/PI)/HA2EV
+! LB: Use VFAC=1 to get same results as excite
        VFAC=1
        IF (NSPEC.GT.MXSPEC) THEN
         PRINT *,'DOSJNT: MXSPEC MUST BE AT LEAST: ',NSPEC
         CALL STOPIT
        END IF
       IF(.NOT.USEMPI)THEN
-C
-C CALL WFWIND TO GET THE CORRECT PSI_COEF
-C WFWIND DEFINES NWF AND NWFS
-C
+!
+! CALL WFWIND TO GET THE CORRECT PSI_COEF
+! WFWIND DEFINES NWF AND NWFS
+!
        CALL GTTIME(TIME1)
        TIMEOLD=TIME1
-C       EFMIN=MIN(EFERMI(1),EFERMI(NSPN))
-C       EFMAX=MAX(EFERMI(1),EFERMI(NSPN))
-C      EMIN=EFMIN-EWIND-(4*FWHM+20*TEMP)
-C      EMAX=EFMAX+EWIND+(4*FWHM+20*TEMP)
+!       EFMIN=MIN(EFERMI(1),EFERMI(NSPN))
+!       EFMAX=MAX(EFERMI(1),EFERMI(NSPN))
+!      EMIN=EFMIN-EWIND-(4*FWHM+20*TEMP)
+!      EMAX=EFMAX+EWIND+(4*FWHM+20*TEMP)
        CALL WFWIND(EMIN,EMAX,.TRUE.,.TRUE.,IFAIL)
-C       CALL TRACER('NWF=',NWF)
+!       CALL TRACER('NWF=',NWF)
        IF (IFAIL .EQ. 1) THEN
         PRINT *,'DOSJNT: WFWIND FAILED, ABORTING JDOS CALCULATION'
         RETURN
        END IF
-C
-C ALLOCATE MORE LOCAL ARRAYS
-C
+!
+! ALLOCATE MORE LOCAL ARRAYS
+!
        ALLOCATE(H(NWF,NWF,3),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'DOSJNT:ERROR ALLOCATING H'
        ALLOCATE(SPDIP(NSPEC),STAT=IERR)
@@ -170,68 +172,68 @@ C
        IF(IERR/=0)WRITE(6,*)'DOSJNT:ERROR ALLOCATING SPTOT'
        ALLOCATE(SOS_FREQ(NSPEC),STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'DOSJNT:ERROR ALLOCATING SOS_FREQ'
-C
-C ZERO H (CONTAINS THE DIPOLE MATRIX ELEMENTS)
-C
-C       DO IX=1,3
-C        DO IWF=1,NWF
-C         DO JWF=1,NWF
-C          H(JWF,IWF,IX)=0.0D0
-C         END DO
-C        END DO
-C       END DO
+!
+! ZERO H (CONTAINS THE DIPOLE MATRIX ELEMENTS)
+!
+!       DO IX=1,3
+!        DO IWF=1,NWF
+!         DO JWF=1,NWF
+!          H(JWF,IWF,IX)=0.0D0
+!         END DO
+!        END DO
+!       END DO
        CALL ZEROREALCUBE(H,NWF,NWF,3)
-C
-C CALCULATE DIPOLE MATRIX ELEMENTS BY MESH INTEGRATION
-C
+!
+! CALCULATE DIPOLE MATRIX ELEMENTS BY MESH INTEGRATION
+!
        CHARGE=0.0D0
        NPILE=NMSH/NMAX
        FCGRP=1.0D0/NGRP
-C       CALL TRACER('NPILE=',NPILE)
+!       CALL TRACER('NPILE=',NPILE)
 %ifdef MPI
-C
-C Send data to nodes 
-C
+!
+! Send data to nodes 
+!
        CALL SENDDATA(200)
-C
-C Nodes allocate local arrays and initialize them to zero 
-C
+!
+! Nodes allocate local arrays and initialize them to zero 
+!
        CALL SENDDATA(201)
 %endif
        DO 850 IPILE=0,NPILE
-C LB: 07/2013 section 1 of parallelization start
+! LB: 07/2013 section 1 of parallelization start
 %ifdef MPI
            CALL CKWORKER(1,NTID)
            IF (NCALLED .NE. NPROC) THEN
              CALL PAMDOSJNT(1,1,IPILE)
            ELSE
-C No free workerern found, manager does this iteration
-C             CALL TRACER('NONE FOUND I WILL DO',IPILE)
+! No free workerern found, manager does this iteration
+!             CALL TRACER('NONE FOUND I WILL DO',IPILE)
              CALL DOSJNT_S1(IPILE)
            END IF
 %else
           CALL DOSJNT_S1(IPILE)
 %endif
-C LB: 07/2013 section 1 parallelization end
+! LB: 07/2013 section 1 parallelization end
   850  CONTINUE
 %ifdef MPI
-C
-C Get data back from workers
-C
+!
+! Get data back from workers
+!
          CALL PAMDOSJNT(1,2,0)
 %endif
-C         OPEN(73,FILE='H_OUT')
-C         DO II=1,NWF
-C           DO JJ=1,NWF
-C             DO KK=1,3
-C               WRITE(73,*)H(II,JJ,KK)
-C             ENDDO
-C           ENDDO
-C         ENDDO
-C         CLOSE(73)
-C         CALL TRACER('CHARGE=',1,CHARGE)
+!         OPEN(73,FILE='H_OUT')
+!         DO II=1,NWF
+!           DO JJ=1,NWF
+!             DO KK=1,3
+!               WRITE(73,*)H(II,JJ,KK)
+!             ENDDO
+!           ENDDO
+!         ENDDO
+!         CLOSE(73)
+!         CALL TRACER('CHARGE=',1,CHARGE)
          CALL GTTIME(TIMEB)
-C         CALL TIMOUT('DOSJNT Marker 3                   :',TIMEB-TIME1)
+!         CALL TIMOUT('DOSJNT Marker 3                   :',TIMEB-TIME1)
        ELSE
        write(6,*)'READING DIPOLE MATRIX ELEMENTS FROM SPNDAT'
            INQUIRE(FILE='SPNDAT',EXIST=EXIST)
@@ -266,10 +268,10 @@ C         CALL TIMOUT('DOSJNT Marker 3                   :',TIMEB-TIME1)
          CALL GTTIME(TIMEC)
          CALL TIMOUT('DOSJNT Marker 4                   :',TIMEC-TIMEB)
        END IF
-C
-C JOINT DOS CALCULATION
-C CALCULATE <PSI-I | DIPOL | PSI-J>**2 AND SPECTRUM
-C
+!
+! JOINT DOS CALCULATION
+! CALCULATE <PSI-I | DIPOL | PSI-J>**2 AND SPECTRUM
+!
        ESTEP=EWIND/(NSPEC-1)
        SOS_POL = 0.0d0
        DO IPTS=1,NSPEC
@@ -277,23 +279,23 @@ C
         SPTOT(IPTS)=0.0D0
         SPDIP(IPTS)=0.0D0
        END DO
-C LB 06/13
-C Start section 3 parallelization here
-C
-C       CALL TRACER('NWF=',NWF)
+! LB 06/13
+! Start section 3 parallelization here
+!
+!       CALL TRACER('NWF=',NWF)
 %ifdef MPI
        CALL SENDDATA(200)
 %endif
        CALL GTTIME(TIMEA)
        DO IWF=1,NWF
-C       DO IWF=1,1
+!       DO IWF=1,1
 %ifdef MPI
            CALL CKWORKER(1,NTID)
            IF (NCALLED .NE. NPROC) THEN
              CALL PAMDOSJNT(3,1,IWF)
            ELSE
-C No free workerern found, manager does this iteration
-C             CALL TRACER('NONE FOUND I WILL DO',IWF)
+! No free workerern found, manager does this iteration
+!             CALL TRACER('NONE FOUND I WILL DO',IWF)
              CALL DOSJNT3(IWF)
            END IF
 %else
@@ -301,17 +303,17 @@ C             CALL TRACER('NONE FOUND I WILL DO',IWF)
 %endif
        END DO
 %ifdef MPI
-C
-C Get data back from workers
-C
+!
+! Get data back from workers
+!
        CALL PAMDOSJNT(3,2,0)
 %endif
-C LB 06/13
-C End parallelization section 3 here
-C       CALL TRACER('SOS_FREQ(2)=',0,SOS_FREQ(2))
-C
-C CORRECT FOR SPIN EFFECTS AND PRINT SPECTRA
-C
+! LB 06/13
+! End parallelization section 3 here
+!       CALL TRACER('SOS_FREQ(2)=',0,SOS_FREQ(2))
+!
+! CORRECT FOR SPIN EFFECTS AND PRINT SPECTRA
+!
        DO IPTS=1,NSPEC
          SDMAX=MAX(SDMAX,SPDIP(IPTS))
          STMAX=MAX(STMAX,SPTOT(IPTS))
@@ -327,7 +329,7 @@ C
        REWIND(73)
        DO IPTS=1,NSPEC
         ERG=((IPTS-1)*ESTEP+ENJD)
-C        WRITE(73,1010)-ERG*HA2EV,SPDIP(IPTS),SPTOT(IPTS),SOS_FREQ(IPTS)
+!        WRITE(73,1010)-ERG*HA2EV,SPDIP(IPTS),SPTOT(IPTS),SOS_FREQ(IPTS)
         WRITE(73,1010)ERG*HA2EV,SPDIP(IPTS),SPTOT(IPTS),SOS_FREQ(IPTS)
  1010   FORMAT(4(1X,F15.6))
        END DO
@@ -335,9 +337,9 @@ C        WRITE(73,1010)-ERG*HA2EV,SPDIP(IPTS),SPTOT(IPTS),SOS_FREQ(IPTS)
   900  CONTINUE
        CALL GTTIME(TIME2)
        CALL TIMOUT('JOINT DENSITY OF STATES:           ',TIME2-TIME1)
-C
-C DEALLOCATE LOCAL ARRAYS
-C
+!
+! DEALLOCATE LOCAL ARRAYS
+!
        DEALLOCATE(H,STAT=IERR)
        IF(IERR/=0)WRITE(6,*)'DOSJNT:ERROR DEALLOCATING H'
        DEALLOCATE(SPDIP,STAT=IERR)

@@ -10,8 +10,10 @@ C      use debug1
       use global_inputs,only : CALCTYPE1,MOLDEN1
       use common1,only : PSPSYM
       use common2,only : ATOMMAP,ATOMSPIN,CHNET,OPTTYP,SPNNET
-C
+      !<LA: added here
+      use common2, only: natoms
       use common3,only : RMAT, NGRP
+       use common9,only : old_mode
       use fragment,only : NFRAGMENT,FRAGMENTS
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:50 MDT 2017
 
@@ -151,15 +153,16 @@ C
 C     --- CREATE/OPEN THE MOLDEN OUTPUT FILE AND ---
 C     --- MAKE SURE THAT IS EMPTY ! ---
 C
-      CALL CHECK_INPUTS
-      IF(MOLDEN1)THEN
-        OPEN(42, FILE='CLUSTER.MOLDEN', STATUS='UNKNOWN')
-        REWIND(42)
-        ENDFILE(42)
-        REWIND(42)
-        WRITE(42,'(A)') '[Molden Format]'
-        CLOSE(42)
-      ENDIF
+      if (old_mode) call check_inputs
+      !<LA: this does nothing and is never read in, commenting out
+!      IF(MOLDEN1)THEN
+!        OPEN(42, FILE='CLUSTER.MOLDEN', STATUS='UNKNOWN')
+!        REWIND(42)
+!        ENDFILE(42)
+!        REWIND(42)
+!        WRITE(42,'(A)') '[Molden Format]'
+!        CLOSE(42)
+!      ENDIF
       IF(CALCTYPE1==2)THEN
         WRITE(92,'(A)') 'SCF-ONLY'
       ELSE
@@ -173,6 +176,8 @@ C
       WRITE(92,'(A)') 'ISYMGEN = INPUT'
       WRITE(92,'(I3,A)') MMATOMS+2,'  NUMBER OF SYMBOLS IN LIST'
       WRITE(92,'(I3,A)') MMATOMS,  '  NUMBER OF NUCLEI'
+      !<LA: setting global variable here to be safe 
+      natoms = mmatoms
 C
 C     --- CARTESIAN CONSTRAINS: ALL ATOMS ARE FREE TO MOVE ---
 C       

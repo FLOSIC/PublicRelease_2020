@@ -1,4 +1,4 @@
-C UTEP Electronic Structure Lab (2020)
+! UTEP Electronic Structure Lab (2020)
        SUBROUTINE SICLAGM(LSPN)
        use debug1
        use global_inputs,only : CALCTYPE1
@@ -6,6 +6,7 @@ C UTEP Electronic Structure Lab (2020)
        use mesh1,only : wmsh,rmsh,nmsh
        use common2,only : NSPN,IGGA   !,RIDT,N_CON,LSYMMAX,N_POS,NFNCT
        use common5,only : NWFS,CONVERGENCE!,NWF,PSI
+       use common9,only : old_mode
        use mixpot1,only : POT=>POTOUT   !POTIN
 !      use pot_dens,only : COULOMB,RHOG
        use for_diag1
@@ -39,7 +40,7 @@ C UTEP Electronic Structure Lab (2020)
 !      LOGICAL ICOUNT,EXIST,FIRST
 !      LOGICAL LGGA,IUPDAT
 !      COMMON/MIXPOT/POTIN(MAX_PTS*MXSPN),POT(MAX_PTS*MXSPN)
-C      COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),JJJJJJ,ZTZL
+!      COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),JJJJJJ,ZTZL
 !      COMMON/TMP1/COULOMB(MAX_PTS),RHOG(MAX_PTS,10,MXSPN)
 !      COMMON/TMP2/PSIG(NMAX,10,MAX_OCC)
 !    &  ,PTS(NSPEED,3),GRAD(NSPEED,10,6,MAX_CON,3)
@@ -47,7 +48,7 @@ C      COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),JJJJJJ,ZTZL
 !      COMMON/SICMAT/SIC(MAX_OCC,MAX_OCC,MXSPN)
 !      COMMON/FRM/BFRM(3,MAX_OCC,MXSPN),RESULTS(13, MAX_OCC,MXSPN),
 !    &   LFRM(MXSPN),DEBDAX(3,MAX_OCC,MXSPN)
-C      COMMON/HMATSIC/ OVTM(MAX_OCC,MAX_OCC,2),HMTM(MAX_OCC,MAX_OCC,2)
+!      COMMON/HMATSIC/ OVTM(MAX_OCC,MAX_OCC,2),HMTM(MAX_OCC,MAX_OCC,2)
 !YY Additional common block
 !      COMMON/FOR_DIAG/OVER(NDH,NDH),HAM(NDH,NDH),FILO(NDH,NDH),
 !    &  EVAL(NDH),SC1(NDH),SC2(NDH)
@@ -132,13 +133,13 @@ C      END DO
 !      CLOSE(888,STATUS='DELETE')
        LGGA= .TRUE.
        NGRAD=4
-C
-C LOOP OVER ALL POINTS
+!
+! LOOP OVER ALL POINTS
 %ifdef MPI
-C       CALL SENDDATA(101)
-C       CALL SENDDATA(104)
-C       CALL SENDDATA(105)
-C       CALL SENDDATA(208)
+!       CALL SENDDATA(101)
+!       CALL SENDDATA(104)
+!       CALL SENDDATA(105)
+!       CALL SENDDATA(208)
 %endif
        CALL GTTIME(APT1)
        IRBOFS=(LSPN-1)*NWFS(1)
@@ -164,9 +165,9 @@ C       CALL SENDDATA(208)
        ELSE
          MPTS=NMSH-LPTS
        END IF
-C      FORALL (IWF=1:NWF, IGR=1:NGRAD, IPTS=1:MPTS)
-C        PSIG(IPTS,IGR,IWF) = 0.0D0
-C      END FORALL
+!      FORALL (IWF=1:NWF, IGR=1:NGRAD, IPTS=1:MPTS)
+!        PSIG(IPTS,IGR,IWF) = 0.0D0
+!      END FORALL
 
 ! v3 Read potential from files
        DO LFM=1,NFRM(LSPN)
@@ -301,6 +302,7 @@ C      PRINT*,'SMCHG:',CHGUP,CHGDN,SMCHG,TMKIN,NWFS(1)
 !      use mesh1,only : wmsh,rmsh,nmsh
        use common2,only : RIDT,N_CON,LSYMMAX,N_POS,NFNCT !,NSPN
        use common5,only : NWF,NWFS,PSI
+       use common9,only : old_mode
 !      use mixpot1,only : POTIN,POT=>POTOUT
 !      use pot_dens,only : COULOMB,RHOG
        use for_diag1
@@ -408,7 +410,7 @@ C      PRINT*,'FIRST SICLMSLV:',IRANK,NFNCT,NWFS,N_POS(1),MPTS
 !      END IF
 !      AGRAD=0.0D0
        LGGA= .TRUE.
-       CALL CHECK_INPUTS !Added for safety
+       if (old_mode) call check_inputs !Added for safety
        if(ISMGGA.OR.LIBXC1) then
         NGRAD=4  !meta-GGA
        else

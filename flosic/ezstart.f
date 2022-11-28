@@ -5,8 +5,11 @@ C     MODIFIED BY ULISES REVELES, JULY 2013.
 C
 C     ------------------------------------------------------------------
 C
+!<LA: This routine processes xmol file into cluster file, called
+! by the isetup_ std/frag if it encounters a file name for the geometry
       use xmol,only : AU2ANG
       USE GLOBAL_INPUTS,only : SYMMETRY1
+       use common9,only : old_mode
       IMPLICIT REAL*8 (A-H,O-Z)
 C
       CHARACTER*30, NAME
@@ -16,7 +19,6 @@ C
 C
       DIMENSION R(5,675) 
       DIMENSION G(3,3,60),IND(60)
-C
 C
 C     ------------------------------------------------------------------
 C
@@ -68,7 +70,7 @@ C
         end do
         CLOSE(90)
 C DETERMINE IF WE WANT TO DETECT SYMMETRY OR NOT
-      CALL CHECK_INPUTS
+      if (old_mode) call check_inputs
       IF(SYMMETRY1)THEN
         MAT=NAT
 C
@@ -169,6 +171,7 @@ c          errmin=min(distance(r(1,kat),r(1,jat)),errmin)
 C
 C     --- OPEN GRPMAT FILE ---
 C
+      !<LA: this doesn't need to be done here
       OPEN(80,FILE='GRPMAT')
 C
       write(80,*)ngp,' Number of group elements'

@@ -14,6 +14,7 @@ C       use debug1
      &   E_UP, E_DN, WFFILE, NSPN, EFIELD
        use common3,only : RMAT
        use common4,only : ISPIDT
+       use common9, only: old_mode
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:57 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -33,13 +34,17 @@ C       COMMON/TMP1/RVEC(3,MX_GRP),NFADD(3),MSITES(1),IORD(2,MAX_BARE)
 C
 C READ/WRITE EFIELD 
 C
-       OPEN(21,FILE='EFIELD',FORM='FORMATTED',STATUS='UNKNOWN')
-       REWIND(21)
-       READ(21,*,END=20) EFIELD
-   20  CONTINUE
-       REWIND(21)
-       WRITE(21,'(3(1X,D24.16))') EFIELD
-       CLOSE(21)
+       !<LA: old_mode, use input module 
+       if (old_mode) then
+        OPEN(21,FILE='EFIELD',FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND(21)
+        READ(21,*,END=20) EFIELD
+   20   CONTINUE
+        REWIND(21)
+        WRITE(21,'(3(1X,D24.16))') EFIELD
+        CLOSE(21)
+       endif 
+       !<LA: end old_mode
 C
 C OPEN INPUT, READ NUMBER OF FUNCTION SETS 
 C
@@ -198,8 +203,10 @@ C
        E_UP=ABS(E_UP)
        E_DN=ABS(E_DN)
        IF ((E_UP+E_DN) .LT. ZERO) THEN
-        write(6,*)'READINP: THERE IS NO POINT IN WASTING CPU TIME FOR'
-        write(6,*)'CALCULATIONS WITHOUT ELECTRONS. GET A LIFE !'
+!        write(6,*)'READINP: THERE IS NO POINT IN WASTING CPU TIME FOR'
+!        write(6,*)'CALCULATIONS WITHOUT ELECTRONS. GET A LIFE !'
+        write(6,*)'READINP: You cannot run an electronic structure'
+        write(6,*)'calculation without electrons! Check parameters!'
         GOTO 600
        END IF
        WFFILE='WFOUT'

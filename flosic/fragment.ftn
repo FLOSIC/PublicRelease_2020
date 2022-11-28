@@ -10,6 +10,7 @@ C UTEP Electronic Structure Lab (2020)
         use zero1,only : ZEROREALMATRIX
         use mpidat1
         use hstor1, only : MAXCLUSTERSIZE
+        use common9,only : old_mode
         implicit none
         include 'mpif.h'
         INTEGER :: NBAS,NREC,NTOT,ISPN,NSPN,NFRAG
@@ -39,7 +40,7 @@ C UTEP Electronic Structure Lab (2020)
         real*8, allocatable,dimension(:,:):: HSTOR
 ! Use divide and conquer for diagonalization
 %ifdef SCALAPACK
-        CALL CHECK_INPUTS
+        if (old_mode) call check_inputs
         CALL MPI_INIT(IERR)
         CALL MPI_COMM_RANK(MPI_COMM_WORLD,IRANK,IERR)
         CALL MPI_COMM_SIZE(MPI_COMM_WORLD,NPROC,IERR)

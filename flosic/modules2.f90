@@ -78,7 +78,6 @@ module common1
 
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 10:02:04 MDT 2017
 
-!      INCLUDE  'PARAMAS'  
        INCLUDE  'PARAMA2'  
 ! ALPCOR:
   REAL*8  :: ALPCOR(MAX_FUSET)
@@ -398,6 +397,17 @@ module common8
   INTEGER  :: LDMREP(MAX_REP)
 
 end module common8
+
+module common9
+  ! Added for new input reader
+  ! Lucas Aebersold 2022
+  ! old_mode variable 
+  INCLUDE  'PARAMA2'
+
+  logical :: old_mode 
+
+end module common9
+
 
 module dosjnt_mod
 

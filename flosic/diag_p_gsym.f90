@@ -25,6 +25,7 @@
       SUBROUTINE DIAGGE3(N,initial,A,Eig,IEV)
        use global_inputs,only : idiag2
        use hstor1,only : hstor
+       use common9,only : old_mode
        implicit none
        integer, intent(IN)     ::  N,IEV
        integer, intent(INOUT)  ::  initial
@@ -39,7 +40,7 @@
        real*8,allocatable  :: WORK(:)
        logical             :: imem1,imem2,exist
 
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
 !       INQUIRE(FILE='input2',EXIST=EXIST)
 !       IF (EXIST) THEN
 !         open(9,file='input2')
