@@ -2,6 +2,8 @@ C UTEP Electronic Structure Lab (2020)
 C
        SUBROUTINE GETGRP(NAME)
 C ORIGINAL VERSION BY MARK R PEDERSON 1995-1996
+       !<LA: this needs to be modified to use rmat from common3
+       !<LA: but I am unsure why mx_grp is set to 1 in PARAMA2
        IMPLICIT REAL*8 (A-H,O-Z)
        CHARACTER*3 NAME
        DIMENSION R(3,3,121),PXYZ(3,3,6),RXYZ(3,3,3)

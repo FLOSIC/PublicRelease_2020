@@ -1,9 +1,9 @@
-C UTEP Electronic Structure Lab (2020)
-C
-C ***************************************************************
-C
+! UTEP Electronic Structure Lab (2020)
+!
+! ***************************************************************
+!
        SUBROUTINE COUPOT_DMAT
-C ORIGINAL VERSION BY MARK R PEDERSON (1988)
+! ORIGINAL VERSION BY MARK R PEDERSON (1988)
 ! Version that uses density matrix LBasurto (2017)
        use global_inputs,only : dosjnt1,INBAS
        use pot_dens,only : COULOMB,RHOG
@@ -15,6 +15,7 @@ C ORIGINAL VERSION BY MARK R PEDERSON (1988)
        use common3,only : RMAT
        use common5,only : PSI, NWF, NWFS
        use common7,only : MODDEN, GAUSS_CUT
+       use common9,only : old_mode
        use mpidat1,only : NPROC, NCALLED
        use den_mat,only : DMAT_LOCAL
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:47 MDT 2017
@@ -55,7 +56,7 @@ C ORIGINAL VERSION BY MARK R PEDERSON (1988)
        DIMENSION SS(10,10),DMAT2(50,50,2),C(3)
        DATA IBEG,IEND/1,2,5,1,4,10/
        DATA ZED/1.0D-30/
-C
+!
        PRINT '(A,I10)','NUMBER OF POINTS IN COUPOT: ',NMSH
        IF(NSPN*(MXPR/NSPN).NE.MXPR)THEN
         write(6,*)'MXPR MUST BE EVEN IN COUPOT1'
@@ -158,7 +159,7 @@ C
          END DO
         END DO
        END DO
-C
+!
        IF(SQRT(DMIN) .GT. 0.7D0)THEN
         MCNT=MCNT+1
         CENTER(:,MCNT)=0.0d0 
@@ -172,18 +173,18 @@ C
         write(6,*)'COUPOT: MX_CNT MUST BE AT LEAST:',MCNT-1
         CALL STOPIT
        END IF
-c
+!
 %ifdef MPI
-c
-c MPI: send general data and initialize pot and rhog for all workers
-c
+!
+! MPI: send general data and initialize pot and rhog for all workers
+!
 !YY senddata 101 and 102 are in sic code
        CALL SENDDATA(103)
-c
+!
 %endif
-C
-C ZERO POT AND RHOG
-C
+!
+! ZERO POT AND RHOG
+!
        NGRAD=1
        IF ((IGGA(1).GT.0).OR.(IGGA(2).GT.0)) NGRAD=KRHOG
        COULOMB(:)=0.0d0
@@ -200,7 +201,7 @@ C
         ! END DO
         !END DO
        END IF
-C
+!
        CHARGE=0.0D0
        CHARGE_LONG=0.0D0
        IP(:,:)=0
@@ -217,9 +218,9 @@ C
 !        ISHELLA=ISHELLA+1
         ISHELLA=sum(N_POS(1:IFNCT)) - N_POS(IFNCT)+ I_POS
         CALL OBINFO(1,RIDT(1,ISHELLA),RVECI,IST,ISHDUM)
-C
-C  TRANSLATE SHELLS TO ATOMS; GET GAUSS CUTOFF FOR ATOM I
-C
+!
+!  TRANSLATE SHELLS TO ATOMS; GET GAUSS CUTOFF FOR ATOM I
+!
         IATOM=ISHELLA
         GAUSS_CUTI=GAUSS_CUT(IATOM)
         loop118: DO K_SITEI=1,IST
@@ -253,9 +254,9 @@ C
 !          IF(JSHELLA.LT.ISHELLA) cycle !not exit loop115 !GOTO 115
 !          write(*,*) 'opt', ISHELLA, JSHELLA, JFNCT
           CALL OBINFO(1,RIDT(1,JSHELLA),RVECJ,JST,JSHDUM)
-C
-C  TRANSLATE SHELLS TO ATOMS;  GET GAUSS CUT OFF  FOR ATOM J
-C
+!
+!  TRANSLATE SHELLS TO ATOMS;  GET GAUSS CUT OFF  FOR ATOM J
+!
           JATOM=JSHELLA
           GAUSS_CUTJ=GAUSS_CUT(JATOM)
           JJCALL=0 
@@ -302,18 +303,18 @@ C
                MINC=ICNT
               END IF
              END DO
-C
-C BLOCK 1:
-C
+!
+! BLOCK 1:
+!
              RLEN=(ALPHAI+ALPHAJ)*DMIN**2
              IF(RLEN .GT. 0.5D0)MINC=MCNT+1
              IF(ALPHAI+ALPHAJ .LT. 3.0D0)MINC=MCNT+1
              LNG=1
              IF(ALPHAI+ALPHAJ.GT. 10.0D0)LNG=2
              IF(ALPHAI+ALPHAJ.GT. 40.0D0)LNG=3
-C
-C END OF BLOCK 2:
-C
+!
+! END OF BLOCK 2:
+!
              IF(.NOT.CALLEDJ)THEN
               JJCALL=JJCALL+1
 !              IF(JJCALL.EQ.1.AND.K_SITEJ.NE.1)THEN
@@ -332,12 +333,12 @@ C
 !              END IF
               CALLEDJ=.TRUE.
              END IF
-C
-C END OF NEW SETUP...
-C
-C
-C CALCULATE DENSITY MATRIX:
-C
+!
+! END OF NEW SETUP...
+!
+!
+! CALCULATE DENSITY MATRIX:
+!
              DMAT2(:,:,:)=0.0d0
 !             DO ISPN=1,NSPN
 !              DO MUI=1,10
@@ -367,7 +368,7 @@ C
                END DO
               END DO
              END DO
-C
+!
              IF(FIRST_ALPJ)THEN
               I_LOC    =I_LOC_BEG
 !              DO LI =0,LSYMMAX(IFNCT)
@@ -426,7 +427,7 @@ C
                END DO
               END DO
              END DO
-C
+!
              CALL OVMXSF(ALPHAI,ALPHAJ,AI,AJ,SS)
              ADDON=0.0D0
              DO ISPN=1,NSPN
@@ -448,7 +449,7 @@ C
               END DO
              END DO
              CHARGE_LONG=CHARGE_LONG+ADDON
-C
+!
              ND=MUIMAX !Moved to here
              MD=MUJMAX
              DO ISPN=1,NSPN
@@ -473,13 +474,13 @@ C
               END DO
              end do
              MXSIZ=MXPR
-c
+!
 %ifdef MPI
-c
+!
              IF (MINC.EQ.MCNT+1) MXSIZ=MAX(1,MXPR/10)
-c
+!
 %endif
-c
+!
              IF (IP(MINC,LNG).EQ.MXSIZ) THEN
               IF (IP(MINC,LNG).NE.NSPN) THEN
                ND=10
@@ -494,21 +495,21 @@ c
               ELSE
                NWRD=.FALSE.
               END IF
-c
+!
 %ifndef MPI
-c
+!
               CALL POISSON2(NWRD,IP(MINC,LNG),ND,MD,
      &                      ALPIV(1,MINC,LNG),AIV(1,1,MINC,LNG),
      &                      ALPJV(1,MINC,LNG),AJV(1,1,MINC,LNG),
      &                      DMTV(1,1,1,MINC,LNG))
-c
+!
 %else
-c
-c dvp+mrp 10/98: let manager do some work when all workers are busy
-c                first deal with single weirdos, then in larger blocks
-c                with non-weirdos. The block size for non-weirdos is
-c                reduced as the number of processors increases
-c
+!
+! dvp+mrp 10/98: let manager do some work when all workers are busy
+!                first deal with single weirdos, then in larger blocks
+!                with non-weirdos. The block size for non-weirdos is
+!                reduced as the number of processors increases
+!
               IF (NPROC .EQ. 0) THEN
                CALL POISSON2(NWRD,IP(MINC,LNG),ND,MD,
      &                       ALPIV(1,MINC,LNG),AIV(1,1,MINC,LNG),
@@ -548,9 +549,9 @@ c
                 CALL PAMPOISS(1,ND,MD,MINC,LNG,NWRD,COULOMB,RHOG)
                END IF
               END IF
-c
+!
 %endif
-c
+!
               CALL GTTIME(TP2)
               TIMEP=TIMEP+TP2-TP1
               IP(MINC,LNG)=0
@@ -579,21 +580,21 @@ c
           ELSE
            NWRD=.FALSE.
           END IF
-c
+!
 %ifndef MPI
-c
+!
           CALL POISSON2(NWRD,IP(MINC,LNG),ND,MD,
      &                  ALPIV(1,MINC,LNG),AIV(1,1,MINC,LNG),
      &                  ALPJV(1,MINC,LNG),AJV(1,1,MINC,LNG),
      &                  DMTV(1,1,1,MINC,LNG))
-c
+!
 %else
-c
-c dvp+mrp 10/98: let manager do some work when all workers are busy
-c                first deal with single weirdos, then in larger blocks
-c                with non-weirdos. The block size for non-weirdos is
-c                reduced as the number of processors increases
-c
+!
+! dvp+mrp 10/98: let manager do some work when all workers are busy
+!                first deal with single weirdos, then in larger blocks
+!                with non-weirdos. The block size for non-weirdos is
+!                reduced as the number of processors increases
+!
           IF (NPROC .EQ. 0) THEN
            CALL POISSON2(NWRD,IP(MINC,LNG),ND,MD,
      &                   ALPIV(1,MINC,LNG),AIV(1,1,MINC,LNG),
@@ -635,21 +636,21 @@ c
             IP(MINC,LNG)= 0
            END IF
           END IF
-c
+!
 %endif
-c
+!
           CALL GTTIME(TP2)
           TIMEP=TIMEP+TP2-TP1
          END IF
         end do loop790  
        end do loop800
-c
+!
 %ifdef MPI
-c
+!
        CALL PAMPOISS(2,ND,MD,MINC,LNG,NRWRD,COULOMB,RHOG)
-c
+!
 %endif
-c
+!
        ALCLNG=LC_LNG
        ALCSHT=LC_SHT
        ISPFAC=2/NSPN
@@ -662,7 +663,7 @@ c
        CHARGE_LONG=CHARGE_LONG*ISPFAC
        PRINT '(A,F16.6)','LONG  CHARGE IN COUPOT: ',CHARGE_LONG
        PRINT '(A,F16.6)','TOTAL CHARGE IN COUPOT: ',CHARGE
-C
+!
        RR_MAX=0.0D0
        DO IPTS=1,NMSH
         RRR=SQRT(RMSH(1,IPTS)**2+RMSH(2,IPTS)**2+RMSH(3,IPTS)**2)
@@ -706,7 +707,7 @@ C
 !
 ! DEALLOCATE ARRAYS FROM MODULE COUPDATA1 IF NO LONGER NEEDED
 !
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
        IF(.NOT.DOSJNT1)THEN
          DEALLOCATE(AIV,STAT=IERR)
          IF(IERR/=0)WRITE(6,*)'COUPOT1:ERROR DEALLOCATING AIV'

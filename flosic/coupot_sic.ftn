@@ -18,6 +18,7 @@ C> @author ORIGINAL VERSION BY MARK R PEDERSON (1988)
 !       use common3,only : RMAT
        use common5,only : PSI, NWFS !,NWF
        use common7,only : MODDEN, GAUSS_CUT
+       use common9,only : old_mode
        use mpidat1,only : NPROC, NCALLED,SHM_SIZE,NCALLED_GRP
        use LOCORB,only : IRBSIC
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:48 MDT 2017
@@ -827,7 +828,7 @@ C
 !
 ! DEALLOCATE ARRAYS FROM MODULE COUPDATA1 IF NO LONGER NEEDED
 !
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
        IF(.NOT.DOSJNT1)THEN
          DEALLOCATE(AIV,STAT=IERR)
          IF(IERR/=0)WRITE(6,*)'COUPOT1:ERROR DEALLOCATING AIV'

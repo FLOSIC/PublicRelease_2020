@@ -154,6 +154,7 @@ IF (EXIST) THEN
  601    format(i4.4)
 
 
+        !<LA: Alan says dvpmesh should not be used 
         IF (IMESH .EQ. 1) THEN
          CALL VMESH(ITBEG,NCALC)
         ELSE

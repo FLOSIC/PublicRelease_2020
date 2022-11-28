@@ -10,9 +10,12 @@ C
        use MOCORB,only : NFRM
        use common2,only : LSYMMAX,NSPN,NATOM,N_CON,N_POS,
      &                    NCNT,NFNCT,RCNT,RIDT
+!       use common2, only: natoms
        use common5,only : NWF,NWFS,EVLOCC,PSI  ,N_OCC
        use common8,only : N_REP,NDMREP,NS_TOT
+       use common9, only: old_mode
        use mesh1,only : NMSH
+       use xmol, only: au2ang, num_atms, xmol_list
        INCLUDE 'PARAMA2'
 !      INCLUDE 'commons.inc'
 !      INTEGER,PARAMETER :: NTOTWF=200
@@ -59,7 +62,7 @@ C * NUMBER OF STATES
 c * COR/VAL STATES; VAL REQUIRES LEVELS ORDERED WRT HOMO: E.G. +1, -1
 C * SPIN, REPRESENTATION, INDEX FOR EACH STATE (ORDERED) FOR OPTION COR
 C
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
 !       INQUIRE(FILE='WFRMGRID',EXIST=EXIST)
        FORMSTR= ' '
        IF (.NOT.WFFRM1) FORMSTR= ' --> NOTHING TO DO'
@@ -267,24 +270,31 @@ C Grid data RBAS converted to angstrom PUSKAR 01/24/2022
          WRITE(IUNIT,*) 'ORBITAL DENSITY FOR WF'
          WRITE(IUNIT,'(A,I1,A,I2,A,I5)')'SPIN ',JSP,
      &        ' REPRESENTATION ',JRP, ' STATE ',JST
-         OPEN(77,FILE='XMOL.DAT')
-         REWIND(77)
-         READ(77,*) NATOM
-         READ(77,*)
-         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,
+         !<LA: updating to use the xmol variables
+!         OPEN(77,FILE='XMOL.DAT')
+!         REWIND(77)
+!         READ(77,*) NATOM
+!         READ(77,*)
+!         WRITE(IUNIT,'(1X,I10,3F20.12)') NATOM,
+         WRITE(IUNIT,'(1X,I10,3F20.12)') num_atms,
      &   (0.529177d0*RBAS(J,1),J=1,3)
          DO K=1,3
           WRITE(IUNIT,'(1X,I10,3F20.12)') NGRID(K),
      &   (0.529177d0*RBAS(J,K+1),J=1,3)
          ENDDO
-         DO K=1,NATOM
-          READ(77,*)IZ, X, Y, Z
+!         DO K=1,NATOM
+         do k=1, num_atms
+!          READ(77,*)IZ, X, Y, Z
+           iz = xmol_list(k)%anum
+           x = au2ang*xmol_list(k)%rx
+           y = au2ang*xmol_list(k)%ry
+           z = au2ang*xmol_list(k)%rz
           CHR=REAL(IZ) 
 !PB converted Angstrom to Bohr
-          WRITE(IUNIT,2002)IZ, CHR, X, Y, Z
-
-         END DO
-         CLOSE(77)
+          !<LA: xmol is written in angstrom
+          WRITE(IUNIT,2002) IZ, CHR, X, Y, Z
+         enddo
+!         CLOSE(77)
  2002    FORMAT(I6,4F16.10)
         END IF
        END DO

@@ -1,7 +1,7 @@
-C UTEP Electronic Structure Lab (2020)
-C
-C ******************************************************************
-C
+! UTEP Electronic Structure Lab (2020)
+!
+! ******************************************************************
+!
       SUBROUTINE NUMFORCE
       use global_inputs,only : LIBXC1
       use mesh1,only : nmsh
@@ -25,7 +25,7 @@ C
       REAL*8 :: SYMBOL 
       SAVE
       PARAMETER (NMAX=MPBLOCK)
-C
+!
       IF(.NOT. LSICF) THEN
        NWFTOT=0
        DO I=1,MXSPN
@@ -37,28 +37,28 @@ C
        END IF
       ELSE
 !<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-c
-c Added from Force0.0
-c  NWFTOT = total of spin up and down occupied orbitals
-c
+!
+! Added from Force0.0
+!  NWFTOT = total of spin up and down occupied orbitals
+!
        NWFTOT = LFRM(1) + LFRM(2)
-c
-c  print Lagrange multiplier matrix as test
-c  Here LMM = <phi_i|VSIC_i|phi_j>
-c
-c      print *, 'numforce nwftot', nwftot
-c      print *, 'SIC -- LAG MULT Matrix: up'
-c      do iwf = 1, lfrm(1)
-c       print 83, (sic(jwf,iwf,1),jwf=1,lfrm(1))
-c      end do 
-c      print *, 'SIC -- LAG MULT Matrix: down'
-c      do iwf = 1, lfrm(2)
-c       print 83, (sic(jwf,iwf,2),jwf=1,lfrm(2))
-c      end do 
-c
-c
-c zero test arrays
-c
+!
+!  print Lagrange multiplier matrix as test
+!  Here LMM = <phi_i|VSIC_i|phi_j>
+!
+!      print *, 'numforce nwftot', nwftot
+!      print *, 'SIC -- LAG MULT Matrix: up'
+!      do iwf = 1, lfrm(1)
+!       print 83, (sic(jwf,iwf,1),jwf=1,lfrm(1))
+!      end do 
+!      print *, 'SIC -- LAG MULT Matrix: down'
+!      do iwf = 1, lfrm(2)
+!       print 83, (sic(jwf,iwf,2),jwf=1,lfrm(2))
+!      end do 
+!
+!
+! zero test arrays
+!
        do iwf = 1, nwftot
         do jwf = iwf, nwftot
          over1(iwf,jwf) = 0.0d0
@@ -72,14 +72,14 @@ c
         end do
        end do
 
-c
-c  LAGMULT_SLV adds the DFT part to the lagrange multiplier matrix.
-c  After LAGMULT_SLV:  SIC(i,j,ispn) = <phi_i|HDFT + VSIC_i|phi_j>
-c
-c
-c
-c      KAI THIS SHOULD BE PARALLELIZED
-c
+!
+!  LAGMULT_SLV adds the DFT part to the lagrange multiplier matrix.
+!  After LAGMULT_SLV:  SIC(i,j,ispn) = <phi_i|HDFT + VSIC_i|phi_j>
+!
+!
+!
+!      KAI THIS SHOULD BE PARALLELIZED
+!
        LPTS=0
    25  CONTINUE
         LPTS_BEG=LPTS
@@ -88,12 +88,12 @@ c
 
         LPTS = LPTS_BEG + MPTS
        if(LPTS.LT.NMSH) GOTO 25
-C
-c  done with LAGMULT
-c
-c
-c  print test integrals
-c
+!
+!  done with LAGMULT
+!
+!
+!  print test integrals
+!
        print *, 'in NUMFORCE:  test integrals'
        print *, 'over 1'
        do iwf = 1, nwftot
@@ -122,9 +122,9 @@ c
         end do
        end if
 83     format(1x,10(1x,f10.4))
-c
-c  SYMMETRIZE LM matrix 
-c
+!
+!  SYMMETRIZE LM matrix 
+!
        do ispn = 1,nspn
         do iwf = 1,lfrm(ispn)
          do jwf = iwf,lfrm(ispn)
@@ -134,9 +134,9 @@ c
          end do
         end do
        end do
-c
-c zero test arrays again -- to test frcslv
-c
+!
+! zero test arrays again -- to test frcslv
+!
        do iwf = 1, nwftot
         do jwf = iwf, nwftot
          over1(iwf,jwf) = 0.0d0
@@ -151,12 +151,12 @@ c
        end do
       END IF
 !>>>>>>>>>>>>>>>>>>>
-c
+!
 %ifdef MPI
-c
-c MPI: send data to workers
-c This will zero out FRC1 and FRC2 on workers
-c
+!
+! MPI: send data to workers
+! This will zero out FRC1 and FRC2 on workers
+!
       IF (NPROC .GT. 0) THEN
        CALL SENDDATA(105)
        IF(LSICF) CALL SENDDATA(205) !Broadcast SIC matrix !<<<<
@@ -165,11 +165,12 @@ c
        IF(LIBXC1.OR.ISMGGA) NMAST = NMAX
         !This is needed to keep the correct libxc offset
       END IF
-c
+!
 %endif
-C
-C LB OPEN AND READ LIBXCFRC FILE
-C
+!
+! LB OPEN AND READ LIBXCFRC FILE
+!
+!<LA: mixin is filled in getvlxc 
       IF(LIBXC1.OR.ISMGGA)THEN
         ALLOCATE(MIXIN(4,NMSH*MXSPN),STAT=IERR)
         IF(IERR.NE.0) WRITE(6,*)'NUMFORCE:ERROR ALLOCATING MIXIN'
@@ -187,9 +188,9 @@ C
         close(12001)
       ENDIF
 
-C
-C LOOP OVER ALL POINTS
-C
+!
+! LOOP OVER ALL POINTS
+!
       IOFS1=(NSPN-1)*NMSH   ! Spin down offset of the entire mesh
 !      IOFS2=(NSPN-1)*MPTS   ! Spin down offset of chopped mesh
       LPTS=0
@@ -197,9 +198,9 @@ C
        LPTS_BEG=LPTS
        MPTS=MIN(NMAX,NMSH-LPTS)
        IOFS2=(NSPN-1)*MPTS   ! Spin down offset of chopped mesh
-C
-C LB TRANSFER FROM MIXIN ARRAY TO MIXINS
-C
+!
+! LB TRANSFER FROM MIXIN ARRAY TO MIXINS
+!
        IF(LIBXC1.OR.ISMGGA)THEN
          MIXINS(:,:)=0.0d0
 
@@ -221,9 +222,9 @@ C
            MIXINS(4,IPTS+IOFS2)=MIXIN(4,LPTS+IPTS+IOFS1)
          ENDDO
        ENDIF
-c
+!
 %ifndef MPI
-c
+!
        IF(LSICF) THEN
 %ifdef ATOMFORCE
         CALL FRCSLV0(MPTS,LPTS)
@@ -234,20 +235,20 @@ c
        ELSE
         CALL FRCSLV(MPTS,LPTS)
        ENDIF
-c
+!
 %else
-c
-c MPI: if all workers are busy, let manager do some work
-c      but do not allow packets smaller than 10 points
-c
+!
+! MPI: if all workers are busy, let manager do some work
+!      but do not allow packets smaller than 10 points
+!
        IF (NPROC .EQ. 0) THEN
         IF(LSICF) THEN
 %ifdef ATOMFORCE
          CALL FRCSLV0(MPTS,LPTS)
 %else
-c        Moved the warning message to apotnl_dft
-c        PRINT *,"SKIPPING ATOMIC FORCE"
-c        PRINT *,"RECOMPILE WITH ATOMFORCE TO USE IT"
+!        Moved the warning message to apotnl_dft
+!        PRINT *,"SKIPPING ATOMIC FORCE"
+!        PRINT *,"RECOMPILE WITH ATOMFORCE TO USE IT"
 %endif
         ELSE
          CALL FRCSLV(MPTS,LPTS)
@@ -275,35 +276,35 @@ c        PRINT *,"RECOMPILE WITH ATOMFORCE TO USE IT"
          ENDIF
         END IF
        END IF
-c
+!
 %endif
-c
+!
        LPTS=LPTS_BEG+MPTS
        IF(LPTS.LT.NMSH) GOTO 35
       CONTINUE
-c
-c MPI: collect data
-c
+!
+! MPI: collect data
+!
 %ifdef MPI
-c
+!
       CALL PAMFPUL(2,0,0)
-c
+!
 %endif
-C
-C DEALLOCATE LOCAL ARRAYS
-C
+!
+! DEALLOCATE LOCAL ARRAYS
+!
       IF(LIBXC1.OR.ISMGGA)THEN
         DEALLOCATE(MIXIN,STAT=IERR)
         IF(IERR.NE.0) WRITE(6,*)'NUMFORCE:ERROR DEALLOCATING MIXIN'
         DEALLOCATE(MIXINS,STAT=IERR)
         IF(IERR.NE.0) WRITE(6,*)'NUMFORCE:ERROR DEALLOCATING MIXINS'
       ENDIF
-c
-C FORCES ARE TOO BIG BY A FACTOR OF N(G)
-C
-c Debug print for Force 0.0
-c     print *, 'numforce nfnct npos', nfnct, 
-c    &     (n_pos(ifnct),ifnct=1,nfnct)
+!
+! FORCES ARE TOO BIG BY A FACTOR OF N(G)
+!
+! Debug print for Force 0.0
+!     print *, 'numforce nfnct npos', nfnct, 
+!    &     (n_pos(ifnct),ifnct=1,nfnct)
       IID=0
       DO IFNCT=1,NFNCT
        DO I_POS=1,N_POS(IFNCT)
@@ -312,8 +313,8 @@ c    &     (n_pos(ifnct),ifnct=1,nfnct)
          FRC1(IX,IID)=FRC1(IX,IID)/NGRP
          FRC2(IX,IID)=FRC2(IX,IID)/NGRP
         END DO
-c       print *, 'frc1', (frc1(ix,iid),ix=1,3)
-c       print *, 'frc2', (frc2(ix,iid),ix=1,3)
+!       print *, 'frc1', (frc1(ix,iid),ix=1,3)
+!       print *, 'frc2', (frc2(ix,iid),ix=1,3)
        END DO
       END DO
       RETURN

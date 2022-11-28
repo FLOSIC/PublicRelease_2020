@@ -27,6 +27,7 @@ C        INQUIRE (FILE='FAST',EXIST=EXIST)
  17     FORMAT(I4.4)
         PRINT*,'OPENING VNAME:',VNAME,NFILE
         IF(JSPN.EQ.0)THEN
+        !<LA: why is this opened then closed?
           OPEN(99,FILE='VMOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
           CLOSE(99)
           RETURN

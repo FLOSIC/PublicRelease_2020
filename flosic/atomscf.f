@@ -8,6 +8,7 @@ C UTEP Electronic Structure Lab (2020)
        use common4,only : RPFALP, RPFCMX, RPFCOF, NRPFIT, LDIVR
        use common5,only : CONVERGENCE
        use common8,only : IGEN
+       use common9, only: old_mode
        use global_inputs, only : libxc1   !YY. this is for subvlxc_atomscf
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:34 MDT 2017
 
@@ -453,7 +454,7 @@ C
         RHOGRD( 9)= 0.0D0
         RHOGRD(10)= 0.0D0
 !YY. Use subvlxc_atomscf if libxc1 is .ture.
-        call CHECK_INPUTS
+        if (old_mode) call check_inputs
         DO IRAD= 1,NRAD
          RRC= 1.0D0/RRAD(IRAD)
          RMSH(3,1)= RRAD(IRAD)

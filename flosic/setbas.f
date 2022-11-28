@@ -9,6 +9,7 @@ C SETUP BASIS SET DEPENDING ON NUCLEAR CHARGE AND PSP
 C
 C       use common2,only : ZNUC
        use global_inputs
+       use common9, only: old_mode
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:35:02 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -20,7 +21,7 @@ C       use common2,only : ZNUC
        CHARACTER*10 BASIS_TXT
        DIMENSION ALP(MAX_BARE),CON(MAX_BARE,MAX_CON,3),NBASF(2,3)
 C
-       CALL CHECK_INPUTS
+       if (old_mode) call check_inputs
 C DEFAULT BASIS SET IN NRLMOL
        IF(CALC_BASIS.EQ.1) THEN
          IF (NAMPSP .EQ. 'ALL') THEN

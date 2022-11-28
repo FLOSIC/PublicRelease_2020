@@ -9,11 +9,16 @@ C     ------------------------------------------------------------------
 C
 C      use debug1
       use global_inputs,only : CALCTYPE1,MOLDEN1,SPNPOL1
-      use common1,only : PSPSYM
-      use common2,only : ATOMMAP,ATOMSPIN,CHNET,OPTTYP,SPNNET
-      use common3,only : RMAT, NGRP
+      use common1, only : PSPSYM
+      use common2, only : ATOMMAP,ATOMSPIN,CHNET,OPTTYP,SPNNET
+      use common2, only: natoms
+      use common3, only : RMAT, NGRP
+      use common9, only: old_mode
+      !<LA: uncomment
+      use inputvars, only: functype, symgrp, geometry, atoms, 
+     & atoms_int, spinpseudo
       use FRM,only     : LFRM
-C      use fragment,only : NFRAGMENT,FRAGMENTS
+!      use inp_module
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:50 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -26,31 +31,23 @@ C      use fragment,only : NFRAGMENT,FRAGMENTS
        INTEGER :: IPSCHG
        external IPSCHG
       SAVE
-C
+
       PARAMETER(MXCHG=56)
-C     PARAMETER(MXATM=1000)
-C     PARAMETER(MXSET=500)
-C
+
       INTEGER INEW,TOTNSETS,J,K
       LOGICAL   EXIST,PSEUDO,FIRST,AFERRO
-C
+
       CHARACTER*60 NAMFUNCT
       CHARACTER*3  NAMGRP,TABLE(0:MXCHG)
       CHARACTER*6  CHARINF
-C      CHARACTER*1  FRAGTXT
-C
-C     CHARACTER*3  NAMPSP(MXSET),SPNDIR(MXSET)
-C     DIMENSION R(3,MXATM),IDXSET(MXATM)
-C     DIMENSION IZNUC(MXSET),IZELC(MXSET)
-C
       CHARACTER*3,ALLOCATABLE ::  NAMPSP(:),SPNDIR(:)
       INTEGER,ALLOCATABLE :: IZNUC(:),IZELC(:),IDXSET(:)
       REAL*8,ALLOCATABLE :: R(:,:)
-C
+
       DIMENSION ALPSET(MAX_BARE),CONSET(MAX_BARE,MAX_CON,3),NBASF(2,3)
       DIMENSION RNUC(3,MX_GRP),MSITES(1)
       DIMENSION V(3),ELECTRONS(2)
-C
+
       DATA TABLE/
      & 'PSE',
      & 'HYD','HEL',
@@ -75,58 +72,67 @@ C
 C
 C     --- CHECK IF CLUSTER FILE EXIST, IF NOT USE DEFAULT  ---
 C
-      INQUIRE(FILE='CLUSTER',EXIST=EXIST)
-      IF (.NOT. EXIST) GOTO 800
+      !<LA: old mode start
+      if (old_mode) then
+       INQUIRE(FILE='CLUSTER',EXIST=EXIST)
+       IF (.NOT. EXIST) GOTO 800
 C
 C     --- OPEN CLUSTER FILE ---
 C
-      OPEN(90,FILE='CLUSTER',FORM='FORMATTED',STATUS='OLD')
-      REWIND(90)
-      READ(90,'(A)', END=200) NAMFUNCT
-C
+       OPEN(90,FILE='CLUSTER',FORM='FORMATTED',STATUS='OLD')
+       REWIND(90)
+       READ(90,'(A)', END=200) NAMFUNCT
+
 C     --- COORDINATES GIVEN IN ADDITIONAL FILE ---
 C     
-      IF(NAMFUNCT(1:1).EQ.'@')THEN
+       IF(NAMFUNCT(1:1).EQ.'@')THEN
         CLOSE(90)
         CALL EZSTART
         WRITE(6,*)'XMOL FILE PROCESSED INTO CLUSTER FILE, RERUN PROGRAM'
         CALL STOPIT
-      END IF
-C
+       END IF
 C     --- READ SYMMETRY POINT GROUP AND GET GROUP MATRIX IF DESIRED ---
 C
-      READ(90,'(A3)',END=200) NAMGRP
-      CALL GETGRP(NAMGRP)
-C
+       READ(90,'(A3)',END=200) NAMGRP
+       CALL GETGRP(NAMGRP)
+
 C     --- READ GROUP INFORMATION, CHECK GROUP, AND STORE IT IN COMMON /GROUP/ ---
 C     --- LB: NOW CALLED COMMON3 IN modules2.f90 ---
 C
-      CALL FGMAT
+       CALL FGMAT
 C
 C     --- NOW DEAL WITH ATOMS ---
 C
 C LB:     --- AND FRAGMENTS --- 
 C
-      READ(90,*,END=200) MMATOMS
-      IF (MMATOMS .LE. 0) THEN
-        PRINT *,'ISETUP: NUMBER OF ATOMS IS ZERO'
-        GOTO 900
-      ELSE IF (MMATOMS .GT. MAX_IDENT) THEN
-        PRINT *,'ISETUP: MAX_IDENT SHOULD BE AT LEAST:',MMATOMS
-        GOTO 900
-      END IF
-C
-C      ALLOCATE(FRAGMENTS(NFRAGMENT),STAT=IERR)
-C      IF(IERR/=0) WRITE(6,*)'ISETUP:ERROR ALLOCATING FRAGMENTS'
-C      READ(90,*,END=200)(FRAGMENTS(I),I=1,NFRAGMENT)
-C      TOT=0
-C      DO I=1,NFRAGMENT
-C         TOT=TOT+FRAGMENTS(I)
-C      ENDDO
-C      IF(TOT/=MMATOMS) THEN
-C        WRITE(6,*) 'ISETUP:SUM OF FRAGMENTS NOT EQUAL TO TOTAL ATOMS'
-C        GOTO 900
-C      ENDIF
+       READ(90,*,END=200) MMATOMS
+       IF (MMATOMS .LE. 0) THEN
+         PRINT *,'ISETUP: NUMBER OF ATOMS IS ZERO'
+         CLOSE(90)
+         CALL STOPIT
+       ELSE IF (MMATOMS .GT. MAX_IDENT) THEN
+         PRINT *,'ISETUP: MAX_IDENT SHOULD BE AT LEAST:',MMATOMS
+!         GOTO 900
+         CLOSE(90)
+         CALL STOPIT
+       END IF
+      !<LA: new_mode
+      else
+      !<LA: uncomment
+        namgrp = symgrp
+        namfunct = functype
+        call getgrp(namgrp)
+        call fgmat
+        mmatoms = natoms
+        if (mmatoms .le. 0) then
+          write(*,*) 'isetup: number of atoms is zero'
+          call stopit
+        elseif (mmatoms .gt. max_ident) then
+          write(*,*) 'isetup: max_ident should be at least:',mmatoms
+          call stopit
+        endif
+      endif
+      !<LA: old_mode end
 C
 C     --- ALLOCATE LOCAL ARRAYS ---
 C
@@ -148,21 +154,22 @@ C
 C     --- GENERATE INPUT FILES                   ---
 C     --- FIRST, WRITE HEADER OF SYMBOL ---
 C
-       OPEN(92,FILE='SYMBOL' ,FORM='FORMATTED',STATUS='UNKNOWN')
+       OPEN(92,FILE='SYMBOL', FORM='FORMATTED',STATUS='UNKNOWN')
        REWIND(92)
 C
 C     --- CREATE/OPEN THE MOLDEN OUTPUT FILE AND ---
 C     --- MAKE SURE THAT IS EMPTY ! ---
 C
-      CALL CHECK_INPUTS
-      IF(MOLDEN1)THEN
-        OPEN(42, FILE='CLUSTER.MOLDEN', STATUS='UNKNOWN')
-        REWIND(42)
-        ENDFILE(42)
-        REWIND(42)
-        WRITE(42,'(A)') '[Molden Format]'
-        CLOSE(42)
-      ENDIF
+      if (old_mode) call check_inputs
+      !<LA: this does nothing and is never read in, commenting out
+!      IF(MOLDEN1)THEN
+!        OPEN(42, FILE='CLUSTER.MOLDEN', STATUS='UNKNOWN')
+!        REWIND(42)
+!        ENDFILE(42)
+!        REWIND(42)
+!        WRITE(42,'(A)') '[Molden Format]'
+!        CLOSE(42)
+!      ENDIF
       SELECT CASE (CALCTYPE1)
         CASE (1)
           WRITE(92,'(A)') 'LBFGS'
@@ -182,6 +189,7 @@ C
       WRITE(92,'(A)') 'ISYMGEN = INPUT'
       WRITE(92,'(I3,A)') MMATOMS+2,'  NUMBER OF SYMBOLS IN LIST'
       WRITE(92,'(I3,A)') MMATOMS,  '  NUMBER OF NUCLEI'
+      if (old_mode) natoms = mmatoms
 C
 C     --- CARTESIAN CONSTRAINS: ALL ATOMS ARE FREE TO MOVE ---
 C       
@@ -192,12 +200,8 @@ C
 
       PRINT '(A)','GENERATING SYMBOL FILE FROM DATA IN FILE CLUSTER'
 
-C      ZTOT=0.0D0
-C      DO IFRAG=1,NFRAGMENT
-C        WRITE(FRAGTXT,'(I1.1)') IFRAG
-C        WRITE(6,*)'FRAGMENT ',FRAGTXT,' ATOMS',FRAGMENTS(IFRAG)
-        NATOM=0
-        NSETS=0
+      NATOM=0
+      NSETS=0
       DO IATRD=1,MMATOMS
         NATOM=NATOM+1
         IDXSET(NATOM)=0
@@ -205,20 +209,40 @@ C        WRITE(6,*)'FRAGMENT ',FRAGTXT,' ATOMS',FRAGMENTS(IFRAG)
 C
 C     --- READ INFO FOR ONE ATOM, CHECK IF CHARGE IN BOUNDS ---
 C
-        CALL IGETATM(90,R(1,NATOM),IZNUC(NSETS),CHARINF,IREAD)
-C
-        NAMPSP(NSETS)(1:3)=CHARINF(1:3)
-        SPNDIR(NATOM)(1:3)=CHARINF(4:6)
-        IF (IREAD .NE. 0) GOTO 200
-        IF (NAMPSP(NSETS) .EQ. 'BHS') PSEUDO= .TRUE.
-C
-        IF (IZNUC(NSETS) .GT. MXCHG) THEN
+        !<LA: old_mode 
+        if (old_mode) then
+         CALL IGETATM(90,R(1,NATOM),IZNUC(NSETS),CHARINF,IREAD)
+         NAMPSP(NSETS)(1:3)=CHARINF(1:3)
+         SPNDIR(NATOM)(1:3)=CHARINF(4:6)
+         IF (IREAD .NE. 0) GOTO 200
+         IF (NAMPSP(NSETS) .EQ. 'BHS') PSEUDO= .TRUE.
+         IF (IZNUC(NSETS) .GT. MXCHG) THEN
           PRINT *,'ISETUP: ATOMS WITH Z > ',MXCHG,' ARE NOT SUPPORTED'
-          GOTO 900
-        ELSE IF (IZNUC(NSETS) .LT. 0) THEN
+          CLOSE(90)
+          CALL STOPIT
+         ELSE IF (IZNUC(NSETS) .LT. 0) THEN
           PRINT *,'ISETUP: ATOMS WITH Z < 0 ARE NOT SUPPORTED'
-          GOTO 900
-        END IF
+          CLOSE(90)
+          CALL STOPIT
+         END IF
+        else
+        !LA: new mode
+      !<LA: uncomment
+         r(:,natom) = geometry(:,natom)
+         charinf = spinpseudo(nsets)
+         nampsp(nsets)(1:3) = charinf(1:3)
+         spndir(natom)(1:3) = charinf(4:6)
+         iznuc(nsets) = atoms_int(nsets)
+         if (nampsp(nsets) .eq. 'bhs') pseudo= .true.
+         if (iznuc(nsets) .gt. mxchg) then
+          print *,'isetup: atoms with z > ',mxchg,' are not supported'
+          call stopit
+         elseif (iznuc(nsets) .lt. 0) then
+          print *,'isetup: atoms with z < 0 are not supported'
+          call stopit
+         endif
+        endif
+
 C
 C     --- CHECK FOR EQUIVALENT ATOMS ---
 C
@@ -232,7 +256,6 @@ C
                 V(I)=V(I)+RMAT(I,J,IGP)*R(J,IATOMS)
               END DO
             END DO
-C
             ERROR=ABS(V(1)-R(1,NATOM)) 
      &           +ABS(V(2)-R(2,NATOM)) 
      &           +ABS(V(3)-R(3,NATOM)) 
@@ -243,7 +266,9 @@ C
      &        (NAMPSP(IDXSET(IATOMS)) .NE. NAMPSP(NSETS)))) THEN
             PRINT *,'ISETUP: FOUND ATOMS OF DIFFERENT TYPE AT THE'
             PRINT *,'SAME COORDINATES - ASK A NUCLEAR PHYSICIST'
-            GOTO 900
+!            GOTO 900
+            if (old_mode) CLOSE(90)
+            CALL STOPIT
           END IF
           ITOT=ITOT+JTOT
         END DO
@@ -259,7 +284,7 @@ C     --- CHECK IF NEW ATOM TYPE BELOGS TO AN ALREDY DEFINED SET ---
 C
           ITOT=NSETS
           DO ISET=1,NSETS-1 
-            IF ((IZNUC (ISET) .EQ. IZNUC (NSETS)) .AND.
+            IF ((IZNUC(ISET) .EQ. IZNUC(NSETS)) .AND.
      &        (NAMPSP(ISET) .EQ. NAMPSP(NSETS))) ITOT=ISET
           END DO
           IF (ITOT .NE. NSETS) NSETS=NSETS-1
@@ -271,7 +296,7 @@ C
       END DO
 C
 C     --- NOW UPDATE SYMBOL AND PSPINP ---
-        TOTNSETS=TOTNSETS+NSETS
+      TOTNSETS=TOTNSETS+NSETS
 C
 C
 C     --- GENERATE POINTER TO MAP COORDINATES:                  ---
@@ -323,9 +348,6 @@ C
         PSPSYM(1)(1:3)= NAMPSP(ISET)
         PSPSYM(1)(4:4)= '-'
         PSPSYM(1)(5:7)= TABLE(IZN)
-C        PSPSYM(1)(7:7)= FRAGTXT
-C        PSPSYM(1)(8:9)= FRAGTXT
-C        PSPSYM(1)(10:10)= '-'
 C
 C     --- FIND ATOMS THAT BELONG TO THIS SET ---
 C
@@ -377,16 +399,16 @@ C
 C     --- DEFINE NET CHARGE AND SPIN IPSCHG RETURNS THE ---
 C     --- ACTUAL NUMBER OF ELECTRONS ON THE ATOM        ---
 C
-      READ(90,*,END=200) CHNET,SPNNET
+      if (old_mode) READ(90,*,END=200) CHNET,SPNNET
 C
       ELECTRONS(1)= -(CHNET-SPNNET-ZTOT)/2.0D0
       ELECTRONS(2)= -(CHNET+SPNNET-ZTOT)/2.0D0
 C
 C     --- CLOSE CLUSTER FILE ---
 C
-      CLOSE(90)
+      if (old_mode) CLOSE(90)
 !YY. spin polarized calculation if SPNPOLV is set to Y
-      CALL CHECK_INPUTS
+      if (old_mode) call check_inputs
       IF(SPNPOL1)  AFERRO = .true.
 !If FRMIDT contains down FODs, make it spin polarized caculation
       IF(LFRM(2) .GT. 0) AFERRO = .true.
@@ -400,7 +422,7 @@ C
         WRITE(92,1080) ELECTRONS
       END IF
       WRITE(92,1090)
-C
+
  1080 FORMAT('ELECTRONS  =',2(1X,F15.6))
  1090 FORMAT('EXTRABASIS = 0')
 C
@@ -410,61 +432,60 @@ C
 C
 C     --- OPEN CLUSTER FILE ---
 C
-      OPEN(90,FILE='CLUSTER',FORM='FORMATTED',STATUS='OLD')
-      REWIND(90)
-      READ(90,'(A)', END=200) NAMFUNCT
+!<LA: why is this done twice? the next sections are repeated from
+!earlier
+
+      if (old_mode) then
+       OPEN(90,FILE='CLUSTER',FORM='FORMATTED',STATUS='OLD')
+       REWIND(90)
+       READ(90,'(A)', END=200) NAMFUNCT
 C
 C     --- COORDINATES GIVEN IN ADDITIONAL FILE ---
 C     
-      IF(NAMFUNCT(1:1).EQ.'@')THEN
+       IF(NAMFUNCT(1:1).EQ.'@')THEN
         CLOSE(90)
         CALL EZSTART
         WRITE(6,*)'XMOL FILE PROCESSED INTO CLUSTER FILE, RERUN PROGRAM'
         CALL STOPIT
-      END IF
+       END IF
 C
 C     --- READ SYMMETRY POINT GROUP AND GET GROUP MATRIX IF DESIRED ---
 C
-      READ(90,'(A3)',END=200) NAMGRP
+       READ(90,'(A3)',END=200) NAMGRP
 C
 C     --- NOW DEAL WITH ATOMS ---
 C LB:     --- AND FRAGMENTS FOR ISYMGEN --- 
 C
-      READ(90,*,END=200) MMATOMS
-      IF (MMATOMS .LE. 0) THEN
-        PRINT *,'ISETUP: NUMBER OF ATOMS IS ZERO'
-        GOTO 900
-      ELSE IF (MMATOMS .GT. MAX_IDENT) THEN
-        PRINT *,'ISETUP: MAX_IDENT SHOULD BE AT LEAST:',MMATOMS
-        GOTO 900
-      END IF
-C      READ(90,*,END=200)(FRAGMENTS(I),I=1,NFRAGMENT)
-C      TOT=0
-C      DO I=1,NFRAGMENT
-C         TOT=TOT+FRAGMENTS(I)
-C      ENDDO
-C      IF(TOT/=MMATOMS) THEN
-C        WRITE(6,*) 'ISETUP:SUM OF FRAGMENTS NOT EQUAL TO TOTAL ATOMS'
-C        GOTO 900
-C      ENDIF
+       READ(90,*,END=200) MMATOMS
+       IF (MMATOMS .LE. 0) THEN
+         PRINT *,'ISETUP: NUMBER OF ATOMS IS ZERO'
+!         GOTO 900
+         CLOSE(90)
+         CALL STOPIT
+       ELSE IF (MMATOMS .GT. MAX_IDENT) THEN
+         PRINT *,'ISETUP: MAX_IDENT SHOULD BE AT LEAST:',MMATOMS
+!         GOTO 900
+         CLOSE(90)
+         CALL STOPIT
+       END IF
+      endif
 C
 C     --- PROCESS ISYMGEN ---
 C
-       IF (PSEUDO) THEN
-         OPEN(94,FILE='PSPINP' ,FORM='FORMATTED',STATUS='UNKNOWN')
-         REWIND(94)
-       END IF
+       !<LA: The next few lines are unique 
+      IF (PSEUDO) THEN
+        OPEN(94,FILE='PSPINP' ,FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND(94)
+      END IF
 
       OPEN(92,FILE='ISYMGEN',FORM='FORMATTED',STATUS='UNKNOWN')
       REWIND(92)
 
       PRINT '(A)','GENERATING ISYMGEN FILE FROM DATA IN FILE CLUSTER'
+      !<LA: END of unique lines
 
-C      DO IFRAG=1,NFRAGMENT
-C        WRITE(FRAGTXT,'(I1.1)') IFRAG
-C        WRITE(6,*)'FRAGMENT ',FRAGTXT,' ATOMS',FRAGMENTS(IFRAG)
-        NSETS=0
-        NATOM=0
+      NSETS=0
+      NATOM=0
       DO IATRD=1,MMATOMS
         NATOM=NATOM+1
         IDXSET(NATOM)=0
@@ -472,20 +493,40 @@ C        WRITE(6,*)'FRAGMENT ',FRAGTXT,' ATOMS',FRAGMENTS(IFRAG)
 C
 C     --- READ INFO FOR ONE ATOM, CHECK IF CHARGE IN BOUNDS ---
 C
-        CALL IGETATM(90,R(1,NATOM),IZNUC(NSETS),CHARINF,IREAD)
-C
-        NAMPSP(NSETS)(1:3)=CHARINF(1:3)
-        SPNDIR(NATOM)(1:3)=CHARINF(4:6)
-        IF (IREAD .NE. 0) GOTO 200
-        IF (NAMPSP(NSETS) .EQ. 'BHS') PSEUDO= .TRUE.
-C
-        IF (IZNUC(NSETS) .GT. MXCHG) THEN
+        if (old_mode) then
+         CALL IGETATM(90,R(1,NATOM),IZNUC(NSETS),CHARINF,IREAD)
+         NAMPSP(NSETS)(1:3)=CHARINF(1:3)
+         SPNDIR(NATOM)(1:3)=CHARINF(4:6)
+         IF (IREAD .NE. 0) GOTO 200
+         IF (NAMPSP(NSETS) .EQ. 'BHS') PSEUDO= .TRUE.
+         IF (IZNUC(NSETS) .GT. MXCHG) THEN
           PRINT *,'ISETUP: ATOMS WITH Z > ',MXCHG,' ARE NOT SUPPORTED'
-          GOTO 900
-        ELSE IF (IZNUC(NSETS) .LT. 0) THEN
+!          GOTO 900
+          CLOSE(90)
+          CALL STOPIT
+         ELSE IF (IZNUC(NSETS) .LT. 0) THEN
           PRINT *,'ISETUP: ATOMS WITH Z < 0 ARE NOT SUPPORTED'
-          GOTO 900
-        END IF
+!          GOTO 900
+          CLOSE(90)
+          CALL STOPIT
+         END IF
+        else
+        !LA: new mode
+      !<LA: uncomment
+         r(:,natom) = geometry(:,natom)
+         charinf = spinpseudo(nsets)
+         nampsp(nsets)(1:3) = charinf(1:3)
+         spndir(natom)(1:3) = charinf(4:6)
+         iznuc(nsets) = atoms_int(nsets)
+         if (nampsp(nsets) .eq. 'bhs') pseudo= .true.
+         if (iznuc(nsets) .gt. mxchg) then
+          print *,'isetup: atoms with z > ',mxchg,' are not supported'
+          call stopit
+         elseif (iznuc(nsets) .lt. 0) then
+          print *,'isetup: atoms with z < 0 are not supported'
+          call stopit
+         endif
+        endif
 C
 C     --- CHECK FOR EQUIVALENT ATOMS WTHIN THIS FRAGMENT ---
 C
@@ -499,7 +540,7 @@ C
                 V(I)=V(I)+RMAT(I,J,IGP)*R(J,IATOMS)
               END DO
             END DO
-C
+
             ERROR=ABS(V(1)-R(1,NATOM)) 
      &           +ABS(V(2)-R(2,NATOM)) 
      &           +ABS(V(3)-R(3,NATOM)) 
@@ -510,7 +551,9 @@ C
      &        (NAMPSP(IDXSET(IATOMS)) .NE. NAMPSP(NSETS)))) THEN
             PRINT *,'ISETUP: FOUND ATOMS OF DIFFERENT TYPE AT THE'
             PRINT *,'SAME COORDINATES - ASK A NUCLEAR PHYSICIST'
-            GOTO 900
+!            GOTO 900
+            if (old_mode) CLOSE(90)
+            CALL STOPIT
           END IF
           ITOT=ITOT+JTOT
         END DO
@@ -536,7 +579,8 @@ C
 C END OF LOOP OVER ATOMS IN FRAGMENT
 C
       END DO
-      CLOSE(90)
+      if (old_mode) CLOSE(90)
+      !<LA: end of first repeated section 
 
 C     --- WRITE INTO ISYMGEN FILE ---
 C
@@ -544,10 +588,14 @@ C
         WRITE(92,'(1X,I3,10X,A)') TOTNSETS,'TOTAL NUMBER OF ATOM TYPES'
         FIRST=.FALSE.
       ENDIF
+      !<LA: the following lines are repeated but not in the same order
+      ! as earlier, seems to have to do with writing to isymgen, so the
+      ! question is why did the prior section need to be repeated 
 C
 C     --- GENERATE POINTER TO MAP COORDINATES:                  ---
 C     --- ORIGINAL ORDER IN CLUSTER -> NEW ORDER IN SYMBOL FILE ---
 C
+      !<LA: atommap is reset but not called again
       INEW = 0 
       ATOMMAP(1:NATOM,3:4) = 0
 C
@@ -559,8 +607,6 @@ C
         PSPSYM(1)(1:3)= NAMPSP(ISET)
         PSPSYM(1)(4:4)= '-'
         PSPSYM(1)(5:7)= TABLE(IZN)
-C        PSPSYM(1)(7:7)= FRAGTXT
-C        PSPSYM(1)(8:9)= FRAGTXT
 
         CALL SETPSP(94,PSPSYM(1),IZN)
         CALL SETBAS(IZN,NAMPSP(ISET),ALPSET,CONSET,NALP,NBASF)
@@ -614,7 +660,7 @@ C
         WRITE(92,1070)(ALPSET(J), J=1,NALP)
         WRITE(92,*)
 C
-        CALL CHECK_INPUTS
+        if (old_mode) call check_inputs
         !write L=1:3 S,P,D types
         DO L=1,3
           !write functions plus supplementary functions         
@@ -627,8 +673,7 @@ C
           END DO
         END DO 
       ENDDO
-C
-C      ENDDO
+
       WRITE(92,'(A)') 'ELECTRONS'
       WRITE(92,'(A)') 'WFOUT'
 C
@@ -636,7 +681,7 @@ C     --- CLOSE ISYMGEN FILE ---
 C
       CLOSE(92)
       IF (PSEUDO) CLOSE(94)
-C
+
       PRINT '(A)',' '
 C
 C     --- DEALLOCATE LOCAL ARRAYS ---
@@ -653,9 +698,7 @@ C
       IF(IERR/=0) WRITE(6,*)'ISETUP: ERROR DEALLOCATING R'
       DEALLOCATE(IDXSET,STAT=IERR)
       IF(IERR/=0) WRITE(6,*)'ISETUP: ERROR DEALLOCATING IDXSET'
-C
-C
-C
+
       RETURN
 C
 C     --- SETUP DEFAULT CLUSTER FILE ---
@@ -691,8 +734,8 @@ C
 C
 C     --- ERROR ---
 C
-  900 CLOSE(90)
-      CALL STOPIT
+!  900 CLOSE(90)
+!      CALL STOPIT
 C
 C     ------------------------------------------------------------------
 C

@@ -3,7 +3,15 @@ C> @file mldecomp.f
 C> NEWWAVES
 C> Path diverges depending on ATOMSIC and FRMORB files
        SUBROUTINE NEWWAVES(ITTOT,TRACE)
+       use common2, only: natoms
+       use common3, only: ngrp
        IMPLICIT REAL*8 (A-H,O-Z)
+       !<LA: update to 
+!       include  'PARAMA2'
+!       implicit none
+!       integer :: ittot, natm, mxxg
+!       real*8 :: trace
+
        CHARACTER*50 LINE
        LOGICAL EXIST
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
@@ -11,14 +19,6 @@ C> Path diverges depending on ATOMSIC and FRMORB files
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
          IF(EXIST) THEN
            CALL SCFSICW(ITTOT,TRACE)
-C          call system('echo LDA >XXTEST')
-C          call system('grep GGA SYMBOL > XXTEST')
-C          OPEN(38,FILE='XXTEST')
-C          READ(38,'(A50)')LINE
-C          DO I=1,47
-C            IF(LINE(I:I+2).EQ.'GGA')STOP'GGA IS NOT READY'
-C          END DO
-C          CLOSE(38)
          ELSE
            CALL NEWWAVE_serial(ITTOT,TRACE)
          END IF
@@ -34,21 +34,33 @@ C          CLOSE(38)
            CALL STOPIT
          END IF
          CLOSE(54)
-         OPEN(54,FILE='XMOL.DAT')
-         READ(54,*)NATM
-         CLOSE(54)
-         OPEN(54,FILE='GRPMAT')
-         READ(54,*)MXXG
-         CLOSE(54)
-         IF(NATM.NE.1.OR.MXXG.NE.1)THEN
-           PRINT*,' ATOMS:',NATM
-           PRINT*,'GRPMAT:',MXXG
+         !<LA: updated to use variables from the modules 
+         !<LA: old way 
+!         OPEN(54,FILE='XMOL.DAT')
+!         READ(54,*)NATM
+!         CLOSE(54)
+!         OPEN(54,FILE='GRPMAT')
+!         READ(54,*)MXXG
+!         CLOSE(54)
+!         IF(NATM.NE.1.OR.MXXG.NE.1)THEN
+!           PRINT*,' ATOMS:',NATM
+!           PRINT*,'GRPMAT:',MXXG
+!           PRINT*,'SICWAVE SHOULD NOT BE CALLED'
+!           CALL STOPIT
+!         END IF
+
+         !<LA: new way 
+         if (natoms .ne. 1 .or. ngrp .ne. 1) then
+           PRINT*,' ATOMS:', natoms
+           PRINT*,'GRPMAT:', ngrp
            PRINT*,'SICWAVE SHOULD NOT BE CALLED'
            CALL STOPIT
-         END IF
+         endif
+         !<---
+
          !CALL SICWAVE(ITTOT,TRACE)
          print *,"SICWAVE is not merged yet in this versio  YY"
-         call stopit !YY 
+         call stopit 
        END IF
        RETURN
        END

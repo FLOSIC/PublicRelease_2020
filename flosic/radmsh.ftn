@@ -5,6 +5,7 @@ C
        SUBROUTINE RADMSH(NSIZ,RA,RB,ERRMAX,ALMIN,ALMAX,AFUDGE,NPOW,
      &                   NPTS,RRET,WRET)
         use global_inputs,only : SCANMESH1
+        use common9, only: old_mode
         IMPLICIT REAL*8 (A-H,O-Z)
 C
 C WRITTEN BY DV POREZAG (OPTIMIZED VERSION OF ONEDIMP BY MR PEDERSON)
@@ -46,7 +47,7 @@ C
 C
 C CHECK IF SUPER DUPER FINE MESH IS REQUESTED BY A USER
 C
-        CALL CHECK_INPUTS
+        if (old_mode) call check_inputs
 C
 C CHECK INPUT PARAMETERS
 C

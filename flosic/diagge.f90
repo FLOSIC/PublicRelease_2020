@@ -28,6 +28,7 @@
 ! *************************************************************************
       SUBROUTINE DIAGGE(NA,N,A,B,Eig,AUX,IEV)
        use global_inputs,only : idiag1
+       use common9,only : old_mode
        implicit none
        integer, intent(IN)     ::  NA,N,IEV
        real(8), intent(INOUT)   ::  A(Na,Na),B(Na,Na),AUX
@@ -47,25 +48,25 @@
        integer, allocatable ::    IFAIL(:)
        logical :: exist, first=.true.
 ! Solving:  A*C = E*B*C  for itype =1
-        itype=1; 
+       itype=1; 
 
-         CALL GTTIME(TIMEA)
-         CALL CHECK_INPUTS
+       CALL GTTIME(TIMEA)
+       if (old_mode) call check_inputs
 !         INQUIRE(FILE='input',EXIST=EXIST)
 !         IF (EXIST) THEN
 !           open(9,file='input')
 !           read(9,*) idiag
 !           close(9)
 !         ENDIF
-           if (NA < 80) idiag1 = 0
-          if (idiag1 < 0 .OR. idiag1 > 3) idiag1 = 1
+        if (NA < 80) idiag1 = 0
+        if (idiag1 < 0 .OR. idiag1 > 3) idiag1 = 1
 
 !            write(6,*) 'Current value of idiag is',idiag
 
         if (iev .eq. 0) jobz='N'  ! Only eigenvalues are needed.
         if (iev .eq. 1) jobz='V'  ! Both eigenvectors and eigenvalues are to be calculated.
         ! Remove folllowing block later
-        if (NA   .ne. N) then
+        if (NA .ne. N) then
 !          write(6,*) 'Note Matrix and problem dimensions are different!' 
         endif
 

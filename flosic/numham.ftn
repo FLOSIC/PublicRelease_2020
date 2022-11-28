@@ -14,6 +14,7 @@ C
        use common3,only : RMAT
        use common5,only : HAVEHAM, ISTSCF
        use common8,only : REP, N_REP, NS_TOT
+       use common9, only: old_mode
        use mpidat1,only : NPROC
        use global_inputs, only : libxc1
        use xtmp2a,only : HSTORSIZE
@@ -120,7 +121,7 @@ C         write(6,*)'numham:done overnum'
 ! (Turn this on when you are using libxc or MGGA)
        if(IGGA(1)==3 .or. IGGA(2)==3) isMGGA = .true.
 
-       call CHECK_INPUTS
+       if (old_mode) call check_inputs
        !write(*,*) "LIBXC1", libxc1, isMGGA,IGGA(1),IGGA(2)
 
        if(libxc1 .or. isMGGA) then
