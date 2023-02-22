@@ -9,7 +9,7 @@ C> Path diverges depending on ATOMSIC and FRMORB files
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
        IF(.NOT.EXIST)THEN
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
-         IF(EXIST) THEN
+         IF(.false. .and. EXIST) THEN
            CALL SCFSICW(ITTOT,TRACE)
 C          call system('echo LDA >XXTEST')
 C          call system('grep GGA SYMBOL > XXTEST')
@@ -21,6 +21,8 @@ C          END DO
 C          CLOSE(38)
          ELSE
            CALL NEWWAVE_serial(ITTOT,TRACE)
+           !Temporary modifiction
+           !CALL NEWWAVE(ITTOT,TRACE)
          END IF
        ELSE
          INQUIRE(FILE='PURGRSQ',EXIST=EXIST)

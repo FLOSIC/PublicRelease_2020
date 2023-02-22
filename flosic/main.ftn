@@ -116,7 +116,9 @@ C       call system('touch SLOW')
       INQUIRE(FILE='FRMORB',EXIST=EXIST)
       LSIC=.FALSE.
       UNIHAM1=.FALSE.
-      IF(EXIST)THEN
+      IF(.true.)THEN 
+        call allocate_diag1(.true.)
+      ELSEIF(EXIST)THEN
         LSIC=.TRUE.
 C LB: READ FRMORB HERE
          OPEN(68,FILE='FRMORB')
@@ -736,7 +738,8 @@ C        CLOSE(76)
 !#####################################################
 !YY Either use our apotnl + call_forces or use apotnl_dft (useful in comparing energy).
 !     CALL APOTNL(TOTQNUM,ITTOT)
-      CALL APOTNL_DFT(TOTQNUM)
+      !CALL APOTNL_DFT(TOTQNUM)
+      CALL GETTMAT(TOTQNUM)
       CALL GTENRGY
 
       WRITE(7,'(A,F19.8)') 'TOTAL ENERGY: ',ETOTAL

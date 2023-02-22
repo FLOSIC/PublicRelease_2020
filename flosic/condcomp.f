@@ -131,4 +131,5 @@ C
          GOTO 100
 C
   200    CONTINUE
+         CLOSE(6) !edit
         END
