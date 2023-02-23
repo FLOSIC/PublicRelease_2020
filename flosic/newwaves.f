@@ -9,16 +9,9 @@ C> Path diverges depending on ATOMSIC and FRMORB files
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
        IF(.NOT.EXIST)THEN
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
-         IF(.false. .and. EXIST) THEN
-           CALL SCFSICW(ITTOT,TRACE)
-C          call system('echo LDA >XXTEST')
-C          call system('grep GGA SYMBOL > XXTEST')
-C          OPEN(38,FILE='XXTEST')
-C          READ(38,'(A50)')LINE
-C          DO I=1,47
-C            IF(LINE(I:I+2).EQ.'GGA')STOP'GGA IS NOT READY'
-C          END DO
-C          CLOSE(38)
+         IF(EXIST) THEN
+           !CALL SCFSICW(ITTOT,TRACE)
+           CALL NEWWAVE_2020(ITTOT,TRACE)
          ELSE
            CALL NEWWAVE_serial(ITTOT,TRACE)
            !Temporary modifiction

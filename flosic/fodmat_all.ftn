@@ -136,14 +136,14 @@ C KW: THis gives Fermi orbital transfodmation 04/15/2022
        use hstor1,only : HSTOR
        include 'PARAMA2'
        REAL(8),INTENT(OUT) :: TOTQNUM
-       INTEGER :: JBEG,I,I_POS,IBAS,ICON,IDEBUG,IFLO,IFNCT,
+       INTEGER :: JBEG,I,I_POS,IBAS,ICON,IDEBUG,IFLO,IFNCT,IREP,
      &            IFND,IGR,ILOC,INDX,IPTS,ISHDUM,ISHELLA,ISIZE,ISPN,
      &            IW,IWF,J,J_POS,JBAS,JCALC,JFLO,JLOC,JNDX,JPTS,
      &            JWF,K,KFLO,KFOD,KFOD_MAX,KLOC,KLOC_MAX,KOUNT,KPTS,
      &            KREP,KSPN,KWF,L,L_NUC,LI,LMAX1,LPTS,LPV,LSPX,M_NUC,
      &            MPTS,MU,NBAS,NDERV,NGRAD,NT,NU,
      &            NMAX,NMSH_save,NPV         
-       REAL(8) :: APT1,FACTOR,FOUND,FMAT,
+       REAL(8) :: APT1,FACTOR,FOUND,FMAT,HADD,OADD,
      &            ORB_CHG,ORB_COU,ORB_EXC,PI,RV,SIC_ENG,TIME3,TIME4,
      &            TIMEGORB,TOT_CHG,XEKS
 %endif
@@ -193,12 +193,13 @@ C
        LOGICAL LGGA,IUPDAT
        DIMENSION ISIZE(3)
        DATA ISIZE/1,3,6/
+       call symfrm(1)
                  NFLO=0
         INQUIRE(FILE='FRMORB',EXIST=EXIST)
         IF(EXIST)THEN
         OPEN(80,FILE='FRMORB')
-        !READ(80,*)(MFOD(I),NFOD(I),I=1,2)
-        READ(80,*)(NFOD(I),I=1,2),(MFOD(I),I=1,2)
+        READ(80,*)(MFOD(I),NFOD(I),I=1,2)
+        !READ(80,*)(NFOD(I),I=1,2),(MFOD(I),I=1,2)
         PRINT*,'NFOD:',NFOD
         DO I=1,NSPN
         DO J=1,MFOD(I)
@@ -468,7 +469,7 @@ C REPAIR DAMAGE DONE TO VMESH
           PRINT *,'MAIN SIC ENERGY:            ',SICENERGY
           !ZSIC=SICENERGY
 %endif
-         IDEBUG=1
+         IDEBUG=0
        IF(IDEBUG.EQ.1)THEN
          PRINT*,'CHECKING SIC CALC...SET IDEBUG=0 To SAVE TIME'
          SIC_ENG=0.0D0
@@ -502,7 +503,7 @@ C REPAIR DAMAGE DONE TO VMESH
          PRINT 44,LSPX,KSPX,ABS(NFLO),NMSH,
      &  SIC_ENG,TOT_CHG,ORB_CHG,ORB_COU,ORB_EXC
          END DO
- 44      FORMAT(3I3,I8,' WEDGE (OK BY PUBLIC FLOSIC 6/22/2022)',6F12.6)
+ 44      FORMAT(3I3,I8,' DEBUG (OK BY PUBLIC FLOSIC 6/22/2022)',6F12.6)
          END DO
 C      END DO
        END IF
@@ -518,13 +519,16 @@ C      END DO
           IFLO=KFLO
           NFLO=-IFLO
        PRINT*,'IFLO:',IFLO, "MADE IT HERE"
+!        CALL COUPOT1 !merged from nrlmol_cori_oct4
          CALL SICHAM(IFLO,NT(KFLO,KSPX),IFND(1,KFLO,KSPX))
        END DO
-       END DO
        WRITE(50)(HSTOR(INDX,2),INDX=1,NDH_TOT)
+       END DO
        JNDX=0
        DO KREP=1,N_REP
        NBAS=NS_TOT(KREP)
+          HADD=0.0D0
+          OADD=0.0D0
         DO IBAS=1   ,NBAS        
         DO JBAS=IBAS,NBAS            
         JNDX=JNDX+1
@@ -532,13 +536,14 @@ C      END DO
         HAM (JBAS,IBAS)=HSTOR(JNDX,2)
         OVER(IBAS,JBAS)=HSTOR(JNDX,1)
         OVER(JBAS,IBAS)=HSTOR(JNDX,1)
+        HADD=HADD+ABS(HAM (IBAS,JBAS))
+        OADD=OADD+ABS(OVER(IBAS,JBAS))
         END DO
         print *,'HAM'
         PRINT 556,(HAM(IBAS,JBAS),JBAS=1,NBAS)
         print *,'OVER'
         print 556,(OVER(IBAS,JBAS),JBAS=1,NBAS)
         END DO
-       print *,'debug',NDH,NBAS
 %ifdef NOCOMM
        ZSIC=SICENERGY
        CALL DIAGGE_FO(NDH,NBAS,HAM,OVER,EVAL,SC1,1)
@@ -548,7 +553,7 @@ C      END DO
            DO IBAS=1,NBAS
            FOUND=FOUND+EVAL(IBAS)*NDMREP(KREP)/LDMREP(KREP)
            END DO
-       PRINT*,'EIGENVALUES:'
+       PRINT*,'EIGENVALUES:',IREP,NBAS,JNDX,HADD,OADD
        PRINT 556,(EVAL(IBAS),IBAS=1,NBAS)
        END DO
        CLOSE(50)
@@ -927,6 +932,10 @@ C
        DIMENSION ISIZE(3)
        DATA ISIZE/1,3,6/
        PRINT*,'HELLO FROM FLONASE',NMSH, NFLO, KSPX
+       IF(NMSH.GT.MAX_PTS)THEN
+         PRINT*,'MAX_PTS IS TO SMALL IN FLONASE',NMSH
+         CALL STOPIT
+       END IF
 C
        IF(NFLO.EQ.1)HAM=0.0D0
        TIMEGORB=0.0D0
@@ -1092,7 +1101,9 @@ CHECK FOR ORTHOGONALITY OF FLOS
 C       IF(NFLO.LT.0.AND.IGP.EQ.1)THEN
         IF(NFLO.LT.0)             THEN
            LLOC=(KSPX-1)*NWFS(1)+ABS(NFLO)
-           IF(LPTS.EQ.0)PRINT*,'LLOC:',LLOC
+           IF(LPTS.EQ.0)THEN
+           PRINT*,'CAPTURING CHARGE FOR IFLO:',NFLO,LLOC,KSPX,NMSH
+           END IF
            DO IPTS=1,MPTS
            COULOMB(IPTS+LPTS)=PSIG(IPTS,1,LLOC) !FLO_I
            END DO

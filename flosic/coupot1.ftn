@@ -7,10 +7,12 @@ C ORIGINAL VERSION BY MARK R PEDERSON (1988)
        use global_inputs,only : dosjnt1
        use pot_dens,only : COULOMB,RHOG
        use coupdata1
-       use mesh1,only : rmsh,nmsh
+       use mesh1,only : rmsh,nmsh,wmsh
+       use mixpot1,only : POTIN,POT=>POTOUT
        use debug1
        use common2,only : RIDT, BFCON, BFALP, N_BARE, N_CON,
-     &   LSYMMAX, N_POS, NFNCT, IGGA, ISPN, NSPN
+     &   LSYMMAX, N_POS, NFNCT, IGGA, ISPN, NSPN,
+     &   ERGXL, ERGXN, ERGCL, ERGCN
        use common3,only : RMAT
        use common5,only : PSI, NWF, NWFS
        use common7,only : MODDEN, GAUSS_CUT
@@ -33,6 +35,9 @@ C ORIGINAL VERSION BY MARK R PEDERSON (1988)
      & GAUSS_CUTJ, PROD, RARG, RCALP, RLEN, RR_MAX, RRR, SAVINGS, SS,
      & TFMTTM, TIME1, TIME2, TIMEP, TIMES_ALPHA, TIMES_SITES, TMNRM,
      & TMWRD, TP1, TP2, TPOLYS, TRUNIT, TSETUP, TWASTED, ZED
+!additional
+       INTEGER :: K
+       REAL*8 :: CHNUM,SICEX,SICUM,W7,EMOMN
        SAVE
 !       COMMON/NEWTIMES/TMWRD,TMNRM,CLWRD,CLNRM
 !       COMMON/PTIME/TSETUP,TPOLYS,TFMTTM,TRUNIT,FLDNR,ASYMP,ACHRG
@@ -48,11 +53,14 @@ C ORIGINAL VERSION BY MARK R PEDERSON (1988)
        LOGICAL FIRST_ALPJ,CALLEDJ,NWRD,MWRD,EXIST
        CHARACTER LETTER
 !       COMMON/TMP1/ACOULOMB(MAX_PTS),ARHOG(MAX_PTS,KRHOG,MXSPN)
-       DIMENSION IBEG(3),IEND(3)
+       DIMENSION IBEG(3),IEND(3),EMOMN(7)
+       DIMENSION W7(10,10,7)
        DIMENSION AI(3),AJ(3)
        DIMENSION SS(10,10),DMAT(10,10,2),C(3)
        DATA IBEG,IEND/1,2,5,1,4,10/
        DATA ZED/1.0D-30/
+       GAUSS_CUT=1.0D30
+       EMOMN=0.0D0
 C
        PRINT '(A,I10)','NUMBER OF POINTS IN COUPOT: ',NMSH
        IF(NSPN*(MXPR/NSPN).NE.MXPR)THEN
@@ -421,6 +429,7 @@ C
               END DO
              END DO
 C
+             CALL GINT_NEW(10,2,2,alphai,alphaj,AI,AJ,W7)
              CALL OVMXSF(ALPHAI,ALPHAJ,AI,AJ,SS)
              ADDON=0.0D0
              DO ISPN=1,NSPN
@@ -429,6 +438,10 @@ C
                 DO MUJ=1,MUJMAX
                 ADDON=ADDON+DMAT(MUI,MUJ,ISPN)*SS(MUI,MUJ)
      &               *TIMES_SITES*TIMES_ALPHA
+                DO K=1,7
+                EMOMN(K)=EMOMN(K)+DMAT(MUI,MUJ,ISPN)*W7(MUI,MUJ,K)
+     &               *TIMES_SITES*TIMES_ALPHA
+                END DO
                END DO
               END DO
              END DO
@@ -509,6 +522,7 @@ c
      &                       DMTV(1,1,1,MINC,LNG))
               ELSE
                NMAST= MXPR/(4*NPROC*NSPN)
+               IF(NMAST.GT.4)NMAST= 0
                IF (NMAST .LE. 0) THEN
                 CALL CKWORKER(2,NTID)
                 !GOTO 20
@@ -594,6 +608,7 @@ c
      &                   DMTV(1,1,1,MINC,LNG))
           ELSE
            NMAST= MXPR/(4*NPROC*NSPN)
+           IF(NMAST.GT.4)NMAST=0
            IF (NMAST .LE. 0) THEN
             CALL CKWORKER(2,NTID)
            ! GOTO 30
@@ -657,13 +672,32 @@ c
        PRINT '(A,F16.6)','TOTAL CHARGE IN COUPOT: ',CHARGE
 C
        RR_MAX=0.0D0
+       CHNUM=0.0D0
+       SICUM=0.0D0
+       SICEX=0.0D0
        DO IPTS=1,NMSH
+        CHNUM=CHNUM+RHOG(IPTS,1,1)*WMSH(IPTS)
+        SICUM=SICUM+RHOG(IPTS,1,1)*COULOMB(IPTS)*WMSH(IPTS)*0.5D0
         RRR=SQRT(RMSH(1,IPTS)**2+RMSH(2,IPTS)**2+RMSH(3,IPTS)**2)
         IF(RRR.GT.RR_MAX)THEN
          RR_MAX=RRR
          CHARGE_LR=RRR*COULOMB(IPTS)
         END IF
        END DO
+! temporarly taking this section out since Exc is
+! computed redundantly here and apotnl_dft and sicham (which is LSDA)
+       if(.false.) then
+        CONTINUE !This part is restructured what is POT?
+        POT=0.0D0
+        POTIN=0.0D0
+!This is okay for lsda and gga. But mgga needs the orbital index
+        CALL GETVLXC(NMSH,RHOG,POT,POTIN,.true.,-1,0,0) 
+        !CALL GETVLXC(NMSH,RHOG,POT,POTIN,.false.,MXXD,LSPN,IRBSIC)
+        PRINT 350,(EMOMN(I),I=1,7),SICUM,ERGXL,ERGXN,ERGCL,ERGCN
+ 350    FORMAT(' EMOMENTS:',7G16.8,'   ',8G16.8)
+        PRINT*,'SICUM IN COUPOT1 SHOULD BE CORRECT FOR NO SYM'
+        PRINT*,'SICUM,CHNUM IN COUPOT1:',SICUM,CHNUM
+       end if
        IF(ABS(CHARGE_LR-CHARGE) .GT. 0.1D0)THEN
         write(6,*)'************** WARNING ****************'
         write(6,*)'CHARGE VIA ASYMPTOTIC FORMULA: ',CHARGE_LR

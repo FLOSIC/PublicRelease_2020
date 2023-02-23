@@ -15,7 +15,7 @@ C> Also used in electronic_geometry
         inquire(file='FRMIDT',exist=exist)
         if(.not.exist)return
         inquire(file='FRMGRP',exist=exist)
-        if(.not.exist)return
+        call system('cp GRPMAT FRMGRP')
         inquire(file='frozen.tmp',exist=exist)
         if(exist)call system('rm  frozen.tmp') 
 !       open(3000,file='frozen.tmp',status='new')
@@ -120,7 +120,8 @@ c generate all inequivalent Fermi Orbital Discriptors:
              end do
             end do
           end do
-          write(300,20)nfrm,nidt
+          !write(300,20)nfrm,nidt
+          write(300,20)(nidt(ispn),nfrm(ispn),ispn=1,2)
           do ispn=1,2          
             if(ispn.eq.1)open(99,file='XMOL_FRM.UP')
             if(ispn.eq.2)open(99,file='XMOL_FRM.DN')
@@ -134,7 +135,7 @@ c generate all inequivalent Fermi Orbital Discriptors:
      &            fodidt(2,ifrm,ispn)**2+
      &            fodidt(3,ifrm,ispn)**2
                rn=sqrt(rn)
-               write(99,102)(fodidt(j,kfrm,ispn),j=1,3),rn
+               write(99,102)(fodidt(j,kfrm,ispn)*0.529,j=1,3),rn
               end do
               write(300,101)(fodidt(j,ifrm,ispn),j=1,3),nwht(ifrm,ispn),
      &                      (nequiv(i,ifrm,ispn),i=1,nwht(ifrm,ispn))
@@ -150,7 +151,7 @@ c generate all inequivalent Fermi Orbital Discriptors:
             if(ispn.eq.2)call system('cat XMOL_FRM.DN >> movie.dn')
           end do
           close(300)
-!YY if mode is .ne. 1
+!if mode is .ne. 1
         else 
           open(300,file='FRMORB')
           open(301,file='fforce.dat')

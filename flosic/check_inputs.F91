@@ -89,7 +89,7 @@ subroutine check_inputs
 !   write(68,'(A)')'FROZENDENV    = ''N'' ! Frozen density mode (SIC only)'
     write(68,'(A)')'JNTDOSV       = ''N'' ! This calculates joint density of states (DFA only)'
     write(68,'(A)')'MAXSCFV       = 100 ! Maximum SCF iterations'
-    write(68,'(A)')'MIXINGV       = ''P'' ! (H)amiltonian (P)otential (D)ensity matrix mixing'
+    write(68,'(A)')'MIXINGV       = ''H'' ! (H)amiltonian (P)otential (D)ensity matrix mixing'
     write(68,'(A)')'NONSCFV       = ''N'' ! Set to Y to do a non SCF calculation' 
     write(68,'(A)')'NONSCFFORCESV = ''N'' ! Set to Y to calculate forces in a non SCF calculation' 
     write(68,'(A)')'NWFOUTV       = 10  ! Write WFOUT file for every N-th iteration'    

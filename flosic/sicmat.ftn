@@ -168,7 +168,7 @@ C
        INTEGER :: NMAX=MPBLOCK
        INTEGER :: IBAS,IND,INDX,IST,JBAS,JND,KREP,KROW,LPTS,
      &            MDCL,MPTS,NBAS
-       REAL(8) :: BASPHI,ERROR
+       REAL(8) :: BASPHI,ERROR,ADD1,ADD2
 %endif
 C
 C SCRATCH COMMON BLOCK FOR LOCAL ARRAYS
@@ -181,7 +181,7 @@ C
        DIMENSION BASPHI(NDH*ISMAX,2)   
        LOGICAL LSETUP
        DATA MDCL/2/
-       MDCL=1
+       MDCL=2
 C JUn 12 2022 -- USE MDCL=2 
        IF(IM.EQ.1)BASPHI=0.0D0
 C GAM=   REPRESENATION INDEX, L=ROW OF REPRESENATION
@@ -209,13 +209,31 @@ C      DO I=1,13
 C      PRINT 555,I,BASPHI(I)   ! <B^GAMMA^ROW_N | PHI_I>
 C      END DO
        IF(IM.EQ.MM)THEN
+C CHECK FOR ZEROS
+              DO KREP=1,N_REP
+              IND=0
+                ADD1=0.0D0
+                ADD2=0.0D0
+                DO IBAS=1,NS_TOT(KREP)
+                IND=IND+1
+                ADD1=ADD1+ABS(BASPHI(IND,1 ))
+                ADD2=ADD2+ABS(BASPHI(IND,MM))
+                END DO
+               IF(NS_TOT(KREP).NE.0)THEN
+               PRINT*,'KREP,ADD1,ADD2:',KREP,ADD1,ADD2
+               END IF
+               END DO
        IST=0
        INDX=0
        DO KREP=1,N_REP
           HAM=0.0D0
-       DO KROW=1,NDMREP(KREP)/LDMREP(KREP)
+       DO KROW=1,1!NDMREP(KREP)/LDMREP(KREP)
           DO IBAS=1,NS_TOT(KREP)
           IND=IST+IBAS
+                 IF(IND.GT.NDH*ISMAX)THEN
+                 PRINT*,'NDH*ISMAX MUST BE >',IND
+                 CALL STOPIT
+                 END IF
           DO JBAS=1,NS_TOT(KREP)
           JND=IST+JBAS
           HAM(JBAS,IBAS)=HAM(JBAS,IBAS)+BASPHI(IND,MM)*BASPHI(JND,1)
@@ -233,8 +251,9 @@ C FIND SUM_FLO <IBAS|FLO><FLO|JBAS> (SUMMED OVER ALL FLOS)
           END DO
        END DO
        END IF 
+           PRINT*,'NREC:',INDX
         ERROR=0.0D0
-C       DO I=1,3292
+C       DO I=1,INDX 
 C       PRINT 555,HSTOR(I,1), HSTOR(I,2),HSTOR(I,2)/HSTOR(I,1)
 C       ERROR=ERROR+ABS(HSTOR(I,1)-HSTOR(I,2))/(ABS(HSTOR(I,1)+1.0D-10))
 C       END DO

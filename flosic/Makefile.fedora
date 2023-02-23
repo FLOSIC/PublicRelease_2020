@@ -164,7 +164,7 @@ SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevs
 SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o 
 
 #SIC symmetry
-SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o #newwave_nrlmolcori.o
+SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o newwave_2020.o recursion.o
 
 METAGGA = normh.o hammixdrv.o subvlxc_libxc.o gettau_par.o getvlxc.o setdftyp.o r2scanex.o r2scancor.o regscan.o scan.o overnum_libxc.o pamhamil_libxc.o pashamil_libxc.o gethold_libxc.o gethold_mgga.o atomscfvlxc.o gtgraddrv.o call_mgga.o
 #For the original rSCAN, use regscan_jcp.o in place of regscan.o.
