@@ -14,6 +14,7 @@ C
        use common8,only : REP, N_REP, NDMREP, NS_TOT
        use global_inputs, only : libxc1
        USE XTMP2A,ONLY : ISMGGA,HSTORSIZE,HSTOR_LIBXC,MIXIN,MIXINS
+       USE scaledpzsic,only : SICEXCS,SICEXC,scaledsic
 !      use SICMAT,only : ZMGGA
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:51 MDT 2017
 
@@ -89,6 +90,13 @@ C LB
         !IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR ALLOCATING HSTOR_LIBXC'
         !HSTOR_LIBXC(:,:)=0.0D0
        ENDIF
+
+       IF(scaledsic)THEN
+        ALLOCATE(SICEXC(NMSH),STAT=IERR)
+        SICEXC(:)=0.0d0
+        ALLOCATE(SICEXCS(MPBLOCKXC),STAT=IERR)
+        SICEXCS(:)=0.0d0
+       END IF
 C
 C MPI: CALL PARALLEL VERSION 
 C
@@ -139,7 +147,9 @@ C
         DO IPTS=1,MPTS
          VXC(LPTS+IPTS)=VXCS(IPTS)  ! Spin up
          VXC(LPTS+IPTS+IOFS1)=VXCS(IPTS+IOFS2)  ! Spin down
-         VLO(LPTS+IPTS)=VLOS(IPTS)        
+         VLO(LPTS+IPTS)=VLOS(IPTS)
+! EXC for LSIC 
+         IF(scaledsic) SICEXC(LPTS+IPTS)=SICEXCS(IPTS)
          IF(LIBXC1.OR.ISMGGA)THEN
 ! GGA
            MIXIN(1,LPTS+IPTS)=MIXINS(1,IPTS)  !Spin up mixin elems
@@ -250,6 +260,7 @@ C
 !      ENDIF
        !DEALLOCATE(HSTOR_LIBXC,STAT=IERR)
        !IF(IERR/=0)WRITE(6,*)'GETVLXC:ERROR DEALLOCATING HSTOR_LIBXC'
+       IF(scaledsic) DEALLOCATE(SICEXCS,STAT=IERR)
        ENDIF
 C
        RETURN

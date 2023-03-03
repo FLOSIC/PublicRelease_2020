@@ -15,6 +15,7 @@ c
        use common2,only : ISPN, NSPN, ERGXL, ERGXN, ERGCL, ERGCN
        use mpidat1,only : NPROC, NCALLED, IRANK, MYCOMM
        use XTMP2A,only : MIXINS,MIXIN,ISMGGA
+       use scaledpzsic,only : SICEXCS,SICEXC,scaledsic
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:55 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -168,6 +169,11 @@ c
            CALL MPI_RECV(MIXINS,MDIM*MXSPN*4,MPI_DOUBLE_PRECISION,TID,
      &                 TAG,MPI_COMM_WORLD,IRECVSTAT,IERR)
          ENDIF
+         IF(scaledsic)THEN
+           TAG= 710
+           CALL MPI_RECV(SICEXCS,MDIM,MPI_DOUBLE_PRECISION,TID,
+     &                 TAG,MPI_COMM_WORLD,IRECVSTAT,IERR)
+         ENDIF
          IF ((LREF .LT. 0) .OR. (LREF+MDIM .GT. NMSH)) THEN
           write(6,*)'PAMVLXC: RETURNED INDICES ARE OUT OF BOUNDS'
           write(6,*)'LREF, MDIM, IRANK: ',LREF,MDIM,TID
@@ -187,6 +193,8 @@ c
          VXC(LREF+IPTS)=VXCS(IPTS)
          VXC(LREF+IPTS+IOFS1)=VXCS(IPTS+IOFS2)
          VLO(LREF+IPTS)=VLOS(IPTS)
+! LSIC
+         IF(scaledsic) SICEXC(LREF+IPTS)=SICEXCS(IPTS)
          IF(LIBXC1.OR.ISMGGA)THEN
 ! GGA
            MIXIN(1,LREF+IPTS)=MIXINS(1,IPTS)          !Spin up mixin elems

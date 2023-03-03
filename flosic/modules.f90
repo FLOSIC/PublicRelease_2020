@@ -131,7 +131,7 @@ module xtmp2a
 ! The next variables are used when running libxc
   REAL*8,ALLOCATABLE :: PSIBRA(:,:,:),VOL1(:,:),POTDV(:,:),HSTOR_LIBXC(:,:),PROD(:)
   INTEGER :: HSTORSIZE
-  REAL*8,ALLOCATABLE :: TAUTOT(:,:),TAUCHOP(:,:),MIXINS(:,:),MIXIN(:,:)
+  REAL*8,ALLOCATABLE :: TAUTOT(:,:),TAUCHOP(:,:),MIXINS(:,:),MIXIN(:,:),TAUW_TAU(:),BETA(:)
   LOGICAL :: ISMGGA
 
 end module xtmp2a

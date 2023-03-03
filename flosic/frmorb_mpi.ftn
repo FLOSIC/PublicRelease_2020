@@ -13,9 +13,10 @@ C UTEP Electronic Structure Lab (2020)
        use SICMAT,only : SIC,ZPOT,ZMGGAS !,SIC_COL
        use FRM,only    : BFRM,LFRM   !,RESULTS,DEBDAX
        use MOCORB,only : NFRM        !,SLAT,ZTZL,JJJJJJ
- !MGGA module
+!MGGA module
        use global_inputs,only : libxc1
        USE XTMP2A,ONLY : ISMGGA
+       use scaledpzsic, only : SDSICSAV,SDSICON
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:50 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -193,6 +194,8 @@ C      END FORALL
 !          ZMGGAS(3,IPTS,LFM)=ZMGGA(3,LPTS+IPTS,LFM)
 !          ZMGGAS(4,IPTS,LFM)=ZMGGA(4,LPTS+IPTS,LFM)
            READ(106+LFM+IRBOFS) ZMGGAS(1:4,IPTS,LFM+IRBOFS)
+           IF(SDSICON) ZMGGAS(:,IPTS,LFM+IRBOFS)=
+     &                 ZMGGAS(:,IPTS,LFM+IRBOFS)*SDSICSAV(LFM,LSPN)
           END DO
          ENDIF
          DO J=1,3

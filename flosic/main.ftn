@@ -39,6 +39,8 @@ C
       use HMATSIC,only : OVTM,HMTM
       use FOCENT,only : CFRM
       use coupotmod,only : USE_DDOT
+      use scaledpzsic,only : scaledsic,oneshot,AVGSIC,AVGSICON,
+     &                       LSICON,ORBSICON,SDSICON,GSICON
 ! Conversion to implicit none.  Raja Zope Sun Oct 23 22:09:36 MDT 2016
 
 !      INCLUDE  'PARAMAS'  
@@ -195,6 +197,7 @@ C LB
       CALL SYSTEM('hostname')
       CALL SYSTEM('uname -a')
 C     CALL BANNER
+      CALL printscaledpzsic
       PRINT '(A)',' '
       CALL WPARAMS
 C
@@ -567,6 +570,10 @@ C LB: INITIALIZE DEBDAX ARRAY
            END DO
           END DO
          END DO
+         IF(AVGSICON)THEN
+          allocate(AVGSIC(NMSH*2))
+          AVGSIC=0.0d0
+         ENDIF
 %endif
 C LB
 C LB: INITIALIZE RESULTS ARRAY
@@ -577,6 +584,14 @@ c        if(EXIST)call system('rm fforce.dat2')
          !SIC=0.0d0
          !ZPOT=0.0d0
          !ZMGGA=0.0d0
+         IF(scaledsic)THEN
+! YY: Obtain RSIC factor = tau_w/tau and save it on a disk for scaled-FLOSIC-LDA
+          !CALL DORI
+          IF(LSICON.or.ORBSICON.or.SDSICON) CALL WEIZSACKER(0)
+! Obtain beta on grid for GSIC
+          IF(GSICON) CALL WEIZSACKER(4) 
+         END IF
+
 
          DO 555 JSPNX=1,NSPX   !Spin loop
            PRINT *, " CALLING FRMORB2(0,0)"
@@ -619,7 +634,12 @@ C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
 ! Construct SIC matrix
            CALL GTTIME(TIMET3)
            IF(NFRM(JSPNX) > 0) THEN !Skip if orbital is zero
-            CALL SICLAGM(JSPNX)
+! We will skip this for Local SIC potential averaging
+            if(oneshot.or.AVGSICON) then
+             print *, "Oneshot/AVGSIC calculation, SICLAGM skipped."
+            else
+             CALL SICLAGM(JSPNX)
+            end if
            END IF
            CALL GTTIME(TIMET4)
            WRITE(6,*)'TIME FOR SICLAGM:',TIMET4-TIMET3
@@ -739,6 +759,8 @@ C        CLOSE(76)
       CALL APOTNL_DFT(TOTQNUM)
       CALL GTENRGY
 
+      IF(LSIC.AND.AVGSICON) deallocate(AVGSIC)
+
       WRITE(7,'(A,F19.8)') 'TOTAL ENERGY: ',ETOTAL
 800   FORMAT('SIC COR (U,D,A,X,C,XOSIC,DLAM,DENG,TOT):',15F11.4)
 801   FORMAT(' ORBITAL SIC:',15F11.6)
@@ -761,6 +783,19 @@ C
       ETOTAL=ETOTAL+ZSIC
       ELOWEST=MIN(ETOTAL,ELOWEST)
       CLOSE(54)
+      !The lines below are for gsic modscan 
+      if(GSICON)then
+       open(55,file='modscane',position='append')
+       write(55,*) ERGXL+ERGXN+ZSIC
+       write(55,*) ERGXL,ERGCL,ZSIC
+       close(55)
+      endif
+! Local-SIC and GSIC exit here. Orb-SIC continues calculation.
+      if(oneshot) then
+       print *,"End of calculation"
+       print *,"Calculation is done non self-consistently" 
+       return !exit here
+      end if
 C
 C     --- WAVEFUNCTION DECOMPOSITION INTO LOCAL CONTRIBUTIONS ---
 C

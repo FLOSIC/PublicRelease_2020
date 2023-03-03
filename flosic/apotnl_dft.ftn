@@ -16,6 +16,7 @@ C UTEP Electronic Structure Lab (2020)
 !SIC module                                                                               
        use SICFLAG !LSICF
        use DIRECTIONS !NSPN_SKIP
+       use scaledpzsic,only : AVGSICON,AVGSIC
 ! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:46 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
@@ -26,6 +27,7 @@ C UTEP Electronic Structure Lab (2020)
      & EXHERE, FAC, FACTOR, PEXPOT, PSAVE, RROT, TIME1, TIME2,TIME4,
      & TIME_GETFRMFRC, TIME_GETSICMAT, TIMECOUL, TIMEGORB, TIMERHO,
      & XALPHA
+       INTEGER :: ISPN
        CHARACTER*35 STRING
        LOGICAL :: USE_LEVY_PERDEW
 !      INCLUDE 'commons.inc'
@@ -282,6 +284,65 @@ C
       WRITE(93) NMSH
       WRITE(93)(COULOMB(IPTS),IPTS=1,NMSH)
       CLOSE(93)
+!
+! Local SIC - taking average SIC potential and add it to DFA potential
+!
+      if(AVGSICON) then
+
+!      allocate(AVGSIC(NMSH*NSPN))
+!      AVGSIC=0.0d0
+
+       DO ISPN=1,NSPN
+! mesh offset and orbital offset for spin down
+!       IMOFS  =(ISPN-1)*NMSH
+!       IRBOFS=(ISPN-1)*NWFS(1)
+
+!Open ZPOT files that contains rho_i\sigma * V_sic_i\sigma
+!       DO LFM=1,NFRM(ISPN)
+!        WRITE(ZPOTSTR,'(A,I4.4)')'ZPOT',LFM+IRBOFS
+!        print *,206+LFM+IRBOFS,"OPENING ",ZPOTSTR
+!        OPEN(206+LFM+IRBOFS,FILE=ZPOTSTR,FORM='UNFORMATTED',
+!    &        STATUS='OLD')
+!       END DO
+          
+!       do LFM=1,LFRM(ISPN)
+!        do IPTS=1,NSMH
+!         read(206+LFM+IRBORFS) tmp
+!         AVGSIC(IPTS+IMOFS)=AVGSIC(IPTS+IMOFS)+tmp
+!        end do
+!       end do
+
+!RHOG(:,1,1) here is total density. You need to take 
+!RHOG(:,1,1)-RHOG(:,1,NSPN) to get spin up density.
+        if(ISPN.EQ.1) then
+         do IPTS=1,NMSH
+          AVGSIC(IPTS)=AVGSIC(IPTS)/(RHOG(IPTS,1,1)-RHOG(IPTS,1,2))
+         end do
+         if(NSPN.EQ.1) AVGSIC=AVGSIC*2.0d0 !Since density was twice
+        else if(ISPN.EQ.2) then
+         do IPTS=1,NMSH
+          AVGSIC(IPTS+NMSH)=AVGSIC(IPTS+NMSH)/(RHOG(IPTS,1,2))
+          !NaN catching - in case density is zero. 
+          !if(RHOG(IPTS,1,2).EQ.0.0d0) AVGSIC(IPTS+NMSH) = 0.0d0
+         end do
+        end if
+! What about RHOG becomes too small? -> Ignore that point. Small RHOG means orbital density is also very tiny.
+
+!       DO LFM=1,NFRM(ISPN)
+!        WRITE(ZPOTSTR,'(A,I4.4)')'ZPOT',LFM+IRBOFS
+!        print *,206+LFM+IRBOFS,"CLOSING ",ZPOTSTR
+!        CLOSE(206+LFM+IRBOFS,STATUS='DELETE')
+!       END DO
+       END DO
+       !For debugging
+       !print *,"avgs", AVGSIC(1),AVGSIC(1+NMSH)
+       !print *,"rhog", (RHOG(1,1,1)-RHOG(1,1,2)), RHOG(1,1,2)
+! Add the average V_SIC to V_DFA
+       do IPTS=1,NMSH*NSPN
+        POT(IPTS)=POT(IPTS)-AVGSIC(IPTS)
+       end do
+!      deallocate(AVGSIC)
+      end if
 C
 C IF (CONVERGENCE) WRITE POTENTIAL WITH ITER=0 AND GET FORCES
 C
