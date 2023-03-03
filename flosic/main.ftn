@@ -72,6 +72,7 @@ C
       LOGICAL EXIST,FAILED,EXCCONV,LSIC,FODMSH_EXISTS
       LOGICAL FOD_LOOP
       LOGICAL FOD_CONVERGE
+      LOGICAL SYMMETRYMODE
       CHARACTER*5 OPTION
       CHARACTER*1 CHDUM
       CHARACTER*40 NAME
@@ -84,7 +85,6 @@ C
 !     DIMENSION    FOMSH_INFO(MXSPN,MAX_OCC)
       REAL*8,ALLOCATABLE :: FOMSH_INFO(:,:)
       LOGICAL      FOMSH_ENABLE
-
 C
       REAL*8 RDUMMY,RVEC(1)
 C
@@ -106,6 +106,9 @@ C
 C     CALL FIXTMAT(-999)
 C       call system('touch SETUPFO')
 C       call system('touch SLOW')
+! Logical flag for symmetry mode. T: use symmtery and single Ham. 
+!                                 F: use Jacobi rotation
+      SYMMETRYMODE=.true.
 !LB: SAVE REDUCED MESH IN SIC MATRIX CALCULATION
       MESH_SAV=.FALSE.
 !LB
@@ -116,8 +119,9 @@ C       call system('touch SLOW')
       INQUIRE(FILE='FRMORB',EXIST=EXIST)
       LSIC=.FALSE.
       UNIHAM1=.FALSE.
-      IF(.true.)THEN 
+      IF(SYMMETRYMODE)THEN 
         call allocate_diag1(.true.)
+      !Legacy Jacobi rotation mode
       ELSEIF(EXIST)THEN
         LSIC=.TRUE.
 C LB: READ FRMORB HERE
@@ -341,18 +345,18 @@ C
 C
 C     --- SETUP SOME STUFF ---
 C
-      ETOTAL=0.0D0
-      ENNUC=0.0D0
-      ELOCAL=0.0D0
-      ERGFLD=0.0D0
+      ETOTAL =0.0D0
+      ENNUC  =0.0D0
+      ELOCAL =0.0D0
+      ERGFLD =0.0D0
       EKINONL=0.0D0
-      ENONLO=0.0D0
-      ERGXL=0.0D0
-      ERGXN=0.0D0
-      ERGCL=0.0D0
-      ERGCN=0.0D0
+      ENONLO =0.0D0
+      ERGXL  =0.0D0
+      ERGXN  =0.0D0
+      ERGCL  =0.0D0
+      ERGCN  =0.0D0
       ESOLTOT=0.0D0
-      ESOLC=0.0D0
+      ESOLC  =0.0D0
       ENUCSOL=0.0D0
       FULLSTEP=.TRUE.
       IF (MAXSCF.EQ.0) THEN
@@ -399,7 +403,7 @@ C       CALL TRACER('MAIN:BEFORE DVPMESH')
       WRITE(*,*) 'NMSH is ', NMSH
       CALL FLUSH(6)
       IF(MESH_SAV) CALL SYSTEM('mkdir SCRATCH')
-!YY where is the best place to allocate coulomb and rhog in sic?
+!YY where would be the best place to allocate coulomb and rhog in sic?
 !     IF(LSIC) call allocate_sic(.true.) 
       call allocate_sic(.true.)
 %ifdef GROUP
@@ -737,9 +741,12 @@ C        CLOSE(76)
 !##           DFT/SIC common section                ##
 !#####################################################
 !YY Either use our apotnl + call_forces or use apotnl_dft (useful in comparing energy).
-!     CALL APOTNL(TOTQNUM,ITTOT)
-      !CALL APOTNL_DFT(TOTQNUM)
-      CALL GETTMAT(TOTQNUM)
+      IF(SYMMETRYMODE) THEN
+        CALL GETTMAT(TOTQNUM)
+      ELSE
+        CALL APOTNL_DFT(TOTQNUM)
+        !CALL APOTNL(TOTQNUM,ITTOT)
+      END IF
       CALL GTENRGY
 
       WRITE(7,'(A,F19.8)') 'TOTAL ENERGY: ',ETOTAL

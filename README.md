@@ -57,9 +57,3 @@ C. M. Diaz, P. Suryanarayana, Q. Xu, T. Baruah, J. E. Pask, and R. R. Zope, J. C
 BibTex citations are available in /doc/references.bib         
 
 ### Lead software development brought to you by UTEP Electronic Structure Lab (2021)
-R. R. Zope \
-T. Baruah \
-L. Basurto \
-C. M. Diaz \
-Y. Yamamoto 
-

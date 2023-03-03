@@ -95,33 +95,33 @@ c
        DATA ZED/1.0D-30/
        GAUSS_CUT=1.0D30
        LMSH=NMSH ! NUMBER OF POINTS IN THE FUNDAMENTAL WEDGE
-                  NF1=1          
-                  NF2=MEQV        
+       NF1=1          
+       NF2=MEQV        
        MGRP=0
-                  NMSH_SAV=NMSH
+       NMSH_SAV=NMSH
 C EVENTUALLY GENERATE 100 RANDOM POINTS IN RMSH, SET NMSH=100 AND RUN
 C THE GROUP ASSIGNER:
 C 
 C DETERMINE NEEDED REPLICAS OF RMSH:
-                  NMSH_SAV=NMSH
-                  MMSH=NMSH
-                  DO IMSH=1,NMSH
-                  WMSH(IMSH)=WMSH(IMSH)/NGRP
-                  END DO
-                  DO IGP=2,NGRP 
-                  DO IMSH=1,NMSH
-                      MMSH=MMSH+1
-                      WMSH(MMSH)=WMSH(IMSH)
-                    DO J=1,3
-                    RMSH(J,MMSH)=0.0D0
-                    DO L=1,3
-                    RMSH(J,MMSH)=RMSH(J,MMSH)+RMAT(J,L,IGP)*RMSH(L,IMSH)
-                    END DO
-                    END DO
-                  END DO
-                  END DO
-                  NMSH=MMSH !TOTAL NUMBER OF POINTS
-                  PRINT*,'POINTS BEFORE FLONASE:',NMSH
+       NMSH_SAV=NMSH
+       MMSH=NMSH
+       DO IMSH=1,NMSH
+         WMSH(IMSH)=WMSH(IMSH)/NGRP
+       END DO
+       DO IGP=2,NGRP 
+         DO IMSH=1,NMSH
+           MMSH=MMSH+1
+           WMSH(MMSH)=WMSH(IMSH)
+           DO J=1,3
+             RMSH(J,MMSH)=0.0D0
+             DO L=1,3
+               RMSH(J,MMSH)=RMSH(J,MMSH)+RMAT(J,L,IGP)*RMSH(L,IMSH)
+             END DO
+           END DO
+         END DO
+       END DO
+       NMSH=MMSH !TOTAL NUMBER OF POINTS
+       PRINT*,'POINTS BEFORE FLONASE:',NMSH
 %ifdef NOCOMM
        ALLOCATE(AIV(3,MXPR,MX_CNT+2,MXLG))
        ALLOCATE(AJV(3,MXPR,MX_CNT+2,MXLG))
@@ -147,32 +147,32 @@ C      CALL FLONASE(TIME1)
 C      NFLO=MFLO
 C      STOP
        DO JFLO=NF1,NF2 !THIS WILL BE DRIVE BY INFORMATION IN FRMORB
-          IFLO=IFND(JFLO)
-          NFLO=-IFLO
-       POT=0.0D0
-       PRINT*,'NFLO:',NFLO,KSPX,IFLO,NF1,NF2
-       CALL FLONASE(TIME)
-          TDD=0.0D0
-          DO IMSH=1,MMSH
-          TDD=TDD+ABS(POT(IMSH))
-          OG(IMSH,IFLO)=POT(IMSH)
-          END DO
-          PRINT*,'ADD:',MMSH,JFLO,IFLO,NFLO,TDD
-          IF(ABS(TDD).LT.1.0D-10)THEN
-              STOP  !POT became zero
-          END IF
+         IFLO=IFND(JFLO)
+         NFLO=-IFLO
+         POT=0.0D0
+         PRINT*,'NFLO:',NFLO,KSPX,IFLO,NF1,NF2
+         CALL FLONASE(TIME)
+         TDD=0.0D0
+         DO IMSH=1,MMSH
+           TDD=TDD+ABS(POT(IMSH))
+           OG(IMSH,IFLO)=POT(IMSH)
+         END DO
+         PRINT*,'ADD:',MMSH,JFLO,IFLO,NFLO,TDD
+         IF(ABS(TDD).LT.1.0D-10)THEN
+           STOP  !POT became zero
+         END IF
        END DO
-C         NMSH=NMSH_SAV
-          DO JFLO=NF1,NF2
-             IFLO=IFND(JFLO)
-          PRINT*,'IFLO:',IFLO,MMSH
-          END DO
-          DO JFLO=NF1,NF2
-             IFLO=IFND(JFLO)
-                  DO IGP=1,NGRP
-                  MAP(IGP,IFLO)=NGRP+1
-                  END DO
-           DO JGP=1,NGRP              
+C      NMSH=NMSH_SAV
+       DO JFLO=NF1,NF2
+         IFLO=IFND(JFLO)
+         PRINT*,'IFLO:',IFLO,MMSH
+       END DO
+       DO JFLO=NF1,NF2
+         IFLO=IFND(JFLO)
+         DO IGP=1,NGRP
+           MAP(IGP,IFLO)=NGRP+1
+         END DO
+         DO JGP=1,NGRP              
            DO IGP=1,NGRP
              ERROR=0.0D0
              DO IMSH=1,LMSH
@@ -180,44 +180,44 @@ C         NMSH=NMSH_SAV
      &                      -OG(IMSH+(JGP-1)*LMSH,IFLO))
              END DO 
              IF(ERROR.LT.1.0D-5)THEN
-             MAP(JGP,IFLO)=MIN(IGP,MAP(JGP,IFLO))
-             MGRP=MAX(MAP(JGP,IFLO),MGRP)
-             PRINT 610,LMSH,IFLO,IGP,JGP,ERROR
+               MAP(JGP,IFLO)=MIN(IGP,MAP(JGP,IFLO))
+               MGRP=MAX(MAP(JGP,IFLO),MGRP)
+               PRINT 610,LMSH,IFLO,IGP,JGP,ERROR
              END IF
            END DO
-           END DO
-          PRINT 615,IFLO,(MAP(JGP,IFLO),JGP=1,NGRP),0,0,IFND(NF1)
- 610         FORMAT(4I5,G15.6)
- 615         FORMAT('MAP IFLO:',I4,48I3)
-          END DO
+         END DO
+         PRINT 615,IFLO,(MAP(JGP,IFLO),JGP=1,NGRP),0,0,IFND(NF1)
+ 610     FORMAT(4I5,G15.6)
+ 615     FORMAT('MAP IFLO:',I4,48I3)
+       END DO
        PRINT*,'BACK FROM FLONASE'
 C FIND NEEDED CELLS
-          NCELL=0
-          NEEDED=0
-          DO JFLO=NF1,NF2
-          IFLO=IFND(JFLO)
-          PRINT 615,IFLO,(MAP(JGP,IFLO),JGP=1,NGRP),IFND(NF1)
-          DO JGP=1,NGRP
-          IMIN=1000
-                DO ICELL=1,NCELL
-                IMIN=MIN(ABS(MAP(JGP,IFLO)-NEEDED(ICELL)),IMIN)
-                END DO
-                IF(IMIN.NE.0)THEN
-                NCELL=NCELL+1
-                NEEDED(NCELL)=MAP(JGP,IFLO)
-                END IF
-          END DO
-          END DO
-                DO ICELL=1      ,NCELL
-                DO JCELL=ICELL+1,NCELL
-                IF(NEEDED(JCELL).LT.NEEDED(ICELL))THEN
-                     NEEDED_SAV=NEEDED(JCELL)
-                     NEEDED(JCELL)=NEEDED(ICELL)
-                     NEEDED(ICELL)=NEEDED_SAV
-                END IF
-                END DO
-                PRINT*,ICELL,NEEDED(ICELL),' CELLS FOR THIS ADVENTURE'
-                END DO
+       NCELL=0
+       NEEDED=0
+       DO JFLO=NF1,NF2
+         IFLO=IFND(JFLO)
+         PRINT 615,IFLO,(MAP(JGP,IFLO),JGP=1,NGRP),IFND(NF1)
+         DO JGP=1,NGRP
+           IMIN=1000
+           DO ICELL=1,NCELL
+             IMIN=MIN(ABS(MAP(JGP,IFLO)-NEEDED(ICELL)),IMIN)
+           END DO
+           IF(IMIN.NE.0)THEN
+             NCELL=NCELL+1
+             NEEDED(NCELL)=MAP(JGP,IFLO)
+           END IF
+         END DO
+       END DO
+       DO ICELL=1        ,NCELL
+         DO JCELL=ICELL+1,NCELL
+           IF(NEEDED(JCELL).LT.NEEDED(ICELL))THEN
+             NEEDED_SAV=NEEDED(JCELL)
+             NEEDED(JCELL)=NEEDED(ICELL)
+             NEEDED(ICELL)=NEEDED_SAV
+           END IF
+         END DO
+         PRINT*,ICELL,NEEDED(ICELL),' CELLS FOR THIS ADVENTURE'
+       END DO
        call flush(6)
 C FIGURE OUT THE FUNDAMENTAL WEDGE FOR FLO IFLO:
        PRINT*,'NEED MGRP OPERATIONS TO COMPLETE TASKS:',NCELL
@@ -226,29 +226,29 @@ C FIGURE OUT THE FUNDAMENTAL WEDGE FOR FLO IFLO:
        WRITE(32)NMSH
        WRITE(32)RMSH,WMSH
        CLOSE(32)
-                  NMSH=0           
-                  DO ICELL=1,NCELL
-                   DO IMSH=1,LMSH
-                     NMSH=NMSH+1
-                     DO J=1,3
-                     RMSH(J,NMSH)=RMSH(J,IMSH+(NEEDED(ICELL)-1)*LMSH )
-                     END DO
-                     WMSH(  NMSH)=WMSH(  IMSH+(NEEDED(ICELL)-1)*LMSH )
-                   END DO
-                  END DO
-                  PRINT*,'POINTS REQUIRED 4 THIS SET OF FLOS:',NMSH
+       NMSH=0           
+       DO ICELL=1,NCELL
+         DO IMSH=1,LMSH
+           NMSH=NMSH+1
+           DO J=1,3
+             RMSH(J,NMSH)=RMSH(J,IMSH+(NEEDED(ICELL)-1)*LMSH )
+           END DO
+           WMSH(  NMSH)=WMSH(  IMSH+(NEEDED(ICELL)-1)*LMSH )
+         END DO
+       END DO
+       PRINT*,'POINTS REQUIRED 4 THIS SET OF FLOS:',NMSH
 C PLACE POINTS FOR EACH CELL IN RMSH
        IF(NSPN*(MXPR/NSPN).NE.MXPR)THEN
-        PRINT *,'MXPR MUST BE EVEN IN COUPOT1'
-        CALL STOPIT
+         PRINT *,'MXPR MUST BE EVEN IN COUPOT1'
+         CALL STOPIT
        END IF
-               NFLO=-IFND(NF1) ! THIS WILL BE INFORMED FROM FRMORB
+       NFLO=-IFND(NF1) ! THIS WILL BE INFORMED FROM FRMORB
        TMWRD=0.0D0
        TMNRM=0.0D0
        IF (DEBUG) THEN
-        PRINT *, 'GAUSS_CUT IN COUPOT'
-        PRINT 9000,(GAUSS_CUT(IX),IX=1,MAX_IDENT)
- 9000   FORMAT(4(1X,G15.8))
+         PRINT *, 'GAUSS_CUT IN COUPOT'
+         PRINT 9000,(GAUSS_CUT(IX),IX=1,MAX_IDENT)
+ 9000    FORMAT(4(1X,G15.8))
        END IF
        IZM=1                 
        IF(IZM.EQ.0)THEN      
@@ -791,97 +791,97 @@ c
 %endif
 c
        ELSE    
-       CONTINUE
-       RHOG=0.0D0
-       CMB=0.0D0
-       CALL COUPOT1
-       CMB=CMB*(NSPN/2.0D0)
-            CHARGE=0.0D0
-            DO IMSH=1,NMSH
-            CHARGE=CHARGE+RHOG(IMSH,1,1)*WMSH(IMSH)
-            END DO
-            PRINT*,'CHARGE_T ON FUNDAMENTAL WEDGE:',CHARGE,NMSH
-       OPEN(32,FILE='MESH_UNSYM',FORM='UNFORMATTED')
-       READ (32)NMSH
-       READ (32)RMSH,WMSH
-       CLOSE(32)
-       DO ICELL=NCELL,1,-1
-             PRINT*,'ICELL, NEEDED:',ICELL,NEEDED(ICELL)
-       DO IMSH=1,LMSH
-      CMB (IMSH+(NEEDED(ICELL)-1)*LMSH)    
-     &         =CMB (IMSH+(ICELL-1)*LMSH)    
-                IF(ICELL.LT.NEEDED(ICELL))THEN
-                CMB (IMSH+(ICELL-1)*LMSH)=0.0D0
-                END IF
-         DO LSPN=1,NSPN
-         DO IGRAD=1,10
-       RHOG(IMSH+(NEEDED(ICELL)-1)*LMSH,IGRAD,LSPN)
-     &=RHOG(IMSH+(ICELL-1        )*LMSH,IGRAD,LSPN)
-       IF(ICELL.LT.NEEDED(ICELL))THEN
-       RHOG(IMSH+(ICELL-1        )*LMSH,IGRAD,LSPN)=0.0D0
-       END IF
+        CONTINUE
+        RHOG=0.0D0
+        CMB=0.0D0
+        CALL COUPOT1
+        CMB=CMB*(NSPN/2.0D0)
+        CHARGE=0.0D0
+        DO IMSH=1,NMSH
+          CHARGE=CHARGE+RHOG(IMSH,1,1)*WMSH(IMSH)
+        END DO
+        PRINT*,'CHARGE_T ON FUNDAMENTAL WEDGE:',CHARGE,NMSH
+        OPEN(32,FILE='MESH_UNSYM',FORM='UNFORMATTED')
+        READ (32)NMSH
+        READ (32)RMSH,WMSH
+        CLOSE(32)
+        DO ICELL=NCELL,1,-1
+         PRINT*,'ICELL, NEEDED:',ICELL,NEEDED(ICELL)
+         DO IMSH=1,LMSH
+           CMB (IMSH+(NEEDED(ICELL)-1)*LMSH)    
+     &            =CMB (IMSH+(ICELL-1)*LMSH)    
+           IF(ICELL.LT.NEEDED(ICELL))THEN
+             CMB (IMSH+(ICELL-1)*LMSH)=0.0D0
+           END IF
+           DO LSPN=1,NSPN
+             DO IGRAD=1,10
+               RHOG(IMSH+(NEEDED(ICELL)-1)*LMSH,IGRAD,LSPN)
+     &        =RHOG(IMSH+(ICELL-1        )*LMSH,IGRAD,LSPN)
+               IF(ICELL.LT.NEEDED(ICELL))THEN
+               RHOG(IMSH+(ICELL-1        )*LMSH,IGRAD,LSPN)=0.0D0
+               END IF
+             END DO
+           END DO
          END DO
-         END DO
-      END DO
-      END DO
-      DO IGP=1,NGRP     
-      DO IMSH=1,LMSH
-      CMB (IMSH+(IGP-1)          *LMSH           )=
-     &CMB (IMSH+(MAP(IGP,IFND(1))-1)*LMSH           )
-      DO LSPN=1,NSPN
-      DO IGRAD=1,10
-      RHOG(IMSH+(IGP       -1)*LMSH,IGRAD,LSPN)=
-     &RHOG(IMSH+(MAP(IGP,IFND(1))-1)*LMSH,IGRAD,LSPN) 
-      END DO
-      END DO
-      END DO
-      END DO
-          JFLO=1
-          IFLO=IFND(JFLO)
-          IF(IFLO.EQ.1.AND.KSPX.EQ.1)TOT_CHG=0.0D0 !KW
-          IF(IFLO.EQ.1.AND.KSPX.EQ.1)TOT_SIC=0.0D0 !KW          
-          IF(JFLO.EQ.1)SIC_COU=0.0D0
-          IF(JFLO.EQ.1)SIC_EXC=0.0D0
-          IF(JFLO.EQ.1)ORB_SIC=0.0D0
-          IF(JFLO.EQ.1)ORB_SCI=0.0D0
-            CHARGE=0.0D0
-            DESIC=0.0D0
-            DVSIC=0.0D0 
-            PI=4.0D0*ATAN(1.0D0)
-            DO IMSH=1,LMSH*NGRP
-            DN=RHOG(IMSH,1,KSPX)
-            CHARGE=CHARGE+RHOG(IMSH,1,KSPX)*WMSH(IMSH)
-             ZET=1.0D0
-             DKF=(DN*3.0D0*PI**2)**(1./3.)
-             DKS=SQRT(1.2732395447351627D0*DKF)
-             RS=1.9191582926775128D0/DKF
-             T=0.0D0
-             UU=0.0D0
-             VV=0.0D0
-             WW=0.0D0
-             VCUP=0.0D0
-             VCDN=0.0D0
-             EC=0.0D0
-             VEX=0.0D0
-             IF(DN.GT.1.0D-20)THEN        
-             CALL PW91LC(RS,ZET,EC,VCUP,VCDN,ECRS,ECZET,ALFC)
-              VEX=-(6.0D0*DN/PI)**(1./3.)
-             END IF
-            VSIC(IMSH)=-(CMB(IMSH)+VEX+VCUP)
-            DVSIC=DVSIC+VSIC(IMSH)*DN*WMSH(IMSH)
-            DESIC=DESIC-(0.5*CMB(IMSH)+0.75*VEX+EC)*DN*WMSH(IMSH)           
-          SIC_COU=SIC_COU-0.5*CMB(IMSH)*DN*WMSH(IMSH)*(NF2-NF1+1)
-          SIC_EXC=SIC_EXC-(0.75*VEX+EC)*DN*WMSH(IMSH)*(NF2-NF1+1)
+        END DO
+        DO IGP=1,NGRP     
+          DO IMSH=1,LMSH
+            CMB (IMSH+(IGP-1)          *LMSH           )=
+     &      CMB (IMSH+(MAP(IGP,IFND(1))-1)*LMSH           )
+            DO LSPN=1,NSPN
+              DO IGRAD=1,10
+                RHOG(IMSH+(IGP       -1)*LMSH,IGRAD,LSPN)=
+     &          RHOG(IMSH+(MAP(IGP,IFND(1))-1)*LMSH,IGRAD,LSPN) 
+              END DO
             END DO
-          ORB_SCI=DVSIC
-          TOT_SIC=TOT_SIC+SIC_COU+SIC_EXC
-          TOT_CHG=TOT_CHG+CHARGE*(NF2-NF1+1)
-          PRINT 317,CHARGE,DVSIC,DESIC,TOT_CHG,TOT_SIC                                     
- 317      FORMAT('THE TALLY:',10F15.6)
+          END DO
+        END DO
+        JFLO=1
+        IFLO=IFND(JFLO)
+        IF(IFLO.EQ.1.AND.KSPX.EQ.1)TOT_CHG=0.0D0 !KW
+        IF(IFLO.EQ.1.AND.KSPX.EQ.1)TOT_SIC=0.0D0 !KW          
+        IF(JFLO.EQ.1)SIC_COU=0.0D0
+        IF(JFLO.EQ.1)SIC_EXC=0.0D0
+        IF(JFLO.EQ.1)ORB_SIC=0.0D0
+        IF(JFLO.EQ.1)ORB_SCI=0.0D0
+        CHARGE=0.0D0
+        DESIC=0.0D0
+        DVSIC=0.0D0 
+        PI=4.0D0*ATAN(1.0D0)
+        DO IMSH=1,LMSH*NGRP
+         DN=RHOG(IMSH,1,KSPX)
+         CHARGE=CHARGE+RHOG(IMSH,1,KSPX)*WMSH(IMSH)
+         ZET=1.0D0
+         DKF=(DN*3.0D0*PI**2)**(1./3.)
+         DKS=SQRT(1.2732395447351627D0*DKF)
+         RS=1.9191582926775128D0/DKF
+         T=0.0D0
+         UU=0.0D0
+         VV=0.0D0
+         WW=0.0D0
+         VCUP=0.0D0
+         VCDN=0.0D0
+         EC=0.0D0
+         VEX=0.0D0
+         IF(DN.GT.1.0D-20)THEN        
+           CALL PW91LC(RS,ZET,EC,VCUP,VCDN,ECRS,ECZET,ALFC)
+           VEX=-(6.0D0*DN/PI)**(1./3.)
+         END IF
+         VSIC(IMSH)=-(CMB(IMSH)+VEX+VCUP)
+         DVSIC=DVSIC+VSIC(IMSH)*DN*WMSH(IMSH)
+         DESIC=DESIC-(0.5*CMB(IMSH)+0.75*VEX+EC)*DN*WMSH(IMSH)           
+         SIC_COU=SIC_COU-0.5*CMB(IMSH)*DN*WMSH(IMSH)*(NF2-NF1+1)
+         SIC_EXC=SIC_EXC-(0.75*VEX+EC)*DN*WMSH(IMSH)*(NF2-NF1+1)
+        END DO
+        ORB_SCI=DVSIC
+        TOT_SIC=TOT_SIC+SIC_COU+SIC_EXC
+        TOT_CHG=TOT_CHG+CHARGE*(NF2-NF1+1)
+        PRINT 317,CHARGE,DVSIC,DESIC,TOT_CHG,TOT_SIC                                     
+ 317    FORMAT('THE TALLY:',10F15.6)
        END IF
        SICENERGY=TOT_SIC*(2/NSPN)
        CALL FLUSH(6)
-                 PRINT*,'TOT_SIC AND SICENERGY:',SICENERGY
+       PRINT*,'TOT_SIC AND SICENERGY:',SICENERGY
  50    FORMAT(' WEDGE NEW COUSIC:',2I8,8F15.6)
  52    FORMAT(' WEDGE TOT_SIC, CHRGE, IC_COU, SIC_EXC, ORB_SIC, ORBSCI')
 C      END DO
@@ -896,7 +896,7 @@ CCC END OF BUG
        ZERO=0.0D0
  20    FORMAT(10F12.5)
        PRINT*,'NMSH BEFORE FLONASE:',NMSH
-               NFLO=-IFND(1)
+       NFLO=-IFND(1)
        CALL FLONASE(TIME) ! RETRIEVE INEQUIVALENT FLO
        PRINT*,'NMSH AFTER  FLONASE:',NMSH
        DO 150 IPTS=1,NMSH
@@ -908,40 +908,40 @@ C            CHARGE_NUM=(CHARGE_NUM*NGRP)/MGRP
        PRINT*,"TST: LONG  CHARGE IN COUPOT: ",CHARGE_LONG
        PRINT*,"TOTAL CHARGE IN COUPOT:      ",CHARGE
        CALL FLUSH(6)
-C           MM=1 !SIC Scisster
-            MM=2 !PRP JCP and Support of Multiplicative Hamiltonian
-            IF(MM.EQ.1)ORB_SCI=SQRT(ABS(ORB_SCI))
-            IF(MM.EQ.2)THEN
-              ORB_SCI=1.0D0            
-C             IF(NF2-NF1.NE.0)THEN
-C             PRINT*,'COMPLETE VSIC MAPPING'
-C              CALL STOPIT
-C             END IF
-            END IF
+C      MM=1 !SIC Scisster
+       MM=2 !PRP JCP and Support of Multiplicative Hamiltonian
+       IF(MM.EQ.1)ORB_SCI=SQRT(ABS(ORB_SCI))
+       IF(MM.EQ.2)THEN
+         ORB_SCI=1.0D0            
+C        IF(NF2-NF1.NE.0)THEN
+C          PRINT*,'COMPLETE VSIC MAPPING'
+C          CALL STOPIT
+C        END IF
+       END IF
 C NOTE THAT POT=FLO
        NWRK=NMSH
        DO JFLO=NF1,NF2
-       DO IM=1,MM
-       PROIDT=0.0D0
-          DO IMSH=1,NWRK
+        DO IM=1,MM
+         PROIDT=0.0D0
+         DO IMSH=1,NWRK
           PROIDT(IMSH)=POT(IMSH)*WMSH(IMSH)*ORB_SCI !W(I)|FLO_I><FLO_I|VI|FLO_I>
-          END DO
+         END DO
          IF(IM.EQ.2)THEN
           DO IMSH=1,NWRK
-          PROIDT(IMSH)=-PROIDT(IMSH)*VSIC(IMSH) !To match sign convention in 
+           PROIDT(IMSH)=-PROIDT(IMSH)*VSIC(IMSH) !To match sign convention in 
           END DO 
          END IF
-             IFLO=IFND(JFLO)
-                 DO JGP=1,NGRP   !MOST RECENT CHANGE
-                 DO IMSH=1,LMSH         
-                 PROEQV(IMSH+(JGP-1)          *LMSH)
-     &                        =PROIDT(IMSH+(MAP(JGP,IFLO)-1)*LMSH)
-                 END DO
-                 END DO
-          NMSH=NGRP*LMSH
-                      II=IM
-          CALL APATCH(II,MM,PROEQV)
-       END DO
+         IFLO=IFND(JFLO)
+         DO JGP=1,NGRP   !MOST RECENT CHANGE
+          DO IMSH=1,LMSH         
+           PROEQV(IMSH+(JGP-1)          *LMSH)
+     &    =PROIDT(IMSH+(MAP(JGP,IFLO)-1)*LMSH)
+          END DO
+         END DO
+         NMSH=NGRP*LMSH
+         II=IM
+         CALL APATCH(II,MM,PROEQV)
+        END DO
        END DO
        OPEN(60,FILE='VMOLD',FORM='UNFORMATTED')
        READ(60)NMSH
