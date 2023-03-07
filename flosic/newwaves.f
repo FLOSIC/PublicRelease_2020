@@ -2,16 +2,19 @@ C UTEP Electronic Structure Lab (2020)
 C> @file mldecomp.f
 C> NEWWAVES
 C> Path diverges depending on ATOMSIC and FRMORB files
-       SUBROUTINE NEWWAVES(ITTOT,TRACE)
+       SUBROUTINE NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
        IMPLICIT REAL*8 (A-H,O-Z)
        CHARACTER*50 LINE
-       LOGICAL EXIST
+       LOGICAL EXIST,SYMMETRYMODE
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
        IF(.NOT.EXIST)THEN
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
          IF(EXIST) THEN
-           !CALL SCFSICW(ITTOT,TRACE)
-           CALL NEWWAVE_2020(ITTOT,TRACE)
+           IF(SYMMETRYMODE) THEN
+             CALL NEWWAVE_2020(ITTOT,TRACE)
+           ELSE
+             CALL SCFSICW(ITTOT,TRACE)
+           END IF
          ELSE
            CALL NEWWAVE_serial(ITTOT,TRACE)
            !Temporary modifiction
