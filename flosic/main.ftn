@@ -108,7 +108,7 @@ C       call system('touch SETUPFO')
 C       call system('touch SLOW')
 ! Logical flag for symmetry mode. T: use symmtery and single Ham. 
 !                                 F: use Jacobi rotation
-      SYMMETRYMODE=.true.
+      SYMMETRYMODE=.false.
 !LB: SAVE REDUCED MESH IN SIC MATRIX CALCULATION
       MESH_SAV=.FALSE.
 !LB

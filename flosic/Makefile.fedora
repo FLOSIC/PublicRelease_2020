@@ -7,7 +7,7 @@
 # COMPILING OPTIONS, set Y or N for these options
 #
 # Parallel compilation
-MPI=N
+MPI=Y
 # Group calculation
 GROUP=N
 # Atomic force in the FLOSIC calculation

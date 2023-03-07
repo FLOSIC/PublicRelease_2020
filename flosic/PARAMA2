@@ -13,7 +13,7 @@
         INTEGER, PARAMETER :: MAXUNSYM =            50 
         INTEGER, PARAMETER :: NDH =               1000 
         INTEGER, PARAMETER :: NDH_TOT =  NDH*(NDH+1)/2
-        INTEGER, PARAMETER :: MX_GRP =              24 
+        INTEGER, PARAMETER :: MX_GRP =               1 
         INTEGER, PARAMETER :: MAX_REP =             10 
         INTEGER, PARAMETER :: MAXSLC =             200 
         INTEGER, PARAMETER :: LOCMAX =             360 
