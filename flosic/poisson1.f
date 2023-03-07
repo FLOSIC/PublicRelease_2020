@@ -72,7 +72,7 @@ C       COMMON/MIXPOT/POTNL(MAX_PTS),IPTR(MAX_PTS),JPTR(MAX_PTS)
 C       COMMON/TMP1/ACOULOMB(MAX_PTS),ARHOG(MAX_PTS,KRHOG,MXSPN)
        COMMON/PTIME/TSETUP,TPOLYS,TFMTTM,TRUNIT,FLDNR,ASYMP,ACHRG
      &  ,ATIME,TWASTED,COSTPROJ 
-C      
+C
        DIMENSION RHOC(35,MXPR,MXSPN),RHOD(20,10,MXPR,MXSPN)
        DIMENSION AA(5,5,3,3,3),BB(5,5,5,5)
        DIMENSION CGRAVITY(4),W4(10,10,4)
@@ -901,19 +901,19 @@ C
      &                   +(D2X4*POLY(IPTS, 5)-D1X2)*ADDR(IPTS,1)
             END DO
             DO IPTS=1,NPX
-            ADDR(IPTS,8)=ADDR(IPTS,8)-D1X2*POLY(IPTS,3)*ADDR(IPTS,2) !YX
-     &                               -D1X2*POLY(IPTS,4)*ADDR(IPTS,3) !XY
-     &                  + D2X4*POLY(IPTS,9)*ADDR(IPTS,1)             !XY
+             ADDR(IPTS,8)=ADDR(IPTS,8)-D1X2*POLY(IPTS,3)*ADDR(IPTS,2) !YX
+     &                                -D1X2*POLY(IPTS,4)*ADDR(IPTS,3) !XY
+     &                   + D2X4*POLY(IPTS,9)*ADDR(IPTS,1)             !XY
             END DO
             DO IPTS=1,NPX
-            ADDR(IPTS,9)=ADDR(IPTS,9)-D1X2*POLY(IPTS,2)*ADDR(IPTS,2) !ZX
-     &                               -D1X2*POLY(IPTS,4)*ADDR(IPTS,4) !XZ
-     &                  + D2X4*POLY(IPTS,8)*ADDR(IPTS,1)             !XZ
+             ADDR(IPTS,9)=ADDR(IPTS,9)-D1X2*POLY(IPTS,2)*ADDR(IPTS,2) !ZX
+     &                                -D1X2*POLY(IPTS,4)*ADDR(IPTS,4) !XZ
+     &                   + D2X4*POLY(IPTS,8)*ADDR(IPTS,1)             !XZ
             END DO
             DO IPTS=1,NPX
-           ADDR(IPTS,10)=ADDR(IPTS,10)-D1X2*POLY(IPTS,3)*ADDR(IPTS,4)!YZ
-     &                                -D1X2*POLY(IPTS,2)*ADDR(IPTS,3)!ZY
-     &                  + D2X4*POLY(IPTS,6)*ADDR(IPTS,1)             !YZ
+             ADDR(IPTS,10)=ADDR(IPTS,10)-D1X2*POLY(IPTS,3)*ADDR(IPTS,4) !YZ
+     &                                  -D1X2*POLY(IPTS,2)*ADDR(IPTS,3) !ZY
+     &                    + D2X4*POLY(IPTS,6)*ADDR(IPTS,1)              !YZ
             END DO
             DO IPTS=1,NPX
              ADDR(IPTS,2)=ADDR(IPTS,2)-D1X2*POLY(IPTS,4)*ADDR(IPTS,1)

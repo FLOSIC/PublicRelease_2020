@@ -2,25 +2,23 @@ C UTEP Electronic Structure Lab (2020)
 C> @file mldecomp.f
 C> NEWWAVES
 C> Path diverges depending on ATOMSIC and FRMORB files
-       SUBROUTINE NEWWAVES(ITTOT,TRACE)
+       SUBROUTINE NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
        IMPLICIT REAL*8 (A-H,O-Z)
        CHARACTER*50 LINE
-       LOGICAL EXIST
+       LOGICAL EXIST,SYMMETRYMODE
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
        IF(.NOT.EXIST)THEN
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
          IF(EXIST) THEN
-           CALL SCFSICW(ITTOT,TRACE)
-C          call system('echo LDA >XXTEST')
-C          call system('grep GGA SYMBOL > XXTEST')
-C          OPEN(38,FILE='XXTEST')
-C          READ(38,'(A50)')LINE
-C          DO I=1,47
-C            IF(LINE(I:I+2).EQ.'GGA')STOP'GGA IS NOT READY'
-C          END DO
-C          CLOSE(38)
+           IF(SYMMETRYMODE) THEN
+             CALL NEWWAVE_2020(ITTOT,TRACE)
+           ELSE
+             CALL SCFSICW(ITTOT,TRACE)
+           END IF
          ELSE
            CALL NEWWAVE_serial(ITTOT,TRACE)
+           !Temporary modifiction
+           !CALL NEWWAVE(ITTOT,TRACE)
          END IF
        ELSE
          INQUIRE(FILE='PURGRSQ',EXIST=EXIST)

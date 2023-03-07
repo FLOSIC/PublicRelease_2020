@@ -35,6 +35,7 @@ C  1  0 -1.00  0.00 1S ATOMIC ORBITAL
 C
 C
        use debug1
+       use for_diag1 !added
        use common2,only : RIDT, IFUIDT, NIDENT, ZNUC, BFCON, N_BARE,
      &   N_CON, LSYMMAX, N_POS, NFNCT, ISPN
        use common3,only : RMAT
@@ -143,10 +144,10 @@ C NOTE THEN NEXT TWO DO LOOPS MAY NEED TO BE PERMUTED.
           DO ICON=1,N_CON(L+1,IFNCT)
           DO ISALC=1,N_SALC(KSALC,L+1,ISHELL)
           NBAS=NBAS+1                   
-          EVAL(NBAS)=SHFT(ICON,L+1,ISPN,IFNCT)/OVER(NBAS,NBAS)
+          AEVAL(NBAS)=SHFT(ICON,L+1,ISPN,IFNCT)/AOVER(NBAS,NBAS)
           IF(DEBUG) THEN
-          PRINT 1030,NBAS,HAM(NBAS,NBAS),OVER(NBAS,NBAS),
-     &             SHFT(ICON,L+1,ISPN,IFNCT),EVAL(NBAS)
+          PRINT 1030,NBAS,AHAM(NBAS,NBAS),AOVER(NBAS,NBAS),
+     &             SHFT(ICON,L+1,ISPN,IFNCT),AEVAL(NBAS)
           ENDIF
           END DO
           END DO
@@ -155,15 +156,15 @@ C NOTE THEN NEXT TWO DO LOOPS MAY NEED TO BE PERMUTED.
    20   CONTINUE
                          DO IBAS=1,NBAS
                          DO JBAS=IBAS,NBAS
-                         OVER(IBAS,JBAS)=OVER(JBAS,IBAS)
+                         AOVER(IBAS,JBAS)=AOVER(JBAS,IBAS)
                          END DO
                          END DO
        DO IBAS=1,NBAS
-        IF(ABS(EVAL(IBAS)).GE.0.000001)THEN
+        IF(ABS(AEVAL(IBAS)).GE.0.000001)THEN
         DO JBAS=1   ,NBAS
-         FACT=EVAL(IBAS)*OVER(IBAS,JBAS)
+         FACT=AEVAL(IBAS)*AOVER(IBAS,JBAS)
          DO KBAS=JBAS,NBAS
-          HAM(KBAS,JBAS)=HAM(KBAS,JBAS)+FACT*OVER(KBAS,IBAS)
+          AHAM(KBAS,JBAS)=AHAM(KBAS,JBAS)+FACT*AOVER(KBAS,IBAS)
          END DO
         END DO
         END IF

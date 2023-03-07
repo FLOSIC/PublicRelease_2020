@@ -38,7 +38,7 @@ c
        SAVE
        PARAMETER (MAX_TOT=NDH*MAX_REP)
        LOGICAL EXIST,FERMISTAT
-       LOGICAL AVERAGE,EF_MODE,HAMAVG,RENORM
+       LOGICAL AVERAGE,EF_MODE,HAMAVG,RENORM,sichammix
        CHARACTER*4 FLINE
        CHARACTER*12 EVALSTR
 c       CHARACTER*7 NAMES
@@ -54,6 +54,10 @@ C       DIMENSION NTEMP(MAX_TOT*MXSPN)
        INTEGER,ALLOCATABLE :: NDEG(:),INDREP(:),NTEMP(:)
        REAL*8, ALLOCATABLE :: OCCTMP(:)
 C       COMMON/MIXPOT/POTIN(MAX_PTS*MXSPN),POTOUT(MAX_PTS*MXSPN) 
+! additional
+       INTEGER :: J,KSPN,ISUCCEED
+       REAL*8 :: SICSCI(NDH_TOT,2)
+       character*10 :: control_wave
 C
 C DEFINE TEMPERATURE, MINIMUM OCCUPANCY AND SMALLEST ALLOWED
 C EIGENVALUE OF OVERLAP MATRIX FOR SINGULAR VALUE DECOMPOSITION
@@ -61,7 +65,33 @@ C
        DATA TEMP  /1.0D-4/
        DATA CUTOCC/1.0D-10/
        DATA DSINGV/2.0D-4/
-c       DATA NAMES/'BROYDEN','KBROY1','KBROY2'/ 
+c       DATA NAMES/'BROYDEN','KBROY1','KBROY2'/
+
+!      hammixing option H_DFA only or H_DFA+SIC
+       sichammix=.true. 
+!reading SICSCI  !if sichammix=.true., add it in the sichammixdrv
+       CALL CHECK_INPUTS
+       if(sichammix .and. (MIXING1.EQ.2)) then
+        continue !do nothing
+       else
+        SICSCI=0.0D0
+        INQUIRE(FILE='SICSCI',EXIST=EXIST)
+        IF(EXIST)THEN
+         OPEN(50,FILE='SICSCI',FORM='UNFORMATTED')
+         DO KSPN=1,NSPN
+          READ(50)(SICSCI(J,KSPN),J=1,NDH_TOT)
+         END DO
+         CLOSE(50)
+        END IF
+       control_wave='NO-FLIP'
+        ISUCCEED=1
+        IF(MAX_VIRT_PER_SYM.NE.NDH)THEN
+        PRINT*,'IF USING NEWWAVE, MAX_VIRT_PER_SYM MUST BE:',NDH
+        ISUCCEED=0
+        RETURN
+        END IF 
+       end if
+!end reading 
 C
 C CHECKING AND SETTING UP SOME STUFF
 C
@@ -205,10 +235,13 @@ C
            CALL OVERLAP(2)
          END DO
          OPEN(99,FILE='HAMOLD', FORM='UNFORMATTED',STATUS='UNKNOWN')
-         !Why MPTS? Shouldn't this be NHTOT*MXSPN?
          READ(99)MPTS,MSPN
          CLOSE(99)
-         CALL HAMMIXDRV(MPTS)
+         IF(sichammix) THEN
+          CALL SICHAMMIXDRV(MPTS)
+         ELSE
+          CALL HAMMIXDRV(MPTS)
+         END IF
        ENDIF
 C
 C
@@ -288,10 +321,11 @@ c%endif
           ENDIF
          END IF
 %endif
-C         ALLOCATE(AOVER(NBAS,NBAS),STAT=IERR)
-C         IF(IERR.NE.0)THEN
-C           WRITE(6,*)'newwave_serial:Error allocating Overlap'
-C         ENDIF
+!Uncommented aover alloc. for scissor operation
+         ALLOCATE(AOVER(NBAS,NBAS),STAT=IERR)
+         IF(IERR.NE.0)THEN
+           WRITE(6,*)'newwave_serial:Error allocating Overlap'
+         ENDIF
          ALLOCATE(AEVAL(NBAS),STAT=IERR)
          IF(IERR.NE.0)THEN
            WRITE(6,*)'newwave_serial:Error allocating Eval'
@@ -301,16 +335,28 @@ C         IF(IERR.NE.0)THEN
 C           WRITE(6,*)'newwave_serial:Error allocating Sc1'
 C         ENDIF
 C         IF (NITER.GT.1)CALL SICSET(3,IREP)
-         DO 80 IBAS=1,NBAS
+         if(.true.)then !symm code
+           DO 80 IBAS=1,NBAS
             AEVAL(IBAS)=0.0
-          DO 70 JBAS=IBAS,NBAS
-           KBAS=KBAS+1
+            DO 70 JBAS=IBAS,NBAS
+             KBAS=KBAS+1
 !C           AOVER(JBAS,IBAS)=HSTOR(KBAS,1)
 !C           AHAM (JBAS,IBAS)=HSTOR(KBAS,2)
-   70     CONTINUE
-   80    CONTINUE
+!YY quick fix
+             AOVER(JBAS,IBAS)=HSTOR(KBAS,1)
+             if(sichammix .and. (MIXING1.EQ.2)) then
+               AHAM (JBAS,IBAS)=HSTOR(KBAS,2)
+             else
+               AHAM (JBAS,IBAS)=HSTOR(KBAS,2)-SICSCI(KBAS,ISPN)
+             endif
+   70       CONTINUE
+   80      CONTINUE
 CJK11/2000
 c          CALL SCISSOR(IREP,2,1)
+           CALL SCISSOR(IREP)
+         else
+           AEVAL(:)=0.0
+         end if
 CJK11/2000
 
 C
@@ -361,9 +407,12 @@ C             write(6,*)'newwave_serial calls Scalapack'
              CALL SENDDATA(111)
 C             WRITE(6,*)'newwave_serial comes back from Scalapack'
            else
-!C             CALL DIAGGE(NBAS,NBAS,AHAM,AOVER,AEVAL,AUX,1)
+            if(.true.) then !for symmetry code
+             CALL DIAGGE(NBAS,NBAS,AHAM,AOVER,AEVAL,AUX,1)
+            else
              WRITE(6,*)'CALLING DIAGGE3'
              CALL DIAGGE3(NBAS,initial,AHAM,AEVAL,1)
+            end if
            endif
            NEIG=NBAS
               call GTTIME(time_B)
@@ -437,10 +486,10 @@ c%else
           WRITE(6,*)'newwave_serial:Error deallocating Ham'
         ENDIF
        END IF
-C       DEALLOCATE(AOVER,STAT=IERR)
-C       IF(IERR.NE.0)THEN
-C         WRITE(6,*)'newwave_serial:Error deallocating Overlap'
-C       ENDIF
+       DEALLOCATE(AOVER,STAT=IERR)
+       IF(IERR.NE.0)THEN
+         WRITE(6,*)'newwave_serial:Error deallocating Overlap'
+       ENDIF
 c       DEALLOCATE(ASC1,STAT=IERR)
 c       IF(IERR.NE.0)THEN
 c         WRITE(6,*)'newwave_serial:Error deallocating Sc1'
