@@ -28,7 +28,8 @@ use common2,only  : RCNT, IFUCNT, NCNT, IGGA, IDFTYP, ISPN, NSPN
 !use common8,only : REP, N_REP, NDMREP, NS_TOT
 use global_inputs, only : libxc1   !<== Libxc switch moved to NRLMOL_INPUT.dat
 use common5,only : CONVERGENCE
-use XTMP2A,ONLY : TAUCHOP,ISMGGA,MIXINS
+use XTMP2A,ONLY : TAUCHOP,ISMGGA,MIXINS,TAUW_TAU,BETA
+use scaledpzsic,only : SICEXCS,SDSICON,GSICON,scaledsic
 INCLUDE 'PARAMA2'
 integer :: I,ICNT,IERR,IFU,IOFS,IPV,JPTS,MXDFTYP,NGRAD,NPV
 real*8 :: THIRD,THIRD2,TRPI2,FRDPI,DKF2RS,EPS,DELTA,FAC, &
@@ -186,6 +187,9 @@ if (MODE > 1) THEN
 end if
 
 if(libxc1 .or. ismgga) mixins(:,:)=0.0d0 !uncommented
+if((.not.LDFTF).and.scaledsic) then
+    SICEXCS(:)=0.0d0
+end if
 
 ! INITIALIZATION OF DATA NEEDED FOR EXCHANGE-CORRELATION
 
@@ -342,16 +346,35 @@ if(.NOT. libxc1 .OR. MODE==1) then
                CALL XBECKE(D,S,U,V,EX,DEX,VX)      !BECKE 88
             case(11:15)
                CALL call_mgga_ex(IPTS,MPTS,ISPN,D,DGRAD, &
-                2.0D0*tauchop(IPTS,ISPN),RHT(1:4,1),RHT(1:4,NSPN),EX,VX)
+                2.0D0*tauchop(IPTS,ISPN),RHT(1:4,1),RHT(1:4,NSPN),EX,VX,LDFTF)
                DEX = 0.0d0
             END SELECT
 ! LB: END OF NEW CODE
 
 
             JPTS= IPTS+(ISPN-1)*MPTS
-            VXCS(JPTS)= VXCS(JPTS)+VX  ! add returned Vx
-            EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)   ! Add returned local energy Ex
-            EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)   ! Add returned non local Energy
+            if((.not.LDFTF).and.scaledsic) then
+             if(SDSICON)then
+              !SDSIC Energy is scaled in apotnl
+              VXCS(JPTS)= VXCS(JPTS)+VX
+              EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)
+              EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)
+             else if(GSICON)then
+              VXCS(JPTS)= VXCS(JPTS)+VX
+              EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)*BETA(LPTS+IPTS)
+              EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)*BETA(LPTS+IPTS)
+             else
+              !Implementation of VXCS with scaling factor
+              VXCS(JPTS)= VXCS(JPTS)+VX*TAUW_TAU(LPTS+IPTS)
+              EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
+              EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
+             endif
+             SICEXCS(IPTS)= SICEXCS(IPTS)+ ISPFAC*0.5D0*EX*D
+            else
+             VXCS(JPTS)= VXCS(JPTS)+VX  ! add returned Vx
+             EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)   ! Add returned local energy Ex
+             EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)   ! Add returned non local Energy
+            end if
          end if
       end do
 !
@@ -420,17 +443,53 @@ if(.NOT. libxc1 .OR. MODE==1) then
 
       else if (IDFTYP(2) >= 11) THEN
          CALL call_mgga_cor(IPTS,MPTS,DUP,DDN,DG2(1:3),RHT(1:4,1),RHT(1:4,NSPN),&
-                 tauchop(IPTS,1),tauchop(IPTS,NSPN),EC,VCUP,VCDN)
+                 tauchop(IPTS,1),tauchop(IPTS,NSPN),EC,VCUP,VCDN,LDFTF)
          DEC=0.0d0
          DVCUP=0.0d0
          DVCDN=0.0d0
 
       end if
 
-      ECL= ECL+ EC*D*WMSH(LPTS+IPTS)    !YY. add returned Ec here
-      ECN= ECN+DEC*D*WMSH(LPTS+IPTS)
-      VXCS(IPTS)= VXCS(IPTS)+VCUP+DVCUP !YY. add returned Vc up here
-      if (NSPN == 2) VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS)+VCDN+DVCDN
+      if((.not.LDFTF).and.(scaledsic.and.(.not.GSICON))) then
+       if(SDSICON) then 
+        !Scaling is done in apotnl_sic in SDSIC
+        ECL= ECL+ EC*D*WMSH(LPTS+IPTS)
+        ECN= ECN+DEC*D*WMSH(LPTS+IPTS)
+        VXCS(IPTS)= VXCS(IPTS)+(VCUP+DVCUP)
+       else
+        ECL= ECL+ EC*D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
+        ECN= ECN+DEC*D*WMSH(LPTS+IPTS)*TAUW_TAU(LPTS+IPTS)
+        !Implementation of scaled FLOSIC
+        VXCS(IPTS)= VXCS(IPTS)+(VCUP+DVCUP)*TAUW_TAU(LPTS+IPTS)
+        ! This will multiply both exchange and correlation by tauw/tau here.
+        if(ISMGGA) then
+         mixins(1,IPTS)=mixins(1,IPTS)*TAUW_TAU(LPTS+IPTS)
+         mixins(2,IPTS)=mixins(2,IPTS)*TAUW_TAU(LPTS+IPTS)
+         mixins(3,IPTS)=mixins(3,IPTS)*TAUW_TAU(LPTS+IPTS)
+         mixins(4,IPTS)=mixins(4,IPTS)*TAUW_TAU(LPTS+IPTS)
+        end if
+       end if
+       SICEXCS(IPTS)=SICEXCS(IPTS) + EC*D
+
+       if (NSPN == 2) then
+        if(SDSICON) then
+         VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS) + VCDN+DVCDN
+        else
+         VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS) +(VCDN+DVCDN)*TAUW_TAU(LPTS+IPTS)
+         if(ISMGGA) then
+          mixins(1,IPTS+MPTS)=mixins(1,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
+          mixins(2,IPTS+MPTS)=mixins(2,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
+          mixins(3,IPTS+MPTS)=mixins(3,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
+          mixins(4,IPTS+MPTS)=mixins(4,IPTS+MPTS)*TAUW_TAU(LPTS+IPTS)
+         end if
+        end if
+       end if
+      else
+       ECL= ECL+ EC*D*WMSH(LPTS+IPTS)    !YY. add returned Ec here
+       ECN= ECN+DEC*D*WMSH(LPTS+IPTS)
+       VXCS(IPTS)= VXCS(IPTS)+VCUP+DVCUP !YY. add returned Vc up here
+       if (NSPN == 2) VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS)+VCDN+DVCDN
+      end if
 
    200  CONTINUE
 

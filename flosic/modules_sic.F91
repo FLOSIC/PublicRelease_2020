@@ -111,3 +111,33 @@ integer            :: NORB
 real*8,allocatable :: PHIRES(:,:),PHIRES_TMP(:,:)
 
 end module DIAGV1
+
+module scaledpzsic
+!Flag to turn on scaled SIC methods (LSIC,OSIC,GSIC,sdSIC). 
+!Also used to revert to PZSIC.
+logical ::  scaledsic = .FALSE. !T: scaled sic, F: pzsic
+
+!LSIC of J. Chem. Phys. 151, 214108 (2019)
+logical ::  LSICON   = .FALSE. 
+
+!OrbSIC of J. Chem. Phys. 124, 094108 (2006) adapted to FLOSIC as J. Chem. Phys. 152, 174112 (2020)
+logical ::  ORBSICON = .FALSE. 
+
+!GSIC of J. P. Perdew
+logical ::  GSICON   = .FALSE. 
+
+!Slater averaging of SIC potential
+logical ::  AVGSICON = .FALSE. 
+
+!sdSIC of J. Chem. Phys. 152, 214109 (2020)
+logical ::  SDSICON  = .FALSE. 
+
+!Perturbative or quasi-SCF (scaled potential) used with the scaled SIC methods.
+!quasi-SCF is supported for LSIC, OSIC, and sdSIC. GSIC is perturbative only.
+logical ::  oneshot  = .FALSE. !T: oneshot, F: quasi-SCF 
+
+!Arrays used for scaled SIC methods.
+real*8, allocatable :: AVGSIC(:) !For average sic potential
+REAL*8,ALLOCATABLE :: SICEXCS(:), SICEXC(:) !SIC_XC energy density
+REAL*8 :: SDSICSAV(50,2)
+end module scaledpzsic

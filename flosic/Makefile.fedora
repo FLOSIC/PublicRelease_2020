@@ -169,6 +169,8 @@ SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o newwave_2020.o re
 METAGGA = normh.o hammixdrv.o subvlxc_libxc.o gettau_par.o getvlxc.o setdftyp.o r2scanex.o r2scancor.o regscan.o scan.o overnum_libxc.o pamhamil_libxc.o pashamil_libxc.o gethold_libxc.o gethold_mgga.o atomscfvlxc.o gtgraddrv.o call_mgga.o
 #For the original rSCAN, use regscan_jcp.o in place of regscan.o.
 
+LOCALSIC = dori.o weizsacker.o modscan.o printscaledpzsic.o scaledsic.o
+
 FTNBASICS = banner.o modules_sic.o modules.o modules2.o addpts.o alcutoff.o angmsh.o apotnl.o atcube.o ax2thet.o bfsa.o brtfrc.o cbrt.o ckworker.o coresplit.o cosf.o coupot1.o densold.o doint.o dvpmesh.o expnl.o fctrl.o fermilv.o fffmt3.o fffmt4.o fffmtc.o fillist.o fixit.o flacub.o mfpulay.o frcslv.o frcslv0.o frcsym.o freetid.o ftime.o g1dint.o gaussp.o gausspp.o getbas.o gethold.o gettid.o gft.o ginted.o glbarrier.o gtdncf.o gtenrgy.o gtgrad.o gtntid.o gtorbnh.o hammat.o hfflocal.o is1dim.o ixnmab.o ldacor.o lebedev.o cpuhog.o mpiclus.o pamfpul.o pamhamil.o pammesh.o pampoiss.o pamvlxc.o pasfpul.o pashamil.o pasmesh.o paspoiss.o pasvlxc.o pversion.o senddata.o newwave_serial.o numforce.o numham.o optrigr.o optrmsh.o optvmsh.o overlap.o overnum.o ovlons.o patch.o poisson1.o poisson2.o polyx.o radmsh.o rcutoff.o readinp.o readwf.o readwf2.o reormsh.o rgcmsh.o rhofft.o rhofftpar.o sinf.o spcpart.o splithere.o stopit.o stroud.o symbol.o testbas.o tstmsh.o update.o vmesh.o vstart.o wfout.o wfout2.o wparamas.o main.o writefrc.o call_forces.o global_call.o
 
 CUBEBASICS = modules_sic.o modules.o modules2.o cube.o dens_cube.o addpts.o alcutoff.o angmsh.o atcube.o ax2thet.o bfsa.o brtfrc.o cbrt.o coresplit.o coupot1.o cosf.o  densold.o dvpmesh.o fctrl.o fermilv.o fffmt3.o fffmt4.o fffmtc.o fillist.o  flacub.o fixit.o mfpulay.o frcslv.o frcslv0.o   frcsym.o g1dint.o gaussp.o getbas.o gausspp.o  gethold.o ginted.o gft.o gtdncf.o gtgrad.o gtorbnh.o hfflocal.o hammat.o is1dim.o ldacor.o lebedev.o senddata.o newwave_serial.o numforce.o numham.o optrigr.o optrmsh.o overlap.o overnum.o optvmsh.o ovlons.o patch.o rcutoff.o readinp.o readwf.o readwf2.o splithere.o stopit.o vmesh.o testbas.o tstmsh.o vstart.o stroud.o spcpart.o sinf.o rgcmsh.o reormsh.o radmsh.o poisson1.o poisson2.o polyx.o expnl.o ckworker.o pammesh.o pampoiss.o pamfpul.o pamhamil.o pmat_mul.o sdiagge_exc.o freetid.o pamvlxc.o gettid.o global_call.o gtntid.o
@@ -222,7 +224,7 @@ UT_MKL_LIB = /opt/intel/mkl/lib/intel64/
 #$(FBASICS): PARAMS commons.inc
 #$(FTNBASICS): PARAMS commons.inc
 
-OBJ = $(FTNBASICS) $(FBASICS) $(FBASICSMPI) $(METAGGA) $(SIC) $(SIC2) $(SIC3) $(EXTRAFIL) $(POSTACTIVE) $(POSTACTIVEMPI) $(BASIS) $(DISP) $(GIT) $(DMAT) $(GROUPOBJ) $(POPULATION) $(LEVY_PERDEW) 
+OBJ = $(FTNBASICS) $(FBASICS) $(FBASICSMPI) $(LOCALSIC) $(METAGGA) $(SIC) $(SIC2) $(SIC3) $(EXTRAFIL) $(POSTACTIVE) $(POSTACTIVEMPI) $(BASIS) $(DISP) $(GIT) $(DMAT) $(GROUPOBJ) $(POPULATION) $(LEVY_PERDEW) 
 
 # Binary file name
 BIN = nrlmol_exe
@@ -239,7 +241,7 @@ macheps2.o: macheps2.f
 # Specific targets
 #
 condcomp:
-	python ./make_git_version.py
+	python3 ./make_git_version.py
 	$(FC) $(LOGINNODE) $(LFLAGS) -o condcomp condcomp.f 
 
 # Instruction to compile utility cube
