@@ -57,8 +57,8 @@ LDIR = -L$(HOME)/lib/
 CFLAGS = -O3 
 FFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace
 LFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace
-#FFLAGS = -g -fcheck=bounds -std=legacy -fno-align-commons -fbacktrace
-#LFLAGS = -g -fcheck=bounds -std=legacy -fno-align-commons -fbacktrace
+#FFLAGS = -std=legacy -g -fcheck=bounds -fno-align-commons -fbacktrace
+#LFLAGS = -std=legacy -g -fcheck=bounds -fno-align-commons -fbacktrace
 #
 # HPC flags
 #

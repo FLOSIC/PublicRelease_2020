@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a><img src="doc/logo2.jpeg" width="145">
+  <a href="https://flosic.org"><img src="doc/logo.jpg" alt="FLOSIC" width="300"></a>
 </h1>
 
 # PublicRelease_2020
@@ -8,9 +8,9 @@
 
 FLOSIC2020 is an electronic structure software package that implements the FERMI-LOWDIN Self-interaction correction (FLO-SIC) method for atoms and molecules.   FLO-SIC removes self-interaction errors from density functional theory calculations. 
 
-## Scaled SIC branch
+## Scaled SIC 
 
-This branch contains scaled SIC method implemented in the FLOSIC software. Local-SIC, orbital-SIC, and sdSIC are included for performing perturbative and quasi-SCF (i.e. scaled potential) calculations.
+This software contains scaled SIC method implemented in the FLOSIC software. Local-SIC, orbital-SIC, and sdSIC are included for performing perturbative and quasi-SCF (i.e. scaled potential) calculations.
 
 ## Documentation
 
@@ -73,9 +73,3 @@ P. Bhattarai, K. Wagle, C. Shahi, Y. Yamamoto, S. Romero, B. Santra, R. R. Zope,
 BibTex citations are available in /doc/references.bib         
 
 ### Lead software development brought to you by UTEP Electronic Structure Lab (2021)
-R. R. Zope \
-T. Baruah \
-L. Basurto \
-C. M. Diaz \
-Y. Yamamoto 
-
