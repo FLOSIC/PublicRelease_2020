@@ -38,7 +38,15 @@ Parallelization:
 Y. Yamamoto, L. Basurto, C. M. Diaz, R. R. Zope, and T. Baruah, “Self-interaction correction to density functional approximations using Fermi-Loewdin orbitals: Methodology and parallelization” (unpublished). 
 
 UTEP NRLMOL: \
-C. M. Diaz, L. Basurto, Y. Yamamoto, T. Baruah, and R. R. Zope, UTEP-NRLMOL code (unpublished).
+C. M. Diaz, L. Basurto, Y. Yamamoto, T. Baruah, and R. R. Zope, UTEP-NRLMOL code (unpublished); \
+Diaz, Carlos Manuel, "Computational Advancements towards Scalable Density Functional Calculations with and without Self-Interaction Correction" (2020). ETD Collection for University of Texas, El Paso. AAI28261946.
+https://scholarworks.utep.edu/dissertations/AAI28261946; \
+Diaz, Carlos Manuel, "Scalability improvements to NRLMOL for DFT calculations of large molecules" (2016). ETD Collection for University of Texas, El Paso. AAI10247236.
+https://scholarworks.utep.edu/dissertations/AAI10247236; \
+Basurto, Luis, "Upgrades to NRLMOL code" (2013). ETD Collection for University of Texas, El Paso. AAI3594322. https://scholarworks.utep.edu/dissertations/AAI3594322; \
+Basurto, Luis, "Upgrades to NRLMOL code" (2012). ETD Collection for University of Texas, El Paso. AAI1533208.
+https://scholarworks.utep.edu/dissertations/AAI1533208.
+
 
 NRLMOL basis: \
 D. Porezag and M. R. Pederson, Phys. Rev. A: At. Mol. Opt. Phys. 60, 2840 (1999).
