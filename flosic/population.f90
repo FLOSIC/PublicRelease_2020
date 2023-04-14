@@ -179,6 +179,11 @@
         NA(IA,2)=-NA(IA,1)+ NA(IA,2)
         NA(IA,1)= NA(IA,3) - abs(ZELC(IFNCT))
       ENDDO
+    ELSE
+      DO IA=1,NIDENT
+        IFNCT=IFUCNT(IA)
+        Nst(IA,1) = NA(IA,1)
+      END DO
     ENDIF
 
 !output partial charges to file
