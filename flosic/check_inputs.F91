@@ -3,6 +3,7 @@ subroutine check_inputs
   use global_inputs
   use common2,only : IGGA,IDFTYP 
   use common2,only : OPTTYP
+  use inputvars, only: simplified_input
   implicit none
   logical   :: exist,lopen
   integer   :: ios
@@ -56,6 +57,8 @@ subroutine check_inputs
                       fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,spnpolv,efpv,populationv,meshsettingv,unihamv,&
                       frozendenv, &
                       fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v
+
+  if (simplified_input) return
 
   INQUIRE(FILE='NRLMOL_INPUT.DAT',EXIST=EXIST)
   IF (.NOT.EXIST) THEN

@@ -29,6 +29,8 @@ C
      &  PSI_COEF, OCCUPANCY, N_OCC, PSI, NWF, EVLOCC
       use common7,only : T1UNRV, T2UNRV
       use common8,only : REP, N_REP, IGEN, NS_TOT
+      use inputvars, only: functype, symgrp, geometry, atoms,
+     & atoms_int, spinpseudo, read_file, simplified_input
 
 !SIC module
       use SICFLAG,only : MESH_SAV,LSICF
@@ -82,6 +84,8 @@ C
       DIMENSION ATMASS(MXCHG),PMASS(MAX_IDENT)
       DIMENSION POSITION(3)
       INTEGER   LSPN, IFRM, IRES(9)
+      !LA: new code arguments
+      character(64) :: arg
 
       ! These vars are needed for the SIC O(N) mesh code
 !     DIMENSION    FOMSH_INFO(MXSPN,MAX_OCC)
@@ -104,6 +108,21 @@ CDIR$ NAME (SYSTEM="system")
      &            , 87.62, 88.905, 91.22, 92.906, 95.94, 98.906, 101.07
      &            , 102.905, 106.4, 107.868, 112.40, 114.82, 118.69
      &            , 121.75, 127.60, 126.9044, 131.30, 132.905, 137.34/
+
+      !LA new code 
+      call get_command_argument(1,arg)
+      ! if no regular input is given then program runs in old mode
+      if (len_trim(arg) == 0) then
+        write(*,*) 'No input specified. Running in old mode.'
+        simplified_input = .false.
+      else 
+        simplified_input = .true.
+        !<LA: moved here
+        CALL INIT_INPUTS
+        call read_file(arg)
+      endif
+
+
 C
 C     CALL FIXTMAT(-999)
 C       call system('touch SETUPFO')
@@ -116,7 +135,7 @@ C       call system('touch SLOW')
 !LB
 
       TIME_MAINSIC=0.0D0
-      ELOWEST=0.0
+      ELOWEST=0.0D0
       call symfrm(1)
       INQUIRE(FILE='FRMORB',EXIST=EXIST)
       LSIC=.FALSE.
@@ -183,7 +202,7 @@ C LB
       DEBUG = .FALSE.
 C     DEBUG = .TRUE.
 C
-      CALL INIT_INPUTS
+      IF(.not. simplified_input) CALL INIT_INPUTS
 C
 C     --- INITIALIZE KEYWORD FIELDS AND SET DEFAULT VALUES ---
 C
@@ -305,6 +324,8 @@ C
         IF(FRAGMENT1) THEN
           WRITE(6,*)'FRAGMENT CALCULATION REQUESTED'
           CALL ISETUP_FRAG
+        ELSEIF(simplified_input) THEN
+          CALL ISETUP_NEW_INPUT
         ELSE
           CALL ISETUP_STD
         ENDIF
@@ -557,25 +578,31 @@ C
 %else
 C LB: INITIALIZE DEBDAX ARRAY
 !        WRITE(6,*)'NSPN',NSPN,SIZE(SIC,3)
-         DO I=1,NSPN
-          DO J=1,MAX_OCC
-           DO K=1,MAX_OCC
-             SIC(K,J,I)=0.0D0
-           END DO
-          END DO
-          DO IORB=1,MAX_OCC
-           DO J=1,3
-             DEBDAX(J,IORB,I)=0.0d0
-           END DO
-          END DO
-         END DO
-         DO JSPNX=1,NSPX
-          DO IORBX=1,MAX_OCC
-           DO I=1,13
-            RESULTS(I,IORBX,JSPNX)=0.0d0
-           END DO
-          END DO
-         END DO
+
+         SIC(1:MAX_OCC,1:MAX_OCC,1:NSPN)=0.0D0
+         DEBDAX(   1:3,1:MAX_OCC,1:NSPN)=0.0D0
+         RESULTS( 1:13,1:MAX_OCC,1:NSPN)=0.0D0
+
+         !DO I=1,NSPN
+         ! DO J=1,MAX_OCC
+         !  DO K=1,MAX_OCC
+         !    SIC(K,J,I)=0.0D0
+         !  END DO
+         ! END DO
+         ! DO IORB=1,MAX_OCC
+         !  DO J=1,3
+         !    DEBDAX(J,IORB,I)=0.0d0
+         !  END DO
+         ! END DO
+         !END DO
+         !DO JSPNX=1,NSPX
+         ! DO IORBX=1,MAX_OCC
+         !  DO I=1,13
+         !   RESULTS(I,IORBX,JSPNX)=0.0d0
+         !  END DO
+         ! END DO
+         !END DO
+         
          IF(AVGSICON)THEN
           allocate(AVGSIC(NMSH*2))
           AVGSIC=0.0d0
@@ -908,7 +935,7 @@ C
  1200 FORMAT(A,F20.6)
 C
 C     --- FIRST LET US CLEAN UP THE DISK A BIT ... ---
-C 
+C
       IF (CONVERGENCE) THEN
 C       CALL KINETIC
 C
@@ -921,8 +948,6 @@ C
         OPEN(99,FILE='HAMBST' ,FORM='UNFORMATTED',STATUS='UNKNOWN')
         CLOSE(99,STATUS='DELETE')
         OPEN(99,FILE='OVLPTST',FORM='FORMATTED',STATUS='UNKNOWN')
-        CLOSE(99,STATUS='DELETE')
-        OPEN(99,FILE='FRMLV'  ,FORM='FORMATTED',STATUS='UNKNOWN')
         CLOSE(99,STATUS='DELETE')
         OPEN(99,FILE='FRMLV'  ,FORM='FORMATTED',STATUS='UNKNOWN')
         CLOSE(99,STATUS='DELETE')
