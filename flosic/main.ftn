@@ -83,7 +83,7 @@ C
       DIMENSION MSITES(1), RLOCA(3,MX_GRP)
       DIMENSION ATMASS(MXCHG),PMASS(MAX_IDENT)
       DIMENSION POSITION(3)
-      INTEGER   LSPN, IFRM, IRES(9)
+      INTEGER   LSPN, IFRM, IRES(9), NFOD(2)
       !LA: new code arguments
       character(64) :: arg
 
@@ -147,7 +147,8 @@ C       call system('touch SLOW')
         LSIC=.TRUE.
 C LB: READ FRMORB HERE
          OPEN(68,FILE='FRMORB')
-         READ(68,*)LFRM
+         !READ(68,*)LFRM
+         READ(68,*)(LFRM(I),NFOD(I),I=1,2)
          DO LSPN=1,2
            DO IFRM=1,LFRM(LSPN)
              READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
