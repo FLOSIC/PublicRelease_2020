@@ -156,7 +156,8 @@ c generate all inequivalent Fermi Orbital Discriptors:
           open(300,file='FRMORB')
           open(301,file='fforce.dat')
           open(302,file='gforce.dat')
-          read(300,*)nfrm,nidt
+          !read(300,*)nfrm,nidt
+          read(300,*)(nidt(ispn),nfrm(ispn),ispn=1,2)
           write(302,*)nidt
           do ispn=1,2
             do ifrm=1,nfrm(ispn)
