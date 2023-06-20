@@ -211,7 +211,7 @@ else
 GROUPOBJ=
 endif
 
-CUBEOBJ = $(CUBEBASICS) $(FBASICS) $(METAGGA) $(EXTRAFIL) $(POSTACTIVE) $(BASIS) $(DISP) $(WFX) $(DMAT) $(GROUPOBJ) $(EFPOBJ) $(SIC) $(SIC2) $(LEVY_PERDEW)
+CUBEOBJ = mod_periodic_table.o new_input_reader.o $(CUBEBASICS) $(FBASICS) $(METAGGA) $(EXTRAFIL) $(POSTACTIVE) $(BASIS) $(DISP) $(WFX) $(DMAT) $(GROUPOBJ) $(EFPOBJ) $(SIC) $(SIC2) $(SIC3) $(LOCALSIC) $(LEVY_PERDEW)
 
 BLAS= libgoto_opteron-r1.13.a
 ATLAS= libatlas.a
