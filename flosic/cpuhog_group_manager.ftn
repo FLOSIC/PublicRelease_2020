@@ -184,6 +184,19 @@ C
        PRTIME=PRTIME+PRTIME2-PRTIME1
       END DO
 c
+c send data to workers for LM matrix derivative
+c
+       IF(JOB.EQ.74)THEN
+C      PRINT*,'IRANK IS CALLING  PASLMSIC'
+            CALL PASLMSIC_DER(1)
+       END IF
+                           
+c
+c get the results back
+c
+       IF(JOB.EQ.75) CALL PASLMSIC_DER(2)
+C    
+c
 c send total CPU time 
 c
       TAG= 12

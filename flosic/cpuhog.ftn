@@ -137,6 +137,20 @@ c
 c get the results back
 c
        IF(JOB.EQ.35) CALL PASLMSIC(2)
+c
+c send data to workers for siclag_der calculation
+c
+c  KAJ 1-23-2023
+c
+       IF(JOB.EQ.74)THEN
+C      PRINT*,'IRANK IS CALLING  PASLMSIC'
+            CALL PASLMSIC_DER(1)
+       END IF
+                           
+c
+c get the results back
+c
+       IF(JOB.EQ.75) CALL PASLMSIC_DER(2)
 C    
 c send data to workers for mesh determination
 c

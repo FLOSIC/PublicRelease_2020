@@ -321,7 +321,7 @@ module common5
 !      INCLUDE  'PARAMAS'  
        INCLUDE  'PARAMA2'  
 ! SCFDAT:   SCF and startup data
-  LOGICAL :: CONVERGENCE,HAVEHAM
+  LOGICAL :: CONVERGENCE,HAVEHAM,FOD_LOOP
   INTEGER :: ISTSCF,IHIPOL
 ! CBLK4:    contains wavefunctions and their occupation numbers
   REAL*8  :: PSI_COEF(NDH,MAX_VIRT_PER_SYM,MAX_REP,MXSPN),&

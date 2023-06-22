@@ -69,8 +69,12 @@ C LBFGS
           !read(90,*)msite(1),msite(2)
           read(90,*)(nidt(i), msite(i),  i=1,2)
           nopt=0
+c
+c  KAJ 6-22-2023 -- Do we need FRMORB to have info about FOD symmetry?
+c
           do if=1,msite(1)+msite(2)
-           read(90,*)(r(j,if),j=1,3),nwht(if),
+!           read(90,*)(r(j,if),j=1,3)
+            read(90,*)(r(j,if),j=1,3),nwht(if),
      &          (nequiv(i,if),i=1,   nwht(if))
            read(91,*)(f(j,if),j=1,3)
           end do
@@ -409,6 +413,7 @@ c        print*,'istat:',istat
 c           print*,'frozenif',frozen(if)
           end if
           if(.not.exist)then !FRMORB
+c           write(90,*) (r(j,ig),j=1,3)
            write(90,101)(r(j,ig),j=1,3),nwht(ig),
      &             (nequiv(i,ig),i=1,   nwht(ig))
           else !FRMIDT

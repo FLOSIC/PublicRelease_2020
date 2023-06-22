@@ -31,12 +31,14 @@ C
 C
 C ZERO FRC ARRAYS
 C
-       DO IID=1,NIDENT 
-        DO IX=1,3
-         FRC1(IX,IID)=0.0D0
-         FRC2(IX,IID)=0.0D0
-        END DO
-       END DO
+c      DO IID=1,NIDENT 
+c       DO IX=1,3
+c        FRC1(IX,IID)=0.0D0
+c        FRC2(IX,IID)=0.0D0
+c       END DO
+c      END DO
+         FRC1 = 0.0d0
+         FRC2 = 0.0d0
 C Force 0.0
 C<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
        IF(LSICF) THEN
@@ -49,18 +51,18 @@ c       print *, 'mfpulay nwfs', nwf, (nwfs(ix),ix=1,2)
 c
 c zero test arrays
 c
-        do iwf = 1, NWFTOT
-         do jwf = iwf, NWFTOT
-          over1(iwf,jwf) = 0.0d0
-          over1(jwf,iwf) = 0.0d0
-          ek(iwf,jwf) = 0.0d0
-          ek(jwf,iwf) = 0.0d0
-          dftV(iwf,jwf)=0.0d0
-          dftV(jwf,iwf)=0.0d0
-          allH(iwf,jwf)=0.0d0
-          allH(jwf,iwf)=0.0d0
-         end do
-        end do
+c       do iwf = 1, NWFTOT
+c        do jwf = iwf, NWFTOT
+c         over1(iwf,jwf) = 0.0d0
+c         over1(jwf,iwf) = 0.0d0
+c         ek(iwf,jwf) = 0.0d0
+c         ek(jwf,iwf) = 0.0d0
+c         dftV(iwf,jwf)=0.0d0
+c         dftV(jwf,iwf)=0.0d0
+c         allH(iwf,jwf)=0.0d0
+c         allH(jwf,iwf)=0.0d0
+c        end do
+c       end do
        ENDIF
 C>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 C
@@ -169,26 +171,26 @@ c   ek = <phi_i|-del^2/2|phi_j>
 c   dftV = <phi_i|VDFT|phi_j>
 c   allH = <phi_i|HDFT|phi_j>
 c
-       IF(LSICF) THEN
-        print *, 'over1'
-        do iwf = 1,nwftot
-         print 83, (over1(jwf,iwf),jwf=1,nwftot)
-        end do
-        print *, 'ek'
-        do iwf = 1, nwftot
-         print 83, (ek(jwf,iwf),jwf=1,nwftot)
-        end do
-        print *, 'dftV'
-        do iwf = 1, nwftot
-         print 83, (dftV(jwf,iwf),jwf=1,nwftot)
-        end do
-        print *, 'allH'
-        do iwf = 1, nwftot
-         print 83, (allH(jwf,iwf),jwf=1,nwftot)
-        end do
-83      format(1x,10(1x,f10.4))
-        print *, 'return from mfpulay'
-       END IF
+!      IF(LSICF) THEN
+!       print *, 'over1'
+!       do iwf = 1,nwftot
+!        print 83, (over1(jwf,iwf),jwf=1,nwftot)
+!       end do
+!       print *, 'ek'
+!       do iwf = 1, nwftot
+!        print 83, (ek(jwf,iwf),jwf=1,nwftot)
+!       end do
+!       print *, 'dftV'
+!       do iwf = 1, nwftot
+!        print 83, (dftV(jwf,iwf),jwf=1,nwftot)
+!       end do
+!       print *, 'allH'
+!       do iwf = 1, nwftot
+!        print 83, (allH(jwf,iwf),jwf=1,nwftot)
+!       end do
+ 83      format(1x,10(1x,f10.4))
+!       print *, 'return from mfpulay'
+!      END IF
 c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
        RETURN
       END

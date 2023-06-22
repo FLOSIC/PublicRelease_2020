@@ -26,7 +26,7 @@ C
 C
       use common3,only : RMAT,NGRP
       use common5,only : CONVERGENCE, HAVEHAM, ISTSCF, IHIPOL,
-     &  PSI_COEF, OCCUPANCY, N_OCC, PSI, NWF, EVLOCC
+     &  PSI_COEF, OCCUPANCY, N_OCC, PSI, NWF, EVLOCC,FOD_LOOP
       use common7,only : T1UNRV, T2UNRV
       use common8,only : REP, N_REP, IGEN, NS_TOT
       use inputvars, only: functype, symgrp, geometry, atoms,
@@ -37,7 +37,7 @@ C
       use LOCORB,only : TMAT,MORB,ZSIC,IRBSIC
       use MOCORB,only : SLAT,NFRM,ZTZL,JJJJJJ
       use FRM,only    : BFRM,RESULTS,LFRM,DEBDAX
-      use SICMAT,only : SIC!,ZPOT,ZMGGA
+      use SICMAT,only : SIC,DERSIC  !ZPOT,ZMGGA
       use HMATSIC,only : OVTM,HMTM
       use FOCENT,only : CFRM
       use coupotmod,only : USE_DDOT
@@ -74,12 +74,13 @@ C
       PARAMETER(MXCHG=56)
       LOGICAL FULLSTEP,LNEWWF,DOITALL
       LOGICAL EXIST,FAILED,EXCCONV,LSIC,FODMSH_EXISTS
-      LOGICAL FOD_LOOP
+c     LOGICAL FOD_LOOP
       LOGICAL FOD_CONVERGE
       LOGICAL SYMMETRYMODE
       CHARACTER*5 OPTION
       CHARACTER*1 CHDUM
       CHARACTER*40 NAME
+      CHARACTER*35 STRING
       DIMENSION MSITES(1), RLOCA(3,MX_GRP)
       DIMENSION ATMASS(MXCHG),PMASS(MAX_IDENT)
       DIMENSION POSITION(3)
@@ -463,7 +464,8 @@ C
 !      ELSE
         OPEN(68,FILE='FRMORB')
 !      END IF
-       READ(68,*)LFRM
+         READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+!      READ(68,*)LFRM
        DO LSPN=1,2
         DO IFRM=1,LFRM(LSPN)
          READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
@@ -681,17 +683,16 @@ C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
 ! Calculate FOD force - moved from apotnl_sic
            IF(FOD_LOOP.OR.CONVERGENCE) THEN
             CALL GTTIME(TIMET3)
-            IF(CALCTYPE1.NE.2) THEN
-%ifdef ATOMFORCE
-             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
-             CALL SICLAG_DER(JSPNX)
-%else
-             WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
-             WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
-%endif
-            END IF
+c           IF(CALCTYPE1.NE.2) THEN
+c%ifdef ATOMFORCE
+c             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
+c             CALL SICLAG_DER(JSPNX)
+c%else
+c             WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
+c             WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+c%endif
+c            END IF
             CALL FRMORB2(-JSPNX,-1)
-
             CALL GTTIME(TIMET4)
             WRITE(6,*)'TIME FOR FOD FORCES:',TIMET4-TIMET3             
            END IF
@@ -718,18 +719,19 @@ c LB: call data collection in MPI version
              !WRITE(6,800)(RESULTS(I,IORBX,JSPNX),I=1,13)
              WRITE(6,801)(RESULTS(IRES(I),IORBX,JSPNX),I=1,9)
            END DO
-
+c  KAJ 12-23 -- do not update forces unless needed
+           if(FOD_LOOP.OR.CONVERGENCE) THEN
 C UPDATE SCISSOR:
 C          CALL UPDATESCISSOR(JSPNX)
-
            IF(JSPNX.EQ.1)OPEN(39,FILE='fforce.dat1')
            IF(JSPNX.EQ.2)OPEN(39,FILE='fforce.dat2')
            rewind(39)
-           write(6,*)'Writing fforce.dat'
+           write(6,*)'Writing fforce.dat JSPNX', JSPNX
            DO IORBX=1,NFRM(JSPNX)
              write(39,39)(DEBDAX(IX,IORBX,JSPNX),IX=1,3)
 !            write( 6,39)(DEBDAX(IX,IORBX,JSPNX),IX=1,3)
            END DO
+           end if
            close(39)
  555     CONTINUE
 C LB: WRITE SIC MATRIX
@@ -742,6 +744,10 @@ C LB: WRITE SIC MATRIX
  1001  FORMAT(' ',15F12.5)
          CLOSE(77)
 c
+c  KAJ 12-23 -- only update fforce arrays when needed
+c
+           if(FOD_LOOP.OR.CONVERGENCE) THEN
+             print *, 'updating fforce files after spin loop'
          call system('cat fforce.dat1 > fforce.dat')
          call system('rm  fforce.dat1')
          inquire(file='fforce.dat2',exist=exist)
@@ -752,6 +758,7 @@ c
          inquire(file='fforce.prt',exist=exist)
          if(exist)call system('rm fforce.prt')
          WRITE(6,*)'WRITTEN RESULTS'
+         end if
          ZSIC=0.0D0
          OPEN(76,FILE='SIC_ENERGY',FORM='FORMATTED',STATUS='UNKNOWN')
          WRITE(76,*)'FLO    Charge     Asymp      E_COUL     E_SIC',
@@ -789,16 +796,15 @@ C        CLOSE(76)
 !##           DFT/SIC common section                ##
 !#####################################################
 !YY Either use our apotnl + call_forces or use apotnl_dft (useful in comparing energy).
+      if(convergence.and.LSIC) fod_loop=.TRUE.
       IF(SYMMETRYMODE) THEN
         CALL GETTMAT(TOTQNUM)
       ELSE
         CALL APOTNL_DFT(TOTQNUM)
-        !CALL APOTNL(TOTQNUM,ITTOT)
       END IF
       CALL GTENRGY
 
       IF(LSIC.AND.AVGSICON) deallocate(AVGSIC)
-
       WRITE(7,'(A,F19.8)') 'TOTAL ENERGY: ',ETOTAL
 800   FORMAT('SIC COR (U,D,A,X,C,XOSIC,DLAM,DENG,TOT):',15F11.4)
 801   FORMAT(' ORBITAL SIC:',15F11.6)
@@ -897,6 +903,45 @@ C
        IF (FOD_LOOP.AND..NOT.FOD_CONVERGE.AND.ITER_FOD.lt.200) GOTO 400   !set max fod optimization steps here
 c      print *, 'after FOD_LOOP'
       END IF
+      FOD_LOOP = .FALSE.
+      IF(LSIC) then
+%ifdef ATOMFORCE
+c
+c  get atomic forces for SIC case
+c  FOD_LOOP must be false to compute forces in apotnl_dft
+c
+! Check SYMBOL file if SCF-ONLY ; if SCF-ONLY, skip force calculation
+!  Note that this should be redundant but user may specify SCF_ONLY in
+!  SYMBOL but not NRLMOL_INPUT.DAT
+            OPEN(50,FILE='SYMBOL',FORM='FORMATTED',STATUS='OLD')
+            REWIND(50)
+            READ(50,'(A)') STRING
+            CLOSE(50)
+            IF (STRING(1: 8) .EQ. 'SCF-ONLY') THEN
+               PRINT*,"SCF-ONLY CALCULATION: SKIPPING FORCES"
+            ELSE 
+! End modification
+              SIC = 0.0d0
+              do jspnx = 1,nspx
+                call SICLAGM(jspnx)
+              end do
+             call gttime(timex)
+             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
+             CALL SICLAG_DER
+             call gttime(timey)
+             print *, 'Time for parallel SICLAG_DER = ', timey-timex
+              CALL APOTNL_DFT(TOTQNUM)
+              CALL GTENRGY
+c             print *, 'AFTER GTENRGY ETOTAL', ETOTAL
+              ETOTAL = ETOTAL + ZSIC
+c             print *, 'Add ZSIC', ETOTAL
+            END IF
+%else
+c            WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
+c            WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+%endif
+        end if
+c
 
 C
 C     --- PRINT DETAILED SUMMARY OF ENERGIES ---

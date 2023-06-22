@@ -94,33 +94,33 @@ c
 c
 c  print test integrals
 c
-       print *, 'in NUMFORCE:  test integrals'
-       print *, 'over 1'
-       do iwf = 1, nwftot
-        print 83, (over1(jwf,iwf),jwf=1,nwftot)
-       end do 
-       print  *, 'ek'
-       do iwf = 1, nwftot
-        print 83, (ek(jwf,iwf),jwf=1,nwftot)
-       end do 
-       print *, 'dftV'
-       do iwf = 1, nwftot 
-        print 83, (dftV(jwf,iwf),jwf=1,nwftot)
-       end do 
-       print *, 'allH'
-       do iwf = 1, nwftot
-        print 83, (allH(jwf,iwf),jwf=1,nwftot)
-       end do 
-       print *, 'SIC -- LAG MULT Matrix: up'
-       do iwf = 1, nwftot
-        print 83, (sic(jwf,iwf,1),jwf=1,nwftot)
-       end do 
-       if(LFRM(2) > 0) then
-        print *, 'SIC -- LAG MULT Matrix: down'
-        do iwf = 1, nwftot
-         print 83, (sic(jwf,iwf,2),jwf=1,nwftot)
-        end do
-       end if
+c      print *, 'in NUMFORCE:  test integrals'
+c      print *, 'over 1'
+c      do iwf = 1, nwftot
+c       print 83, (over1(jwf,iwf),jwf=1,nwftot)
+c      end do 
+c      print  *, 'ek'
+c      do iwf = 1, nwftot
+c       print 83, (ek(jwf,iwf),jwf=1,nwftot)
+c      end do 
+c      print *, 'dftV'
+c      do iwf = 1, nwftot 
+c       print 83, (dftV(jwf,iwf),jwf=1,nwftot)
+c      end do 
+c      print *, 'allH'
+c      do iwf = 1, nwftot
+c       print 83, (allH(jwf,iwf),jwf=1,nwftot)
+c      end do 
+c      print *, 'SIC -- LAG MULT Matrix: up'
+c      do iwf = 1, nwftot
+c       print 83, (sic(jwf,iwf,1),jwf=1,nwftot)
+c      end do 
+c      if(LFRM(2) > 0) then
+c       print *, 'SIC -- LAG MULT Matrix: down'
+c       do iwf = 1, nwftot
+c        print 83, (sic(jwf,iwf,2),jwf=1,nwftot)
+c       end do
+c      end if
 83     format(1x,10(1x,f10.4))
 c
 c  SYMMETRIZE LM matrix 

@@ -9,7 +9,7 @@ C UTEP Electronic Structure Lab (2020)
        use common2,only : RCNT, IFUCNT, NIDENT, NCNT, ZELC, IGGA,               
      &   NSPN, DIPOLE, EFIELD, ELOCAL, ECOUL,  ERGFLD,ESOLC                     
        use common3,only : RMAT, NGRP                                            
-       use common5,only : CONVERGENCE, NWFS                                     
+       use common5,only : CONVERGENCE, NWFS, FOD_LOOP
        use common7,only : MODDEN, GAUSS_CUT                                     
        use solvent,only : POTSOL                                                
        use den_mat,only : DMAT
@@ -370,9 +370,11 @@ C
          CLOSE(99)
          PRINT '(A)',' '
          PRINT '(A)','SELF-CONSISTENCY REACHED, CALCULATING FORCES'
-         CALL HFFLOCAL(RHOG(1,1,1))
-         CALL FRCNONL
-         CALL FPULAY
+         if(.not.FOD_LOOP) then
+           CALL HFFLOCAL(RHOG(1,1,1))
+           CALL FRCNONL
+           CALL FPULAY
+         end if
          RETURN
         END IF
       END IF
