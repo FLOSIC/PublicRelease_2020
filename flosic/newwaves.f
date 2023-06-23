@@ -2,15 +2,16 @@ C UTEP Electronic Structure Lab (2020)
 C> @file mldecomp.f
 C> NEWWAVES
 C> Path diverges depending on ATOMSIC and FRMORB files
-       SUBROUTINE NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
+       SUBROUTINE NEWWAVES(ITTOT,TRACE)
+       use global_inputs,only : symmetrymodule1
        IMPLICIT REAL*8 (A-H,O-Z)
        CHARACTER*50 LINE
-       LOGICAL EXIST,SYMMETRYMODE
+       LOGICAL EXIST
        INQUIRE(FILE='ATOMSIC', EXIST = EXIST)
        IF(.NOT.EXIST)THEN
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
          IF(EXIST) THEN
-           IF(SYMMETRYMODE) THEN
+           IF(symmetrymodule1) THEN
              CALL NEWWAVE_2020(ITTOT,TRACE)
            ELSE
              CALL SCFSICW(ITTOT,TRACE)
@@ -45,8 +46,8 @@ C> Path diverges depending on ATOMSIC and FRMORB files
            CALL STOPIT
          END IF
          !CALL SICWAVE(ITTOT,TRACE)
-         print *,"SICWAVE is not merged yet in this versio  YY"
-         call stopit !YY 
+         print *,"SICWAVE is not merged yet in this version"
+         call stopit  
        END IF
        RETURN
        END

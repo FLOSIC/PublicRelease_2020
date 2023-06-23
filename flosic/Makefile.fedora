@@ -55,8 +55,8 @@ LDIR = -L$(HOME)/lib/
 #FFLAGS = 
 #LFLAGS = 
 CFLAGS = -O3 
-FFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace
-LFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace
+FFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace -fallow-argument-mismatch
+LFLAGS = -O3 -std=legacy -fno-align-commons -fbacktrace -fallow-argument-mismatch
 #FFLAGS = -std=legacy -g -fcheck=bounds -fno-align-commons -fbacktrace
 #LFLAGS = -std=legacy -g -fcheck=bounds -fno-align-commons -fbacktrace
 #
@@ -154,6 +154,7 @@ OPTIONS = $(MPI1) $(GROUP1) $(ATOMFORCE1) -DNOCOMM
 	rm -f $*.f90
 .f90.o:
 	$(FC) $(COMPUTENODE) $(FFLAGS) $(LIBS) -c $*.f90
+%.o: %.mod
 
 
 # Object modules
@@ -161,7 +162,7 @@ OPTIONS = $(MPI1) $(GROUP1) $(ATOMFORCE1) -DNOCOMM
 SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevsvd.o allocate_sic.o allocate_diag1.o frmiorb.o apotnl_dft.o apotnl_sic.o coupot_sic.o diagv_fo.o focgrad.o frmorb2.o loravel.o lowden_files.o moravel.o newwaves.o readmesh.o scfsicw.o swapfgi.o symfrm.o unravel2.o readwfsic.o orbsic.o wffrm.o write_phires.o siclag_der.o lagmult_slv.o scaledlbfgs.o write_table.o delete_oldfiles.o electronic_geometry_lbfgs.o
 
 #SIC orbital subroutine 
-SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o 
+SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o pamlmsic_der.o paslmsic_der.o 
 
 #SIC symmetry
 SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o newwave_2020.o recursion.o

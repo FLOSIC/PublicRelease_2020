@@ -14,7 +14,7 @@ C
      & DOSOCCU1,MATDIPOLE1,NONSCF1,FRAGMENT1,SOLVENT1,DFTD31,CALCTYPE1,
      & MAXSCF,SCFTOL,MOLDEN1,NBO1,ATOMSPH1,SPNORB1,PCM1,WFFRM1,
      & DMAT1,MIXING1,ITTOT,NONSCFFORCES1,NWFOUT,EFP1,POPULATION1,
-     & FOD_LOOP1,FOD_OPT2,UNIHAM1,FROZENDENSITY1
+     & FOD_LOOP1,FOD_OPT2,UNIHAM1,FROZENDENSITY1,symmetrymodule1
       use mesh1,only : nmsh
 C
       use common2,only : CHNET, RIDT, IFUIDT, NIDENT, ZELC, ZNUC,
@@ -74,9 +74,7 @@ C
       PARAMETER(MXCHG=56)
       LOGICAL FULLSTEP,LNEWWF,DOITALL
       LOGICAL EXIST,FAILED,EXCCONV,LSIC,FODMSH_EXISTS
-c     LOGICAL FOD_LOOP
       LOGICAL FOD_CONVERGE
-      LOGICAL SYMMETRYMODE
       CHARACTER*5 OPTION
       CHARACTER*1 CHDUM
       CHARACTER*40 NAME
@@ -128,28 +126,35 @@ C
 C     CALL FIXTMAT(-999)
 C       call system('touch SETUPFO')
 C       call system('touch SLOW')
-! Logical flag for symmetry mode. T: use symmtery and single Ham. 
-!                                 F: use Jacobi rotation
-      SYMMETRYMODE=.false.
+
 !LB: SAVE REDUCED MESH IN SIC MATRIX CALCULATION
       MESH_SAV=.FALSE.
 !LB
 
       TIME_MAINSIC=0.0D0
       ELOWEST=0.0D0
+
+! --- CHECK IF NRLMOL_INPUT.DAT FILE 
+      CALL CHECK_INPUTS
+
+! --- Read FOD input file
       call symfrm(1)
       INQUIRE(FILE='FRMORB',EXIST=EXIST)
       LSIC=.FALSE.
       UNIHAM1=.FALSE.
-      IF(SYMMETRYMODE)THEN 
+      IF(symmetrymodule1)THEN 
         call allocate_diag1(.true.)
       !Legacy Jacobi rotation mode
       ELSEIF(EXIST)THEN
         LSIC=.TRUE.
-C LB: READ FRMORB HERE
+C LB: READ FOD FROM FRMORB HERE
          OPEN(68,FILE='FRMORB')
          !READ(68,*)LFRM
-         READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+         !IF(symmetrymodule1) THEN
+         !  READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+         !ELSE !Legacy format
+           READ(68,*)LFRM
+         !ENDIF
          DO LSPN=1,2
            DO IFRM=1,LFRM(LSPN)
              READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
@@ -317,7 +322,7 @@ C
 C     --- CHECK IF NRLMOL_INPUT.DAT FILE EXIST, ---
 C     --- IF NOT, CREATE DEFAULT                --- 
 C
-      CALL CHECK_INPUTS
+C      CALL CHECK_INPUTS
 C
 C     --- SETUP AND/OR PROCESS SYMBOL FILE ---
 C
@@ -429,7 +434,7 @@ C       CALL TRACER('MAIN:BEFORE DVPMESH')
       WRITE(*,*) 'NMSH is ', NMSH
       CALL FLUSH(6)
       IF(MESH_SAV) CALL SYSTEM('mkdir SCRATCH')
-!YY where would be the best place to allocate coulomb and rhog in sic?
+!YY allocate_sic call allocate coulomb and rhog in SIC.
 !     IF(LSIC) call allocate_sic(.true.) 
       call allocate_sic(.true.)
 %ifdef GROUP
@@ -458,14 +463,9 @@ C
 !PB changed
       IF(FOD_LOOP) THEN ! read new FOD positions
        call symfrm(1)
-!      INQUIRE(FILE='FRMIDT',EXIST=EXIST)
-!      IF(EXIST) THEN
-!       OPEN(68,FILE='FRMIDT')
-!      ELSE
-        OPEN(68,FILE='FRMORB')
-!      END IF
-         READ(68,*)(LFRM(I),NFOD(I),I=1,2)
-!      READ(68,*)LFRM
+       OPEN(68,FILE='FRMORB')
+       !READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+       READ(68,*)LFRM  !legacy format
        DO LSPN=1,2
         DO IFRM=1,LFRM(LSPN)
          READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
@@ -497,7 +497,7 @@ C
 
          IF (FAILED) THEN
           ISTSCF=3
-          CALL NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
+          CALL NEWWAVES(ITTOT,TRACE)
          END IF
          GO TO 111
         END IF
@@ -506,7 +506,7 @@ C
           CALL READWF_FRAG(FAILED)
           IF (FAILED) THEN
             ISTSCF=3
-            CALL NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
+            CALL NEWWAVES(ITTOT,TRACE)
           END IF
           GO TO 111
         ELSE
@@ -526,7 +526,7 @@ C
 C     IF (EXCITED1) THEN
 C       CALL EXCWAVE(EXCCONV,TRACE)
 C     ELSE
-       IF(.NOT.FOD_LOOP) CALL NEWWAVES(ITTOT,TRACE,SYMMETRYMODE)
+       IF(.NOT.FOD_LOOP) CALL NEWWAVES(ITTOT,TRACE)
 C     END IF
 
   111 CONTINUE
@@ -557,7 +557,7 @@ C
 C     --- CHECK ENERGY FOR CONVERGENCE                      ---
 C     --- LB SCFTOL NOW SHARED THROUGH GLOBAL_INPUTS MODULE ---
 C
-!YY For borth DFT and SIC calculation, check scf convergence
+!YY In both DFT and SIC calculation, check scf convergence
       IF(FROZENDENSITY1) THEN
        CONVERGENCE =.TRUE. !SKIP SCF
       ELSE IF(.NOT.FOD_LOOP) THEN
@@ -796,8 +796,8 @@ C        CLOSE(76)
 !##           DFT/SIC common section                ##
 !#####################################################
 !YY Either use our apotnl + call_forces or use apotnl_dft (useful in comparing energy).
-      if(convergence.and.LSIC) fod_loop=.TRUE.
-      IF(SYMMETRYMODE) THEN
+      if(convergence.and.LSIC) FOD_LOOP=.TRUE.
+      IF(symmetrymodule1) THEN
         CALL GETTMAT(TOTQNUM)
       ELSE
         CALL APOTNL_DFT(TOTQNUM)
@@ -866,7 +866,7 @@ C
       ENDIF
 
       IF(.NOT. FROZENDENSITY1) THEN
-!YY Print out WFOUT every 10 iteration for restarting calculations.
+!YY Print out WFOUT every NWFOUT (default 10) iteration for restarting calculations.
        IF (NWFOUT > 0) then
         IF (mod(ITSCF,NWFOUT).eq.0) THEN
          CALL WFOUT
@@ -877,7 +877,7 @@ C
 !###########################
 !#   FOD Optimization      #
 !###########################
-      IF(FOD_LOOP) then
+      IF(FOD_LOOP1 .and. FOD_LOOP) then
         iter_fod = iter_fod + 1
         PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
 c       print *, 'iter_fod ',iter_fod
@@ -1079,11 +1079,11 @@ C
        CALL WFOUT
       END IF   !NOT write WFOUT in the frozen density mode.
 C     CALL WFOUT2
-!###########################
-!#   FOD Optimization      #
-!###########################
-!>YY CALL ELECTRONIC_GEOMETRY to compute forces on FODs.
-!>   Use CGRAD to update new positions for FODs.
+!     ############################
+!     #    FOD Optimization      #
+!     ############################
+!     --- CALL ELECTRONIC_GEOMETRY to compute forces on FODs.
+!     --- Use CGRAD to update new positions for FODs.
       IF(.NOT.FOD_LOOP1) THEN
        PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
        IF(LSICF) then
@@ -1134,7 +1134,7 @@ C
         END DO
       END IF
 C
-      CALL CHECK_INPUTS
+      !CALL CHECK_INPUTS
       !IF(SPNORB1) CALL SPNORB
 C
       CALL CHECK_INPUTS
@@ -1167,11 +1167,11 @@ C
       CALL CHECK_INPUTS
       IF(RHOGRID1) CALL RHOGRID
 C
-       CALL CHECK_INPUTS
-       IF(WFGRID1) CALL WFGRID
+      CALL CHECK_INPUTS
+      IF(WFGRID1) CALL WFGRID
 CYY Write out Fermi orbitals if WFGRID1 is on.
-       CALL CHECK_INPUTS
-       IF(LSICF .AND. WFFRM1) CALL WFFRM
+      CALL CHECK_INPUTS
+      IF(LSICF .AND. WFFRM1) CALL WFFRM
 C
 C      CALL POTGRID
 C      IF (HAVEHAM) CALL WFGRID

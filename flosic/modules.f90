@@ -92,7 +92,7 @@ module global_inputs
   logical :: iimesh,excited1,dosjnt1,wfgrid1,dosoccu1,formfak1,atomsph1,matdipole1,nonscf1,nonscfforces1,&
              dftd31,fragment1,polarizability1,rhogrid1,solvent1,molden1,nbo1,symmetry1,mpi_io1,spnorb1,&
              fixm1,pcm1,wffrm1,dmat1,libxc1,spnpol1,efp1,population1,scaledlbfgs1, &
-             uniham1,frozendensity1,fod_loop1,fod_opt1,fod_opt2
+             uniham1,frozendensity1,fod_loop1,fod_opt1,fod_opt2,symmetrymodule1
   logical :: cexcited,cdosjnt,cwfgrid,cdosoccu,cformfak,catomsph,cmatdipole,cnonscf,cnonscfforces,&
              cdftd3,ccalctype,cfragment,cbasis,cpolarizability,crhogrid,csolvent,cmaxscf,cscftol,cmolden,&
              cnbo,csymmetry,cmpi_io,cspnorb,cfixm,cpcm,cdmat,cmixing,clibxc,cefp

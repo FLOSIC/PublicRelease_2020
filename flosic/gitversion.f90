@@ -1,7 +1,7 @@
 SUBROUTINE GITVERSION
 
-PRINT '(A)','commit 562b325d5fca20416b69cc96e766a90020df45d5'
-PRINT '(A)','Author: FLOSIC Center <54388044+FLOSIC@users.noreply.github.com>'
-PRINT '(A)','Date:   Thu Apr 13 19:29:06 2023 -0600'
+PRINT '(A)','commit 341f8494d8afd496876d925678ab0f988db807bd'
+PRINT '(A)','Author: Alan Jackson <jacks1ka@cmich.edu>'
+PRINT '(A)','Date:   Thu Jun 22 11:56:38 2023 -0400'
 
 END SUBROUTINE GITVERSION

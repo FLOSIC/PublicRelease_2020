@@ -10,7 +10,8 @@ C> @param gvec : FOD forces
 C> @param msite(2) : This array holds numbers of FODs for spin up/down. 
          subroutine fod_opt(energy,fod_converge)
 !        subroutine electronic_geometry(energy)
-         use global_inputs,only : fod_opt1,fod_opt2,fod_opt3
+         use global_inputs,only : fod_opt1,fod_opt2,fod_opt3,
+     &                            symmetrymodule1
          use xmol,only : AU2ANG,NUM_ATMS,XMOL_LIST,GET_LETTER
          implicit real*8 (a-h,o-z)
          !INCLUDE  'PARAMA2' not yet.
@@ -47,7 +48,6 @@ C LBFGS
          allocate(species(NUM_ATMS))
 
 
-
          do i=1,1000
            d2inv  (i)=1.0d0
            suggest(i)=1.0d0
@@ -66,8 +66,11 @@ C LBFGS
          if(.not.exist)then
           open(90,file='FRMORB')
           open(91,file='fforce.dat')
-          !read(90,*)msite(1),msite(2)
-          read(90,*)(nidt(i), msite(i),  i=1,2)
+          if(symmetrymodule1) then
+            read(90,*)(nidt(i), msite(i),  i=1,2)
+          else !legacy format
+            read(90,*)msite(1),msite(2)
+          endif
           nopt=0
 c
 c  KAJ 6-22-2023 -- Do we need FRMORB to have info about FOD symmetry?
@@ -395,7 +398,11 @@ c        print*,'istat:',istat
          if(.not.exist)then
            open(90,file='FRMORB')
            rewind(90)
-           write(90,*) (nidt(i),msite(i),i=1,2)
+           if(symmetrymodule1) then
+             write(90,*) (nidt(i),msite(i),i=1,2)
+           else !legacy format
+             write(90,*)msite(1),msite(2)
+           endif
          else
            open(90,file='FRMIDT')
            rewind(90)

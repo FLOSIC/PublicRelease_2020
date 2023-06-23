@@ -3,6 +3,7 @@ C> @file symfrm.f
 C> A subroutine that read FRMIDT and FRMGRP
 C> Also used in electronic_geometry
         subroutine symfrm(mode)
+        use global_inputs,only : symmetrymodule1
         implicit real*8 (a-h,o-z)
         character*100 line
         logical exist
@@ -15,7 +16,19 @@ C> Also used in electronic_geometry
         inquire(file='FRMIDT',exist=exist)
         if(.not.exist)return
         inquire(file='FRMGRP',exist=exist)
-        call system('cp GRPMAT FRMGRP')
+        if(symmetrymodule1) then
+          call system('cp GRPMAT FRMGRP')
+        elseif(.not.exist) then
+          !make FRMGRP identity matrix
+          open(40,file='FRMGRP',status='new')
+            write(40,*) '1'
+            write(40,*) '1  0  0'
+            write(40,*) '0  1  0'
+            write(40,*) '0  0  1'
+          close(40)
+        else
+          continue ! use user provided FRMGRP
+        end if
         inquire(file='frozen.tmp',exist=exist)
         if(exist)call system('rm  frozen.tmp') 
 !       open(3000,file='frozen.tmp',status='new')
@@ -120,8 +133,11 @@ c generate all inequivalent Fermi Orbital Discriptors:
              end do
             end do
           end do
-          !write(300,20)nfrm,nidt
-          write(300,20)(nidt(ispn),nfrm(ispn),ispn=1,2)
+          if(symmetrymodule1) then
+            write(300,20)(nidt(ispn),nfrm(ispn),ispn=1,2)
+          else
+            write(300,20)nfrm,nidt
+          endif
           do ispn=1,2          
             if(ispn.eq.1)open(99,file='XMOL_FRM.UP')
             if(ispn.eq.2)open(99,file='XMOL_FRM.DN')
@@ -156,8 +172,11 @@ c generate all inequivalent Fermi Orbital Discriptors:
           open(300,file='FRMORB')
           open(301,file='fforce.dat')
           open(302,file='gforce.dat')
-          !read(300,*)nfrm,nidt
-          read(300,*)(nidt(ispn),nfrm(ispn),ispn=1,2)
+          if(symmetrymodule1) then
+            read(300,*)(nidt(ispn),nfrm(ispn),ispn=1,2)
+          else !legacy format
+            read(300,*)nfrm,nidt
+          endif
           write(302,*)nidt
           do ispn=1,2
             do ifrm=1,nfrm(ispn)

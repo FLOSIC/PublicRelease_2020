@@ -52,11 +52,12 @@ subroutine check_inputs
   character*5 :: fod_opt1v     = 'F'
   character :: fod_opt2v     = 'F'
   integer   :: fod_opt3v     = -1
+  character :: symmmodulev = 'F'
   namelist/input_data/atomsphv,diag1v,diag2v,diag3v,dosoccuv,excitedv,formfakv,jntdosv,matdipolev,nonscfv,nonscfforcesv,wfgridv, &
                       dftd3v,calctypev,fragmentv,basisv,rhogridv,solventv,maxscfv,scftolv,moldenv,nbov,symmetryv,mpi_iov,spnorbv, &
                       fixmv,pcmv,wffrmv,dmatv,mixingv,nwfoutv,libxcv,spnpolv,efpv,populationv,meshsettingv,unihamv,&
                       frozendenv, &
-                      fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v
+                      fod_loopv,fod_opt1v,fod_opt2v,fod_opt3v, symmmodulev
 
   if (simplified_input) return
 
@@ -103,6 +104,7 @@ subroutine check_inputs
     write(68,'(A)')'SPNPOLV       = ''N'' ! Run spin polarized calculation from CLUSTER'
     write(68,'(A)')'MESHSETTINGV  =  0  ! Mesh recommended for (0)LDA/PBE, (1)SCAN, (2)rSCAN'
     write(68,'(A)')'SYMMETRYV     = ''N'' ! Set to Y to detect symmetry'
+    write(68,'(A)')'SYMMMODULEV   = ''N'' ! (T) Use symmtery and approx Ham. (F) use Jacobi rotation (SIC only)'
     write(68,'(A)')'UNIHAMV       = ''N'' ! Set to Y to use unified Hamiltonian formalism in SCF-SIC (SIC only)'
     write(68,'(A)')'WFGRIDV       = ''N'' ! set to Y to write orbitals in cube format (DFA only)'
     write(68,'(A)')'WFFRMV        = ''N'' ! set to Y to write Fermi orbitals in cube format (SIC only)'
@@ -149,6 +151,7 @@ subroutine check_inputs
     efp1=.FALSE.
     population1=.FALSE.
 !   SCALEDLBFGS1=.FALSE.
+    symmetrymodule1=.FALSE.
     UNIHAM1=.FALSE.
     FROZENDENSITY1=.FALSE.
   ELSE
@@ -565,6 +568,14 @@ subroutine check_inputs
         symmetry1=.TRUE.
         csymmetry=.FALSE.
       endif
+    endif
+! Check for SYMMETRYMODULEV
+    if(symmmodulev=='Y'.or.symmmodulev=='y')then
+      symmetrymodule1=.TRUE.
+    elseif(symmmodulev=='N'.or.symmmodulev=='n')then
+      symmetrymodule1=.FALSE.
+    else
+      symmetrymodule1=.FALSE.
     endif
 ! Check for MPI_IOV
     if(mpi_iov=='Y'.or.mpi_iov=='y')then
