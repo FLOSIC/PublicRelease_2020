@@ -1,0 +1,25 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: FLOSIC software based on the NRLMOL code of M. R. Pederson
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: R. R.
+    family-names: Zope
+  - given-names: Y.
+    family-names: Yamamoto
+  - given-names: L.
+    family-names: Basurto
+  - given-names: C. M.
+    family-names: Diaz
+  - given-names: T.
+    family-names: Baruah
+  - given-names: K. A.
+    family-names: Jackson
+repository-code: 'https://github.com/FLOSIC/PublicRelease_2020'
+url: 'https://flosic.org'
+license: GPL-3.0
