@@ -1,0 +1,437 @@
+C UTEP Electronic Structure Lab (2020)
+       SUBROUTINE APOTNL_DFT(TOTQNUM)
+       use debug1
+       use global_inputs,only : SOLVENT1,EXCITED1,SPNORB1,PCM1,DMAT1,
+     & MIXING1,EFP1
+       use pot_dens,only : COULOMB,RHOG                                         
+       use mixpot1,only : POTIN,POT=>POTOUT                                     
+       use mesh1,only : WMSH,RMSH,NMSH                                          
+       use common2,only : RCNT, IFUCNT, NIDENT, NCNT, ZELC, IGGA,               
+     &   NSPN, DIPOLE, EFIELD, ELOCAL, ECOUL,  ERGFLD,ESOLC                     
+       use common3,only : RMAT, NGRP                                            
+       use common5,only : CONVERGENCE, NWFS, FOD_LOOP
+       use common7,only : MODDEN, GAUSS_CUT                                     
+       use solvent,only : POTSOL                                                
+       use den_mat,only : DMAT
+!SIC module                                                                               
+       use SICFLAG !LSICF
+       use DIRECTIONS !NSPN_SKIP
+       use scaledpzsic,only : AVGSICON,AVGSIC
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:46 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: I, IA, IAT, IERR,IFAK, IFNCT, IGRAD, IGRP, IOFS, 
+     & IPTS, ITER, J, JCALC, MPTS, MSPN, MXXD, NGRAD, NSPTS
+       REAL*8 :: TOTQNUM , APT1, APT2, AVG, COU_TIME_TOT, DERIV, ERGXL,
+     & EXHERE, FAC, FACTOR, PEXPOT, PSAVE, RROT, TIME1, TIME2,TIME4,
+     & TIME_GETFRMFRC, TIME_GETSICMAT, TIMECOUL, TIMEGORB, TIMERHO,
+     & XALPHA
+       INTEGER :: ISPN
+       CHARACTER*35 STRING
+       LOGICAL :: USE_LEVY_PERDEW
+!      INCLUDE 'commons.inc'
+       SAVE
+C
+C FOOL THE COMPILER FOR MXSPN=1 TO SUPRESS WARNING MESSAGES
+C THAT ARE REALLY IRRELEVANT
+C
+!      COMMON/MIXPOT/POTIN(MAX_PTS*MXSPN),POT(MAX_PTS*MXSPN)
+!      COMMON/TMP1/COULOMB(MAX_PTS),RHOG(MAX_PTS,10,MXSPN)
+!      COMMON/FRM/BFRM(3,MAX_OCC,MXSPN),RESULTS(13, MAX_OCC,MXSPN),
+!    &   LFRM(MXSPN),DEBDAX(3,MAX_OCC,MXSPN)
+!      COMMON/HMATSIC/ OVTM(MAX_OCC,MAX_OCC,2),HMTM(MAX_OCC,MAX_OCC,2)
+!      COMMON/FOCENT/ CFRM(3,MAX_OCC,MXSPN)
+!      COMMON/SICMAT/SIC(MAX_OCC,MAX_OCC,MXSPN)
+!      COMMON/DIRECTIONS/NSPN_SKIP
+       LOGICAL FIRST,AVERAGE,EXIST
+       CHARACTER*7 NAMES
+       DIMENSION NAMES(3),DERIV(3)
+C
+       DATA FIRST/.TRUE./
+       DATA NAMES/'BROYDEN','KBROY1','KBROY2'/
+       DATA AVERAGE/.FALSE./
+       DATA COU_TIME_TOT/0.0D0/
+C      DATA XALPHA/0.8225/! (Kohn Sham=1, 0.8225=Best Ar for PW91)
+       DATA XALPHA/1.0000/! (Kohn Sham=1, 0.8225=Best Ar for PW91)
+       DATA TIME_GETSICMAT,TIME_GETFRMFRC/2*0.0D0/
+C
+C      OPEN(21,FILE='XALPHA')
+C      REWIND(21)
+C      READ(21,*)XALPHA
+C      CLOSE(21)
+C
+C DIRECTIONS FOR CALCULATING DENSITY:
+C MODDEN=1 USE DENSITY MATRIX
+C MODDEN=2 USE WAVEFUNCTIONS
+C
+       MODDEN=1
+       PRINT '(A)','CALCULATING KOHN-SHAM POTENTIAL ON MESH POINTS'
+       CALL GTTIME(APT1)
+       CALL CHECK_INPUTS
+       IF(MIXING1==0)THEN
+        ITER=0
+C
+C READ AVERAGE
+C
+        AVERAGE=.TRUE.
+        OPEN(99,FILE='AVRGDAT',FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND 99
+        READ(99,*,END=30)AVG,AVERAGE
+   30   CONTINUE
+        REWIND(99)
+        WRITE(99,*)AVG,AVERAGE,LSICF,' AVG, AVERAGE,LSICF'
+        CLOSE(99)
+!       IF(LSICF)THEN
+!        AVG=-AVG
+!       END IF
+       ENDIF
+       IF(FIRST)THEN
+        FIRST=.FALSE.
+C
+C SET GAUSS_CUT (IN THIS VERSION ONLY NEEDED BY COULOMB1)
+C
+        DO IAT=1,NIDENT
+          GAUSS_CUT(IAT)=1.0D30
+        END DO
+       END IF
+C
+C START UP POTENTIAL CALCULATION: CHECK ARRAY DIMENSIONS
+C
+       IF(NMSH.GT.MAX_PTS) THEN
+         PRINT *,'APOTNL: MAX_PTS MUST BE AT LEAST', NMSH
+         CALL STOPIT
+       END IF
+!       WRITE(6,*)'EFP1=',EFP1
+C
+C CALCULATE ELECTRONIC COULOMB POTENTIAL AND DENSITY
+C
+C      IF(IORBX.EQ.1)THEN
+C      OPEN(17,FILE='TMATSND',FORM='FORMATTED')
+C      DO K=1,2
+C      WRITE(17,*)'K:',K
+C      WRITE(17,17)((TMAT(J,I,K),J=1,24),I=1,24)
+C17    FORMAT(' ',10F12.3)
+C      END DO
+C      CLOSE(17)
+C      END IF
+#ifdef MPI
+!       CALL TRACER('BEFORE APOTNL_DFT SENDDATA')
+       CALL SENDDATA(209)
+       CALL SENDDATA(101)
+       CALL SENDDATA(102)
+       if(.not. allocated(COULOMB)) CALL SENDDATA(108) !allocate coulomb
+       CALL SENDDATA(103)
+       CALL SENDDATA(104)
+       CALL SENDDATA(105)
+C      CALL SENDDATA(106)
+       CALL SENDDATA(208)
+c      END IF
+!      CALL TRACER('AFTER APOTNL_DFT SENDDATA')
+#else
+       if(.not. allocated(COULOMB))
+     &   ALLOCATE(COULOMB(NMSH*MXSPN),STAT=IERR)
+       IF(IERR.NE.0)THEN
+         WRITE(6,*)'ERROR ALLOCATING COULOMB'
+       ENDIF
+       if(.not. allocated(RHOG))
+     &   ALLOCATE(RHOG(NMSH,KRHOG,MXSPN),STAT=IERR)
+       IF(IERR.NE.0)THEN
+         WRITE(6,*)'ERROR ALLOCATING RHOG'
+       ENDIF
+#endif
+!#################################################
+!##            DFT Calculation                  ##
+!#################################################
+ 1234 CONTINUE
+      OPEN(99,FILE='VMOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
+      REWIND(99)
+      READ(99) NMSH,JCALC
+      READ(99)((RMSH(J,I),J=1,3),I=1,NMSH)
+      READ(99)(WMSH(I),I=1,NMSH)
+      CLOSE(99)
+      CALL GTTIME(TIME1)
+      MXXD=1
+C     CALL COUPOT3(MXXD,LSPN,IRBSIC)
+      IF(DMAT1) THEN
+        CALL COUPOT_DMAT
+      ELSE
+        CALL COUPOT1
+      ENDIF
+      CALL GTTIME(TIME2)
+C     CALL STOPIT
+      PRINT*,'TOTAL TIME FOR LSD COUL',TIME2-TIME1
+      TIMECOUL=TIME2-TIME1
+      CALL GTTIME(TIME1)
+      IF (MODDEN .EQ. 2) THEN
+        CALL DENSOLD(TIMEGORB)
+      END IF
+      CALL GTTIME(TIME2)
+      TIMERHO=TIME2-TIME1
+C
+C UPDATE DATA IN RHOG
+C
+      NGRAD=1
+      IF ((IGGA(1).GT.0).OR.(IGGA(2).GT.0)) NGRAD=10
+      DO IGRAD=1,NGRAD
+        DO IPTS=1,NMSH
+          RHOG(IPTS,IGRAD,1)= RHOG(IPTS,IGRAD,1)+RHOG(IPTS,IGRAD,NSPN)
+        END DO
+      END DO
+C
+C DONE WITH DENSITY CALCULATION, NOW
+C CALCULATE TOTAL CHARGE AND DIPOLE MOMENT
+C
+      TOTQNUM=0.0D0
+      DO I=1,3
+        DIPOLE(I)=0.0D0
+      END DO
+      DO 120 IPTS=1,NMSH
+        PSAVE=RHOG(IPTS,1,1)*WMSH(IPTS)
+        TOTQNUM=TOTQNUM+PSAVE
+        DO I=1,3
+          RROT=0.0D0
+          DO IGRP=1,NGRP
+            DO J=1,3
+              RROT=RROT+RMAT(J,I,IGRP)*RMSH(J,IPTS)
+            END DO
+          END DO
+          DIPOLE(I)=DIPOLE(I)+RROT*PSAVE
+        END DO
+  120 CONTINUE
+      DO I=1,3
+        DIPOLE(I)=DIPOLE(I)/NGRP
+      END DO
+C
+C ADD CONTRIBUTION OF ATOM CENTERS TO DIPOLE MOMENT
+C CALCULATE ENERGY DUE TO EXTERNAL FIELD
+C ALSO GET INTERACTION BETWEEN PROTONS AND EXTERNAL POTENTIAL...
+C
+      PEXPOT=0.0D0
+      DO IA=1,NCNT
+        CALL EXTPOT(RCNT(1,IA),EXHERE,DERIV)
+        IFNCT=IFUCNT(IA)
+        FAC=ABS(ZELC(IFNCT))
+        PEXPOT=PEXPOT-EXHERE*FAC
+        DO I=1,3
+          DIPOLE(I)=DIPOLE(I)-FAC*RCNT(I,IA)
+        END DO
+      END DO
+      ERGFLD=0.0D0
+      DO I=1,3
+        ERGFLD= ERGFLD+DIPOLE(I)*EFIELD(I)
+      END DO
+      PRINT 9010,TOTQNUM
+      PRINT 9020,(DIPOLE(I),I=1,3)
+ 9010 FORMAT('TOTAL CHARGE IN APOTNL: ',F22.12)
+ 9020 FORMAT('DIPOLE MOMENT:',3(1X,D20.12))
+      OPEN(21,FILE='DIPOLE',FORM='FORMATTED',STATUS='UNKNOWN')
+      REWIND(21)
+      WRITE(21,'(3(1X,D20.12))')(DIPOLE(I), I=1,3)
+      CLOSE(21)
+C
+C CALCULATING KOHN-SHAM POTENTIAL
+C GETVLXC CALCULATES THE EXCHANGE-CORRELATION POTENTIAL (STORED IN POT)
+C AND THE LOCAL POTENTIAL (STORED IN POTIN)
+C EXCHANGE-CORRELATION ENERGY WILL BE STORED IN COMMOM BLOCK ENERG
+C
+      CALL GETVLXC(NMSH,RHOG,POT,POTIN,.true.,-1,0,0)
+CMP   CALL GETVLXC(NMSH   ,RHOG,POT,POTIN)
+!     CALL GETVLXC(MAX_PTS,RHOG,POT,POTIN) !CMP Mark restored this line
+      ERGXL=XALPHA*ERGXL
+
+      USE_LEVY_PERDEW=.FALSE.
+      IF(USE_LEVY_PERDEW) CALL EX_LEVY_PERDEW
+
+CJK disabled for debugging SIC, IOFS not defined here?
+C     IFAK=NSPN-1
+C     DO ISPN=1,NSPN
+C      IOFS=IFAK*NMSH !CMP Not sure this loop is needed.
+C      DO IPTS=1,NMSH
+C       POT(IPTS+IOFS)=POT(IPTS+IOFS)+(1.-XALPHA)*
+C     & ((6/PI)**(1./3.))*RHOG(IPTS,1,ISPN)**(1./3.)
+C      END DO
+C     END DO
+      CALL AFPOT(NSPN,RHOG,POT,POTIN)
+C
+C CALCULATE: ECOUL  (MEAN-FIELD COULOMB ENERGY)
+C            ELOCAL (LOCAL POTENTIAL ENERGY)
+C SAVE AVERAGE EXCHANGE-CORRELATION POTENTIAL IN POTIN
+C UPDATE UP AND DOWN POTENTIAL, COULOMB
+C
+      IFAK=NSPN-1
+      IOFS=IFAK*NMSH
+      ECOUL=PEXPOT
+      ELOCAL=0.0D0
+      DO 180 IPTS=1,NMSH
+        CALL EXTPOT(RMSH(1,IPTS),EXHERE,DERIV)
+        FACTOR=RHOG(IPTS,1,1)*WMSH(IPTS)
+        ECOUL= ECOUL+0.5D0*COULOMB(IPTS)*FACTOR
+        ECOUL=ECOUL+EXHERE*FACTOR
+        ELOCAL=ELOCAL+POTIN(IPTS)*FACTOR
+        COULOMB(IPTS)=COULOMB(IPTS)+POTIN(IPTS)
+        POTIN(IPTS)= 0.5D0*(POT(IPTS)+POT(IOFS+IPTS))
+        COULOMB(IPTS)=EFIELD(1)*RMSH(1,IPTS)+EFIELD(2)*RMSH(2,IPTS)
+     &               +EFIELD(3)*RMSH(3,IPTS)+COULOMB(IPTS)+EXHERE
+        POT(IPTS)=POT(IPTS)+COULOMB(IPTS)
+        POT(IOFS+IPTS)=POT(IOFS+IPTS)+IFAK*COULOMB(IPTS)
+  180 CONTINUE
+C
+C WRITE OUT COULOMB POTENTIAL (NEEDED FOR SPIN-ORBIT-COUPLING ETC)
+C
+      OPEN(93,FILE='COULOMB',FORM='UNFORMATTED',STATUS='UNKNOWN')
+      REWIND(93)
+      WRITE(93) NMSH
+      WRITE(93)(COULOMB(IPTS),IPTS=1,NMSH)
+      CLOSE(93)
+!
+! Local SIC - taking average SIC potential and add it to DFA potential
+!
+      if(AVGSICON) then
+
+!      allocate(AVGSIC(NMSH*NSPN))
+!      AVGSIC=0.0d0
+
+       DO ISPN=1,NSPN
+! mesh offset and orbital offset for spin down
+!       IMOFS  =(ISPN-1)*NMSH
+!       IRBOFS=(ISPN-1)*NWFS(1)
+
+!Open ZPOT files that contains rho_i\sigma * V_sic_i\sigma
+!       DO LFM=1,NFRM(ISPN)
+!        WRITE(ZPOTSTR,'(A,I4.4)')'ZPOT',LFM+IRBOFS
+!        print *,206+LFM+IRBOFS,"OPENING ",ZPOTSTR
+!        OPEN(206+LFM+IRBOFS,FILE=ZPOTSTR,FORM='UNFORMATTED',
+!    &        STATUS='OLD')
+!       END DO
+          
+!       do LFM=1,LFRM(ISPN)
+!        do IPTS=1,NSMH
+!         read(206+LFM+IRBORFS) tmp
+!         AVGSIC(IPTS+IMOFS)=AVGSIC(IPTS+IMOFS)+tmp
+!        end do
+!       end do
+
+!RHOG(:,1,1) here is total density. You need to take 
+!RHOG(:,1,1)-RHOG(:,1,NSPN) to get spin up density.
+        if(ISPN.EQ.1) then
+         do IPTS=1,NMSH
+          AVGSIC(IPTS)=AVGSIC(IPTS)/(RHOG(IPTS,1,1)-RHOG(IPTS,1,2))
+         end do
+         if(NSPN.EQ.1) AVGSIC=AVGSIC*2.0d0 !Since density was twice
+        else if(ISPN.EQ.2) then
+         do IPTS=1,NMSH
+          AVGSIC(IPTS+NMSH)=AVGSIC(IPTS+NMSH)/(RHOG(IPTS,1,2))
+          !NaN catching - in case density is zero. 
+          !if(RHOG(IPTS,1,2).EQ.0.0d0) AVGSIC(IPTS+NMSH) = 0.0d0
+         end do
+        end if
+! What about RHOG becomes too small? -> Ignore that point. Small RHOG means orbital density is also very tiny.
+
+!       DO LFM=1,NFRM(ISPN)
+!        WRITE(ZPOTSTR,'(A,I4.4)')'ZPOT',LFM+IRBOFS
+!        print *,206+LFM+IRBOFS,"CLOSING ",ZPOTSTR
+!        CLOSE(206+LFM+IRBOFS,STATUS='DELETE')
+!       END DO
+       END DO
+       !For debugging
+       !print *,"avgs", AVGSIC(1),AVGSIC(1+NMSH)
+       !print *,"rhog", (RHOG(1,1,1)-RHOG(1,1,2)), RHOG(1,1,2)
+! Add the average V_SIC to V_DFA
+       do IPTS=1,NMSH*NSPN
+        POT(IPTS)=POT(IPTS)-AVGSIC(IPTS)
+       end do
+!      deallocate(AVGSIC)
+      end if
+C
+C IF (CONVERGENCE) WRITE POTENTIAL WITH ITER=0 AND GET FORCES
+C
+      IF(CONVERGENCE)THEN
+! Check SYMBOL file if SCF-ONLY or not. If SCF-ONLY, skip force calculation.
+        OPEN(50,FILE='SYMBOL',FORM='FORMATTED',STATUS='OLD')
+        REWIND(50)
+        READ(50,'(A)') STRING
+        CLOSE(50)
+        IF (STRING(1: 8) .EQ. 'SCF-ONLY') THEN
+         PRINT*,"SCF-ONLY CALCULATION: SKIPPING FORCES"
+#ifndef ATOMFORCE
+        ELSE IF(LSICF) THEN
+         PRINT*,"> WARNING: THIS CODE WAS NOT COMPILED WITH ATOMFORCE <"
+         PRINT*,"  SKIPPING ATOMIC FORCE"
+         PRINT*,"  RECOMPILE WITH ATOMFORCE TO USE THIS FEATURE"
+#endif
+        ELSE 
+! End modification
+         ITER=0
+         OPEN(99,FILE='POTOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
+         REWIND(99)
+         WRITE(99)NMSH,NSPN,ITER
+         WRITE(99)(POT(IPTS), IPTS=1,NMSH*NSPN)
+         CLOSE(99)
+         PRINT '(A)',' '
+         PRINT '(A)','SELF-CONSISTENCY REACHED, CALCULATING FORCES'
+         if(.not.FOD_LOOP) then
+           CALL HFFLOCAL(RHOG(1,1,1))
+           CALL FRCNONL
+           CALL FPULAY
+         end if
+         RETURN
+        END IF
+      END IF
+C
+C POTENTIAL MIXING. IGNORE START POTENTIAL IF (ITER.EQ.0)
+C
+C     IF(MIXING1==0)THEN
+      NSPTS=NMSH*NSPN
+      IF(AVERAGE)THEN
+C
+C PERFORM POTENTIAL MIXING
+C
+        OPEN(99,FILE='POTOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
+        REWIND(99)
+        ITER=0
+        READ(99,END=500)MPTS,MSPN,ITER
+        IF(ITER.EQ.0)GOTO 500
+        CALL CHECK_INPUTS
+        IF((MPTS.NE.NMSH).OR.(MSPN.NE.NSPN))THEN
+          PRINT *,'APOTNL: FILE POTOLD IS UNUSABLE'
+          CALL STOPIT
+        END IF
+        READ(99)(POTIN(IPTS), IPTS=1,NMSH*NSPN)
+        IF(MIXING1.EQ.0) THEN
+         IF(AVG.GT.0.0D0)THEN
+          PRINT '(A)','BROYDEN MIXING OF POTENTIAL'
+          CALL MIXING(1,ITER,AVG,NSPTS,NAMES)
+         ELSE
+          PRINT '(A)','SIMPLE LINEAR MIXING OF POTENTIAL'
+          DO IPTS=1,NSPTS
+           POTIN(IPTS)=(1.0D0+AVG)*POTIN(IPTS)-AVG*POT(IPTS)
+          END DO
+         END IF
+        ENDIF
+        DO 200 IPTS=1,NSPTS
+          POT(IPTS)=POTIN(IPTS)
+  200   CONTINUE
+  500   ITER=ITER+1
+        REWIND(99)
+        WRITE(99)NMSH,NSPN,ITER
+        WRITE(99)(POT(IPTS), IPTS=1,NMSH*NSPN)
+        CLOSE(99)
+      ELSE
+        ITER=0
+        OPEN(99,FILE='POTOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
+        REWIND(99)
+        WRITE(99)NMSH,NSPN,ITER
+        WRITE(99)(POT(IPTS), IPTS=1,NMSH*NSPN)
+        CLOSE(99)
+      END IF
+C
+C TIMINGS
+C
+      CALL GTTIME(APT2)
+      CALL TIMOUT('REDUCED DERIVATIVES OF RHO:         ',TIMERHO)
+      CALL TIMOUT('GORBDRV EXECUTION:                  ',TIMEGORB)
+      CALL TIMOUT('COULOMB POTENTIAL + RHO AND RHODRV: ',TIMECOUL)
+      CALL TIMOUT('COMPLETE APOTNL EXECUTION:          ',APT2-APT1)
+      RETURN
+      END

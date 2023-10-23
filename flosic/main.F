@@ -1,0 +1,1309 @@
+C UTEP Electronic Structure Lab (2020)
+C
+#ifdef MPI
+      SUBROUTINE CLUSTER2()
+C
+#else
+      PROGRAM CLUSTER
+C
+#endif
+C     ------------------------------------------------------------------
+C
+      use debug1
+      use global_inputs,only : EXCITED1,DOSJNT1,WFGRID1,RHOGRID1,
+     & DOSOCCU1,MATDIPOLE1,NONSCF1,FRAGMENT1,SOLVENT1,DFTD31,CALCTYPE1,
+     & MAXSCF,SCFTOL,MOLDEN1,NBO1,ATOMSPH1,SPNORB1,PCM1,WFFRM1,
+     & DMAT1,MIXING1,ITTOT,NONSCFFORCES1,NWFOUT,EFP1,POPULATION1,
+     & FOD_LOOP1,FOD_OPT2,UNIHAM1,FROZENDENSITY1,symmetrymodule1
+      use mesh1,only : nmsh
+C
+      use common2,only : CHNET, RIDT, IFUIDT, NIDENT, ZELC, ZNUC,
+     & ISPN, NSPN, NBO, DIPOLE, EFIELD, ETOTAL, ENNUC, ELOCAL, ECOUL,
+     & ERGFLD, EKINONL, ENONLO, ERGXL, ERGXN, ERGCL, ERGCN, GTOL,
+     & MOLDEN, OPTIMIZED, EDISP, PRTMOS, PRTPMAT, PRTSMAT, ESOLTOT,
+     & ESOLC,ENUCSOL,EPCM, NCNT
+     & ,IFUCNT,RCNT,N_POS !Needed for SIC
+C
+      use common3,only : RMAT,NGRP
+      use common5,only : CONVERGENCE, HAVEHAM, ISTSCF, IHIPOL,
+     &  PSI_COEF, OCCUPANCY, N_OCC, PSI, NWF, EVLOCC,FOD_LOOP
+      use common7,only : T1UNRV, T2UNRV
+      use common8,only : REP, N_REP, IGEN, NS_TOT
+      use inputvars, only: functype, symgrp, geometry, atoms,
+     & atoms_int, spinpseudo, read_file, simplified_input
+
+!SIC module
+      use SICFLAG,only : MESH_SAV,LSICF
+      use LOCORB,only : TMAT,MORB,ZSIC,IRBSIC
+      use MOCORB,only : SLAT,NFRM,ZTZL,JJJJJJ
+      use FRM,only    : BFRM,RESULTS,LFRM,DEBDAX
+      use SICMAT,only : SIC,DERSIC  !ZPOT,ZMGGA
+      use HMATSIC,only : OVTM,HMTM
+      use FOCENT,only : CFRM
+      use coupotmod,only : USE_DDOT
+      use scaledpzsic,only : scaledsic,oneshot,AVGSIC,AVGSICON,
+     &                       LSICON,ORBSICON,SDSICON,GSICON
+! Conversion to implicit none.  Raja Zope Sun Oct 23 22:09:36 MDT 2016
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: MXCHG,  I, I_OCC, I_REP, IA, IATOM, IERR, 
+     & IMESH, INITOUT, IORB, IORBX, ISTDEF, ITBEG, ITOT,
+     & ITSCF, IWF, JWF, IX, J, JSPNX, K, MODE_RUN, MSITES, MXNUC,
+     & NCALC, NN_ATOMS, NSPX, ITER_FOD !,NCNT
+     
+       REAL*8 :: ATMASS, DFONUC, ELOWEST, ERGCNV, FOMSH_CUT,
+     & FOMSH_ISCORE, FOMSH_MDIST, OLDERG1, OLDERG2, PMASS,
+     & POSITION, RLOCA, THTIME, TIME1, TIME2,
+     & TIME_MAINSIC, TIMEA, TIMEB, TIMET1, TIMET2, TIMET3, TIMET4,
+     & TOLSML, TOTQNUM, TRACE, TTIME, THTIME2,TIMEX,TIMEY
+
+!      !common.inc
+!       COMMON/LOCORB/TMAT(MAX_OCC,MAX_OCC,MXSPN),MORB(2),ZSIC,IRBSIC 
+!       COMMON/MOCORB/SLAT(MAX_OCC,MAX_OCC,MXSPN),NFRM(2),ZTZL,JJJJJJ
+
+!       COMMON/FRM/BFRM(3,MAX_OCC,MXSPN),RESULTS(13,MAX_OCC,MXSPN),
+!     &   LFRM(MXSPN),DEBDAX(3,MAX_OCC,MXSPN)
+!       COMMON/SICMAT/SIC(MAX_OCC,MAX_OCC,MXSPN)
+!       DIMENSION     SICC(MAX_OCC,MAX_OCC)
+!       COMMON/HMATSIC/ OVTM(MAX_OCC,MAX_OCC,2),HMTM(MAX_OCC,MAX_OCC,2)
+!       COMMON/FOCENT/ CFRM(3,MAX_OCC,MXSPN)
+
+      SAVE
+
+      PARAMETER(MXCHG=56)
+      LOGICAL FULLSTEP,LNEWWF,DOITALL
+      LOGICAL EXIST,FAILED,EXCCONV,LSIC,FODMSH_EXISTS
+      LOGICAL FOD_CONVERGE
+      CHARACTER*5 OPTION
+      CHARACTER*1 CHDUM
+      CHARACTER*40 NAME
+      CHARACTER*35 STRING
+      DIMENSION MSITES(1), RLOCA(3,MX_GRP)
+      DIMENSION ATMASS(MXCHG),PMASS(MAX_IDENT)
+      DIMENSION POSITION(3)
+      INTEGER   LSPN, IFRM, IRES(9), NFOD(2)
+      !LA: new code arguments
+      character(64) :: arg
+
+      ! These vars are needed for the SIC O(N) mesh code
+!     DIMENSION    FOMSH_INFO(MXSPN,MAX_OCC)
+      REAL*8,ALLOCATABLE :: FOMSH_INFO(:,:)
+      LOGICAL      FOMSH_ENABLE
+C
+      REAL*8 RDUMMY,RVEC(1)
+C
+C     --- THE EXTERNAL STATEMENT IS NEEDED FOR THE LBFGS CODE ---
+C
+      EXTERNAL LB2
+CDIR$ NAME (SYSTEM="system")
+      DATA TOLSML/1.0D-4/
+      DATA ATMASS/1.00797, 4.0026, 6.939, 9.0122, 10.811, 12.01115
+     &            , 14.0067, 15.9994, 18.9984, 20.179, 22.9898, 24.305
+     &            , 26.9815, 28.086, 30.9738, 32.064, 35.453, 39.948
+     &            , 39.102, 40.08, 44.956, 47.90, 50.942, 51.996
+     &            , 54.9381, 55.847, 58.9332, 58.71, 63.546, 65.37
+     &            , 69.72, 72.59, 74.9216, 78.96, 79.904, 83.80, 85.47
+     &            , 87.62, 88.905, 91.22, 92.906, 95.94, 98.906, 101.07
+     &            , 102.905, 106.4, 107.868, 112.40, 114.82, 118.69
+     &            , 121.75, 127.60, 126.9044, 131.30, 132.905, 137.34/
+
+      !LA new code 
+      call get_command_argument(1,arg)
+      ! if no regular input is given then program runs in old mode
+      if (len_trim(arg) == 0) then
+        write(*,*) 'No input specified. Running in old mode.'
+        simplified_input = .false.
+      else 
+        simplified_input = .true.
+        !<LA: moved here
+        CALL INIT_INPUTS
+        call read_file(arg)
+      endif
+
+
+C
+C     CALL FIXTMAT(-999)
+C       call system('touch SETUPFO')
+C       call system('touch SLOW')
+
+!LB: SAVE REDUCED MESH IN SIC MATRIX CALCULATION
+      MESH_SAV=.FALSE.
+!LB
+
+      TIME_MAINSIC=0.0D0
+      ELOWEST=0.0D0
+
+! --- CHECK IF NRLMOL_INPUT.DAT FILE 
+      CALL CHECK_INPUTS
+
+! --- Read FOD input file
+      call symfrm(1)
+      INQUIRE(FILE='FRMORB',EXIST=EXIST)
+      LSIC=.FALSE.
+      UNIHAM1=.FALSE.
+      IF(symmetrymodule1)THEN 
+        call allocate_diag1(.true.)
+      !Legacy Jacobi rotation mode
+      ELSEIF(EXIST)THEN
+        LSIC=.TRUE.
+C LB: READ FOD FROM FRMORB HERE
+         OPEN(68,FILE='FRMORB')
+         !READ(68,*)LFRM
+         !IF(symmetrymodule1) THEN
+         !  READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+         !ELSE !Legacy format
+           READ(68,*)LFRM
+         !ENDIF
+         DO LSPN=1,2
+           DO IFRM=1,LFRM(LSPN)
+             READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
+           END DO
+         END DO
+         CLOSE(68)
+         call allocate_diag1(.true.)
+      ENDIF
+
+c  FOD_LOOP = false --> do SCF iteration
+c  Initialize FOD_CONVERGE
+c
+      FOD_LOOP = .FALSE.
+      FOD_CONVERGE = .FALSE.
+      ITER_FOD = 0
+
+      if(LSIC) then
+        inquire(file='GEOCNVRG',EXIST=EXIST)
+        IF(EXIST) call system('rm GEOCNVRG')
+      endif
+      inquire(file='AVRGDAT',EXIST=EXIST)
+      if(.not.exist)then
+        open(90,file='AVRGDAT')
+        if(LSIC)write(90,*)' 0.15 T'
+        if(.NOT.LSIC)write(90,*)' 0.15 T'
+        close(90)
+      end if
+      LSICF=LSIC
+      if(LSIC) call delete_oldfiles
+      INQUIRE(FILE='SPNORB',EXIST=EXIST)
+      IF(.NOT.EXIST) call system ('echo "F F" > SPNORB')
+      INITOUT=200
+
+C
+C     ------------------------------------------------------------------
+C
+C     --- INITIALIZATION ---
+C
+C LB: CREATE LOCK FILE
+C      INQUIRE(FILE='RUNNING',EXIST=EXIST)
+C      IF(EXIST)THEN
+C        WRITE(6,*)'A RUNNING INSTANCE FOUND, REMOVING FILE RUNNING'
+C        WRITE(6,*)'PLEASE RESTART PROGRAM'
+C        CALL STOPIT
+C      ELSE
+C        OPEN(65,FILE='RUNNING',FORM='FORMATTED',STATUS='UNKNOWN')
+C        WRITE(65,*)'THIS FILE IS A LOCK FILE THAT EXISTS'
+C        WRITE(65,*)'WHILE THE PROGRAM IS RUNNING'
+C        CLOSE(65)
+C      ENDIF
+C LB
+      DEBUG = .FALSE.
+C     DEBUG = .TRUE.
+C
+      IF(.not. simplified_input) CALL INIT_INPUTS
+C
+C     --- INITIALIZE KEYWORD FIELDS AND SET DEFAULT VALUES ---
+C
+C     CALL DEFKEY
+      CALL DEFAULTKEY
+      CALL BANNER
+C
+      CALL COPYRIGHT
+      CALL PVERSION
+C LB PRINT GIT VERSION
+      CALL GITVERSION
+C LB
+      CALL GTTIME(TIME1)
+      PRINT '(A)','GLOBAL AWAKENING ON:'
+      CALL SYSTEM('date')
+      WRITE(*,'(A)')'CPU NODE:'
+      CALL SYSTEM('hostname')
+      CALL SYSTEM('uname -a')
+C     CALL BANNER
+      CALL printscaledpzsic
+      PRINT '(A)',' '
+      CALL WPARAMS
+C
+C     --- READ RUNS IF AVAILABLE, PROCESS IT, AND WRITE IT ---
+C     --- ITBEG .EQ. 0 -> BEGINNING OF NEW CALCULATION ---
+C     --- ITBEG .NE. 0 -> IN MIDDLE OF SCF CALCULATION ---
+C     --- NCALC:  CALCULATION INDEX ---
+C     --- ISTSCF: START WITH:  ---
+C                      0: LEAST-SQUARE FIT OF ATOM POTENTIALS
+C                         WITHOUT FURTHER APPROXIMATIONS
+C                      1: OLD HAMILTONIAN
+C                      2: OLD POTENTIAL
+C                      3: LEAST-SQUARE FIT OF ATOM POTENTIALS
+C                         NEGLECTING THREE-CENTER INTEGRALS
+C                      4: OLD WAVEFUNCTIONS
+C                      5: OLD WAVEFUNCTIONS IN FRAGMENTS
+C                 11: SPIN POLARIZED FROM SPIN UNPOLARIZED CALCULATION
+C                         (MUST CHANGE SIGN OF ELECTRONS IN SYMBOL FILE)
+C                         (START WITH WFOUT, AND PSPINP IF USING BHS)
+C                     12: CALCULATE IP
+C                 (MUST CHANGE ELECTRON NUMBERS AND SIGN IN SYMBOL FILE)
+C                         (START WITH WFOUT, AND PSPINP IF USING BHS)
+C                     13: CALCULATE EA
+C                 (MUST CHANGE ELECTRON NUMBERS AND SIGN IN SYMBOL FILE)
+C                         (START WITH WFOUT, AND PSPINP IF USING BHS)
+C
+C     --- IHIPOL: ---
+C                      0: START HAMILTONIAN IS NOT INTERPOLATED
+C                      1: START HAMILTONIAN IS INTERPOLATED
+C
+      INQUIRE(FILE='RUNS',EXIST=EXIST)
+      IF (EXIST) THEN
+        OPEN(65,FILE='RUNS',FORM='FORMATTED',STATUS='UNKNOWN')
+        REWIND(65)
+        READ(65,*,END=10) ITBEG,NCALC
+        READ(65,*,END=10) ISTSCF,ISTDEF
+        READ(65,*,END=10) IHIPOL
+        GOTO 20
+C
+   10   WRITE(6,*)'MAIN: FILE RUNS IS BROKEN'
+        CALL STOPIT
+   20   CLOSE(65)
+C
+C     --- RUNS FILE DOES NOT EXIST -> USE DEFAULT OPTIONS ---
+C
+      ELSE
+        ITBEG= 0
+        NCALC= 1
+        ISTSCF= 3
+        ISTDEF= 4
+        IHIPOL= 0
+      END IF
+C
+C     --- WRITE NEW RUNS FILE ---
+C
+      OPEN(65,FILE='RUNS',FORM='FORMATTED',STATUS='UNKNOWN')
+      REWIND(65)
+      WRITE(65,'(2(1X,I5),12X,A)') ITBEG,NCALC,'ITBEG, NCALC'
+      WRITE(65,'(2(1X,I5),12X,A)') ISTSCF, ISTDEF,
+     & 'START: 0=SCR.NUC, 1=HAM, 2=POT, 3=LSF, 4=WFUNC, 5=WFUNC_FRAG'
+      WRITE(65,'(1X,I5,18X,A)') IHIPOL,
+     &          'START HAMILTONIAN IS INTERPOLATED: 0=NO, 1=YES'
+      CLOSE(65)
+C
+      IF(NCALC.EQ.1)THEN
+        INQUIRE(FILE='SCISSOR',EXIST=EXIST)
+        IF(EXIST)THEN
+          OPEN(66,FILE='PURGRSQ')
+          WRITE(66,*)'T  ... INITIATING PURGRSQ FOR SCISSOR'
+        END IF
+        CLOSE(66)
+      END IF
+      CLOSE(65)
+C
+C     --- IF CONJUGATE-GRADIENT OR VERLET, CHECK FOR CONVERGENCE  ---
+C     --- OF FORCES IF THE LARGEST FORCE ACTING ON AN ATOM IN THE ---
+C     --- CLUSTER IS SMALLER THAN GTOL, THE GEOMETRY IS CONVERGED ---
+C
+      OPTION = 'CHECK'
+      CALL CHKMIN(MODE_RUN,NCALC,RDUMMY,RDUMMY,RVEC,RVEC,OPTION)
+      IF (OPTIMIZED) GO TO 900
+C
+C     --- CHECK IF "CLUSTER.INP" FILE EXIST AND ---
+C     --- GENERATE CORRESPONDING CLUSTER FILE   ---
+C
+C     YY. 8.4.2020 Commented out the next two lines for PR_2020. 
+C     INQUIRE(FILE='CLUSTER.INP',EXIST=EXIST)
+C     IF (EXIST) CALL GEOINI
+C
+C     --- CHECK IF NRLMOL_INPUT.DAT FILE EXIST, ---
+C     --- IF NOT, CREATE DEFAULT                --- 
+C
+C      CALL CHECK_INPUTS
+C
+C     --- SETUP AND/OR PROCESS SYMBOL FILE ---
+C
+      INQUIRE(FILE='SYMBOL',EXIST=EXIST)
+      IF (.NOT.EXIST) THEN
+        IF(FRAGMENT1) THEN
+          WRITE(6,*)'FRAGMENT CALCULATION REQUESTED'
+          CALL ISETUP_FRAG
+        ELSEIF(simplified_input) THEN
+          CALL ISETUP_NEW_INPUT
+        ELSE
+          CALL ISETUP_STD
+        ENDIF
+      ENDIF
+      INQUIRE(FILE='SYMBOL',EXIST=EXIST)
+      IF (.NOT.EXIST) GOTO 900 
+      CALL SYMBOL(NCALC,MODE_RUN,IMESH,IERR)
+C
+C     --- FAIL IF CALCULATION INDEX WAS NOT FOUND IN SYMBOL ---
+C
+      IF (IERR.NE.0) THEN
+        WRITE(6,*)'THE DIRECTIONS FOR CALC INDEX ',NCALC,' AS DEFINED'
+        WRITE(6,*)'IN FILE RUNS HAVE NOT BEEN FOUND IN FILE SYMBOL'
+        GOTO 900
+      END IF
+C
+C     --- READ AND WRITE SCFDAT ---
+C
+C     --- LB: MAXSCF AND SCFTOL NOW USED FROM MODULE  ---
+C     --- GLOBAL_INPUTS THROUGH NRLMOL_INPUT.DAT FILE --- 
+C     --- PLACE HERE A CALL TO CECK_INPUTS TO GET VALUES OF ---
+C     --- MAXSCF AND SCFTOL
+C
+      CALL CHECK_INPUTS
+      IF (MODE_RUN.EQ.3) SCFTOL= 1.0D-8
+C
+C     --- DELETE SOME FILES ---
+C
+      IF ((ITBEG.EQ.0).AND.(ISTSCF.NE.2)) THEN
+        OPEN(99,FILE='POTOLD',FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+      END IF
+      IF ((NCALC.EQ.1).AND.(ITBEG.EQ.0)) THEN
+        OPEN(99,FILE='VERLET',FORM='FORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='CGRAD',FORM='FORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='HAMAVG',FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+      END IF
+C
+C     --- SETUP SOME STUFF ---
+C
+      ETOTAL =0.0D0
+      ENNUC  =0.0D0
+      ELOCAL =0.0D0
+      ERGFLD =0.0D0
+      EKINONL=0.0D0
+      ENONLO =0.0D0
+      ERGXL  =0.0D0
+      ERGXN  =0.0D0
+      ERGCL  =0.0D0
+      ERGCN  =0.0D0
+      ESOLTOT=0.0D0
+      ESOLC  =0.0D0
+      ENUCSOL=0.0D0
+      FULLSTEP=.TRUE.
+      IF (MAXSCF.EQ.0) THEN
+        FULLSTEP=.FALSE.
+        MAXSCF=1
+      END IF
+      MAXSCF=IABS(MAXSCF)
+C
+C     --- OPEN FILE OUTPUT, INITIALIZE SYMMETRY, AND READ ---
+C     --- ATOMIC/BASIS SET DATA ---
+C
+      OPEN(7,FILE='OUTPUT',FORM='FORMATTED',STATUS='UNKNOWN')
+      REWIND(7)
+      CALL FGMAT
+      CALL CREPMAT
+      CALL READINP
+C
+C     --- MPI: SEND SYMMETRY ATOMIC/BASIS SET DATA TO WORKERS
+C
+#ifdef MPI
+      CALL SENDDATA(101)
+#endif
+C
+C     --- TEST FOR LINEAR DEPENDENCIES AND SYMMETRIZE BASIS ---
+C
+      CALL TESTBAS
+C
+C     --- GENERATE MESH ---
+C
+      FOMSH_ENABLE=.FALSE.
+      IF(FOMSH_ENABLE) THEN
+        ALLOCATE(FOMSH_INFO(MXSPN,MAX_OCC))
+        CALL FODONMSHGEN(ITBEG,NCALC,IMESH,FOMSH_INFO)
+      END IF
+
+      ! Original mesh code continues
+      IF (IMESH .EQ. 1) THEN
+C       CALL TRACER('MAIN:BEFORE VMESH')
+        CALL VMESH(ITBEG,NCALC)
+      ELSE
+C       CALL TRACER('MAIN:BEFORE DVPMESH')
+        CALL DVPMESH(ITBEG,NCALC)
+      ENDIF
+      WRITE(*,*) 'NMSH is ', NMSH
+      CALL FLUSH(6)
+      IF(MESH_SAV) CALL SYSTEM('mkdir SCRATCH')
+!YY allocate_sic call allocate coulomb and rhog in SIC.
+!     IF(LSIC) call allocate_sic(.true.) 
+      call allocate_sic(.true.)
+#ifdef GROUP
+      CALL TRACER('CALLING GLOBAL_CALL(64)')
+      CALL GLOBAL_CALL(64)
+#endif
+      CALL ALLOCATE_SIC_SHM
+C
+C     --- INITIALIZATION ---
+C
+      EXCCONV=.FALSE.
+      HAVEHAM=.FALSE.
+      ITTOT=MAX(ITBEG,0)
+      OLDERG1=0.0D0
+      OLDERG2=0.0D0
+      ITSCF=0
+C
+C     --- BEGIN SCF ITERATION LOOP. GET ENERGY AND NEW WAVEFUNCTIONS ---
+C     --- LEAVE LOOP IF (.NOT.FULLSTEP) ---
+C
+ 400  CONTINUE
+      CALL GTTIME(TIMEA)
+      MAXSCF=MAX(MAXSCF,100)
+      ITSCF=ITSCF+1
+C
+!PB changed
+      IF(FOD_LOOP) THEN ! read new FOD positions
+       call symfrm(1)
+       OPEN(68,FILE='FRMORB')
+       !READ(68,*)(LFRM(I),NFOD(I),I=1,2)
+       READ(68,*)LFRM  !legacy format
+       DO LSPN=1,2
+        DO IFRM=1,LFRM(LSPN)
+         READ(68,*)(BFRM(J,IFRM,LSPN),J=1,3)
+        END DO
+       END DO
+       CLOSE(68)
+      ELSE
+       CONVERGENCE=.FALSE.
+      END IF
+
+      TRACE=0.0D0
+      TOTQNUM=0.0D0
+      ITTOT=ITTOT+1
+      PRINT '(A)',   ' '
+      PRINT '(A,I3)','ITERATION ',ITTOT
+      PRINT '(A)',   '============='
+C
+C     --- NEW CODE TO READ WF FROM SPIN UNPOLARIZED CALCULATION ---
+C     --- INTO A SPIN POLARIZED CALCULATION ---
+C
+      CALL CHECK_INPUTS
+      SELECT CASE (ISTSCF)
+      CASE (4)
+        IF (LSIC) THEN
+         CALL READWFSIC(FAILED,LSIC)
+         GO TO 111
+        ELSE
+         CALL READWF(FAILED)
+
+         IF (FAILED) THEN
+          ISTSCF=3
+          CALL NEWWAVES(ITTOT,TRACE)
+         END IF
+         GO TO 111
+        END IF
+      CASE(5)
+        IF(FRAGMENT1)THEN
+          CALL READWF_FRAG(FAILED)
+          IF (FAILED) THEN
+            ISTSCF=3
+            CALL NEWWAVES(ITTOT,TRACE)
+          END IF
+          GO TO 111
+        ELSE
+          WRITE(6,*)'MAIN:ERROR, TRYING TO READ
+     &          WAVEFUNCTIONS NOT IN FRAMENT MODE'
+          CALL STOPIT
+        ENDIF
+      CASE (11:13)
+        CALL READWF2(FAILED)
+        IF(FAILED) THEN
+          WRITE(6,*)'ERROR:COULD NOT CREATE SPIN POL FROM SPIN UNPOL'
+          CALL STOPIT
+        ENDIF
+        ISTSCF=4
+        GO TO 111
+      END SELECT
+C     IF (EXCITED1) THEN
+C       CALL EXCWAVE(EXCCONV,TRACE)
+C     ELSE
+       IF(.NOT.FOD_LOOP) CALL NEWWAVES(ITTOT,TRACE)
+C     END IF
+
+  111 CONTINUE
+      WRITE(7,1010)TRACE
+      PRINT 1010,TRACE
+      IF (.NOT.FULLSTEP) GOTO 410
+
+      IF(DMAT1)THEN
+#ifdef SCALAPACK
+        CALL DENMAT_MPI
+#else
+        CALL TRACER('CALLING DENMAT_SERIAL')
+        CALL DENMAT_SERIAL
+#endif
+      ENDIF
+C
+C      PERFORM DENSITY MATRIX MIXING
+C
+      IF(MIXING1==1)THEN
+        IF(.NOT.DMAT1) THEN
+          WRITE(6,*)'ERROR:DENSITY MATRIX MIXING CAN ONLY BE USED'
+          WRITE(6,*)'WHEN USING DMATV=''Y'' IN INPUT FILE'
+          CALL STOPIT
+        ENDIF
+        CALL DMATMIX
+      ENDIF
+C
+C     --- CHECK ENERGY FOR CONVERGENCE                      ---
+C     --- LB SCFTOL NOW SHARED THROUGH GLOBAL_INPUTS MODULE ---
+C
+!YY In both DFT and SIC calculation, check scf convergence
+      IF(FROZENDENSITY1) THEN
+       CONVERGENCE =.TRUE. !SKIP SCF
+      ELSE IF(.NOT.FOD_LOOP) THEN
+       CALL CHKSCF(ERGCNV,MODE_RUN,OLDERG1,OLDERG2,ITSCF)
+      END IF
+
+      IF(EXCITED1)CONVERGENCE=EXCCONV
+
+      IF(NONSCF1.AND.NONSCFFORCES1) CONVERGENCE=.TRUE.
+C
+C     --- GET NEXT POTENTIAL, ENERGY ---
+C
+!##############################################
+!##             LSIC                         ##
+!##############################################
+       IF(LSIC)THEN
+         CALL GTTIME(TIMET1)
+         NSPX=NSPN
+#ifdef GROUP
+         CALL GLOBAL_CALL(67)
+#else
+C LB: INITIALIZE DEBDAX ARRAY
+!        WRITE(6,*)'NSPN',NSPN,SIZE(SIC,3)
+
+         SIC(1:MAX_OCC,1:MAX_OCC,1:NSPN)=0.0D0
+         DEBDAX(   1:3,1:MAX_OCC,1:NSPN)=0.0D0
+         RESULTS( 1:13,1:MAX_OCC,1:NSPN)=0.0D0
+
+         !DO I=1,NSPN
+         ! DO J=1,MAX_OCC
+         !  DO K=1,MAX_OCC
+         !    SIC(K,J,I)=0.0D0
+         !  END DO
+         ! END DO
+         ! DO IORB=1,MAX_OCC
+         !  DO J=1,3
+         !    DEBDAX(J,IORB,I)=0.0d0
+         !  END DO
+         ! END DO
+         !END DO
+         !DO JSPNX=1,NSPX
+         ! DO IORBX=1,MAX_OCC
+         !  DO I=1,13
+         !   RESULTS(I,IORBX,JSPNX)=0.0d0
+         !  END DO
+         ! END DO
+         !END DO
+         
+         IF(AVGSICON)THEN
+          allocate(AVGSIC(NMSH*2))
+          AVGSIC=0.0d0
+         ENDIF
+#endif
+C LB
+C LB: INITIALIZE RESULTS ARRAY
+c        inquire(file='fforce.dat1',EXIST=EXIST)
+c        if(EXIST)call system('rm fforce.dat1')
+c        inquire(file='fforce.dat2',EXIST=EXIST)
+c        if(EXIST)call system('rm fforce.dat2')
+         !SIC=0.0d0
+         !ZPOT=0.0d0
+         !ZMGGA=0.0d0
+         IF(scaledsic)THEN
+! YY: Obtain RSIC factor = tau_w/tau and save it on a disk for scaled-FLOSIC-LDA
+          !CALL DORI
+          IF(LSICON.or.ORBSICON.or.SDSICON) CALL WEIZSACKER(0)
+! Obtain beta on grid for GSIC
+          IF(GSICON) CALL WEIZSACKER(4) 
+         END IF
+
+
+         DO 555 JSPNX=1,NSPX   !Spin loop
+           PRINT *, " CALLING FRMORB2(0,0)"
+           CALL FRMORB2(0,0)
+           PRINT *, " CALLING FRMIORB(1,1)"
+           CALL FRMIORB(1,1)
+           PRINT *, " FINISHED FRMIORB(1,1)"
+C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
+#ifdef GROUP
+!          CALL TRACER('GOING TO GLOBAL CALL 66')
+           CALL GTTIME(TIMEX)
+           CALL GLOBAL_CALL(66,JSPNX)
+           CALL GTTIME(TIMEY)
+           CALL TIMOUT('SIC ORBITAL LOOP',TIMEY-TIMEX)
+#else
+           DO IORBX=1,NFRM(JSPNX) !NWFS(JSPNX)
+             !PRINT*,IORBX,NFRM(JSPNX)
+             CALL GTTIME(THTIME)
+             !PRINT*,(BFRM(J,IORBX,JSPNX),J=1,3)
+             IF (FOMSH_ENABLE) THEN
+               CALL READMESH(JSPNX, IORBX,
+     &               BFRM(1:3,IORBX,JSPNX),   ! position of FO
+     &               FOMSH_INFO(JSPNX,IORBX)) ! distance to nearest
+               CALL APOTNL_SIC(TOTQNUM,JSPNX,IORBX)
+               ! restore ordinary DFT mesh
+               CALL READMESH(0,0, ! <-- use to load orig msh
+     &               BFRM(1:3,IORBX,JSPNX),
+     &               FOMSH_INFO(JSPNX,IORBX))
+             ELSE
+               CALL APOTNL_SIC(TOTQNUM,JSPNX,IORBX)
+             END IF
+
+             CALL GTTIME(THTIME2)
+             WRITE(6,*)'MAIN TIME FOR SIC LOOP:',IORBX,THTIME2-THTIME
+
+           END DO
+#endif
+! Moved SIC matrix initialization here -> Reverted.
+!          SIC(:,:,JSPNX)=0.0D0
+! Construct SIC matrix
+           CALL GTTIME(TIMET3)
+           IF(NFRM(JSPNX) > 0) THEN !Skip if orbital is zero
+! We will skip this for Local SIC potential averaging
+            if(oneshot.or.AVGSICON) then
+             print *, "Oneshot/AVGSIC calculation, SICLAGM skipped."
+            else
+             CALL SICLAGM(JSPNX)
+            end if
+           END IF
+           CALL GTTIME(TIMET4)
+           WRITE(6,*)'TIME FOR SICLAGM:',TIMET4-TIMET3
+
+! Calculate FOD force - moved from apotnl_sic
+           IF(FOD_LOOP.OR.CONVERGENCE) THEN
+            CALL GTTIME(TIMET3)
+c           IF(CALCTYPE1.NE.2) THEN
+c#ifdef ATOMFORCE
+c             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
+c             CALL SICLAG_DER(JSPNX)
+c#else
+c             WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
+c             WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+c#endif
+c            END IF
+            CALL FRMORB2(-JSPNX,-1)
+            CALL GTTIME(TIMET4)
+            WRITE(6,*)'TIME FOR FOD FORCES:',TIMET4-TIMET3             
+           END IF
+
+C          IF(JSPNX.EQ.1)OPEN(61,FILE='LMUP')
+C          IF(JSPNX.EQ.2)OPEN(61,FILE='LMDN')
+C          DO IORBX=1,NWFS(JSPNX)
+C           DO JORBX=1,NWFS(JSPNX)
+C             DST=0.0D0
+C             DO J=1,3
+C             DST=(CFRM(J,IORBX,JSPNX)-CFRM(J,JORBX,JSPNX))**2+DST
+C             END DO
+C             DST=SQRT(DST)
+C             WRITE(61,61)DST,LOG10(ABS(SIC(IORBX,JORBX,JSPNX)))
+C           END DO
+C          END DO
+C 61       FORMAT(' ',2G15.6)
+C          CLOSE(61)
+
+C UPDATE FORCES AND SCISSOR MATRICES....
+c LB: call data collection in MPI version
+           IRES=(/1,2,4,6,9,10,11,12,13/)
+           DO IORBX=1,NFRM(JSPNX)
+             !WRITE(6,800)(RESULTS(I,IORBX,JSPNX),I=1,13)
+             WRITE(6,801)(RESULTS(IRES(I),IORBX,JSPNX),I=1,9)
+           END DO
+c  KAJ 12-23 -- do not update forces unless needed
+           if(FOD_LOOP.OR.CONVERGENCE) THEN
+C UPDATE SCISSOR:
+C          CALL UPDATESCISSOR(JSPNX)
+           IF(JSPNX.EQ.1)OPEN(39,FILE='fforce.dat1')
+           IF(JSPNX.EQ.2)OPEN(39,FILE='fforce.dat2')
+           rewind(39)
+           write(6,*)'Writing fforce.dat JSPNX', JSPNX
+           DO IORBX=1,NFRM(JSPNX)
+             write(39,39)(DEBDAX(IX,IORBX,JSPNX),IX=1,3)
+!            write( 6,39)(DEBDAX(IX,IORBX,JSPNX),IX=1,3)
+           END DO
+           end if
+           close(39)
+ 555     CONTINUE
+C LB: WRITE SIC MATRIX
+         OPEN(77,FILE='SICD.DAT',form='formatted')
+         do LSPN=1,NSPN
+          do IWF=1,NFRM(LSPN)
+           WRITE(77, 1001)(SIC(JWF,IWF,LSPN),JWF=1,NFRM(LSPN))
+          enddo
+         enddo
+ 1001  FORMAT(' ',15F12.5)
+         CLOSE(77)
+c
+c  KAJ 12-23 -- only update fforce arrays when needed
+c
+           if(FOD_LOOP.OR.CONVERGENCE) THEN
+             print *, 'updating fforce files after spin loop'
+         call system('cat fforce.dat1 > fforce.dat')
+         call system('rm  fforce.dat1')
+         inquire(file='fforce.dat2',exist=exist)
+         if(exist)call system('cat fforce.dat2 >> fforce.dat')
+         if(exist)call system('rm  fforce.dat2')
+         inquire(file='fforce.out',exist=exist)
+         if(exist)call system('rm fforce.out')
+         inquire(file='fforce.prt',exist=exist)
+         if(exist)call system('rm fforce.prt')
+         WRITE(6,*)'WRITTEN RESULTS'
+         end if
+         ZSIC=0.0D0
+         OPEN(76,FILE='SIC_ENERGY',FORM='FORMATTED',STATUS='UNKNOWN')
+         WRITE(76,*)'FLO    Charge     Asymp      E_COUL     E_SIC',
+     &'      EXlocal    EClocal    EXnonl     ECnonl'
+         WRITE(6,*)'FLO    Charge     Asymp      E_COUL     E_SIC',
+     &'      EXlocal    EClocal    EXnonl     ECnonl'
+         DO JSPNX=1,NSPX
+           DO IORBX=1,NFRM(JSPNX)
+             !WRITE(76,800)(RESULTS(I, IORBX,JSPNX),I=1,13)
+             !WRITE(6, 800)(RESULTS(I, IORBX,JSPNX),I=1,13)
+             WRITE(76,802)(RESULTS(IRES(I), IORBX,JSPNX),I=1,9)
+             WRITE(6, 802)(RESULTS(IRES(I), IORBX,JSPNX),I=1,9)
+             ZSIC=ZSIC+RESULTS(9,IORBX,JSPNX)
+           END DO
+         END DO
+         CLOSE(76)
+         WRITE(6,*)'MAIN : ZSIC =', ZSIC
+C        DO JSPNX=1,NSPX
+C          WRITE(76,*)'OVERLAP, SPIN =', JSPNX
+C          ISIZE=NWFS(JSPNX)
+C          DO IORBX=1,NWFS(JSPNX)
+C            WRITE(76,810)(OVTM(I, IORBX,JSPNX),I=1,ISIZE)
+C          END DO
+C        END DO
+C        CLOSE(76)
+ 810     FORMAT(         40F12.6)
+ 811     FORMAT(         20F12.6)
+
+         CALL GTTIME(TIMET2)
+         TIME_MAINSIC=TIME_MAINSIC+TIMET2-TIMET1
+         WRITE(6,*)'MAIN TIME FOR SIC :',TIME_MAINSIC
+       END IF
+!#####################################################
+!##           END IF LSIC                           ##
+!##           DFT/SIC common section                ##
+!#####################################################
+!YY Either use our apotnl + call_forces or use apotnl_dft (useful in comparing energy).
+      if(convergence.and.LSIC) FOD_LOOP=.TRUE.
+      IF(symmetrymodule1) THEN
+        CALL GETTMAT(TOTQNUM)
+      ELSE
+        CALL APOTNL_DFT(TOTQNUM)
+      END IF
+      CALL GTENRGY
+
+      IF(LSIC.AND.AVGSICON) deallocate(AVGSIC)
+      WRITE(7,'(A,F19.8)') 'TOTAL ENERGY: ',ETOTAL
+800   FORMAT('SIC COR (U,D,A,X,C,XOSIC,DLAM,DENG,TOT):',15F11.4)
+801   FORMAT(' ORBITAL SIC:',15F11.6)
+802   FORMAT(F4.0,20F11.6)
+39    FORMAT(' ',3F20.12)
+!C Calculate forces or do Potential Mixing, depending on convergence
+!YY call_forces goes with apotnl (UTEP version) and not apotnl_dft (based on
+!'PERFECT')
+!     IF(.not. LSIC) THEN
+!       CALL CALL_FORCES
+!     ENDIF
+C
+C     --- OUTPUT TO SUMMARY ---
+C
+      OPEN(54,FILE='SUMMARY',FORM='FORMATTED',STATUS='UNKNOWN',
+     %     ACCESS='APPEND')
+      IF (ITSCF.EQ.1) WRITE(54,1020)
+      WRITE(54,1030)ITTOT,TRACE,ETOTAL,EKINONL,TOTQNUM
+     &  ,ETOTAL+ZSIC,MIN(ETOTAL+ZSIC,ELOWEST) !OLDERG1
+      ETOTAL=ETOTAL+ZSIC
+      ELOWEST=MIN(ETOTAL,ELOWEST)
+      CLOSE(54)
+      !The lines below are for gsic modscan 
+      if(GSICON)then
+       open(55,file='modscane',position='append')
+       write(55,*) ERGXL+ERGXN+ZSIC
+       write(55,*) ERGXL,ERGCL,ZSIC
+       close(55)
+      endif
+! Local-SIC and GSIC exit here. Orb-SIC continues calculation.
+      if(oneshot) then
+       print *,"End of calculation"
+       print *,"Calculation is done non self-consistently" 
+       return !exit here
+      end if
+C
+C     --- WAVEFUNCTION DECOMPOSITION INTO LOCAL CONTRIBUTIONS ---
+C
+C     CALL CHECK_INPUTS
+      IF(ATOMSPH1)CALL ATOMSPH(ITTOT)
+C
+C     --- FINISHED ---
+C
+C     WRITE(6,*)'ISPN = ', ISPN
+      ISTSCF=2
+C
+C     --- GO BACK TO THE NEXT CYCLE IF ENERGY DID NOT CONVERGE ---
+C
+C LB
+C Check to see if this is a non SCF run
+C
+      CALL GTTIME(TIMEB)
+      WRITE(6,*)'TIME FOR ITERATION:',TIMEB-TIMEA
+ 
+      CALL CHECK_INPUTS
+      IF(NONSCF1) THEN
+        CONVERGENCE=.TRUE.
+        GOTO 410
+      ENDIF
+
+      IF(.NOT. FROZENDENSITY1) THEN
+!YY Print out WFOUT every NWFOUT (default 10) iteration for restarting calculations.
+       IF (NWFOUT > 0) then
+        IF (mod(ITSCF,NWFOUT).eq.0) THEN
+         CALL WFOUT
+!        CALL SYSTEM('mv WFOUT WFOUT.IC')
+        END IF
+       END IF
+      END IF
+!###########################
+!#   FOD Optimization      #
+!###########################
+      IF(FOD_LOOP1 .and. FOD_LOOP) then
+        iter_fod = iter_fod + 1
+        PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
+c       print *, 'iter_fod ',iter_fod
+        CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
+        !CALL ELECTRONIC_GEOMETRY(ETOTAL)
+        print *, 'FOD_CONVERGE', FOD_CONVERGE
+        PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"
+      END IF
+
+      IF (ITSCF.LT.MAXSCF.AND..NOT.CONVERGENCE) GOTO 400
+C
+C     --- CONVERGENCE ACHIVEVED OR MAX CYCLES - NOW PRINT RESULTS ---
+C
+  410 CONTINUE
+      CALL GTTIME(TIME2)
+      TTIME=TIME2-TIME1
+
+      IF(FOD_LOOP1) THEN
+       IF(LSIC) FOD_LOOP = .TRUE.
+       !INQUIRE(FILE='FOD_OPT',EXIST=EXIST)
+       !if(.not.exist) FOD_LOOP = .FALSE. 
+       !if(NONSCF1.AND..NOT.NONSCFFORCES1) FOD_LOOP = .FALSE.
+       IF (FOD_LOOP.AND..NOT.FOD_CONVERGE.AND.ITER_FOD.lt.200) GOTO 400   !set max fod optimization steps here
+c      print *, 'after FOD_LOOP'
+      END IF
+      FOD_LOOP = .FALSE.
+      IF(LSIC) then
+#ifdef ATOMFORCE
+c
+c  get atomic forces for SIC case
+c  FOD_LOOP must be false to compute forces in apotnl_dft
+c
+! Check SYMBOL file if SCF-ONLY ; if SCF-ONLY, skip force calculation
+!  Note that this should be redundant but user may specify SCF_ONLY in
+!  SYMBOL but not NRLMOL_INPUT.DAT
+            OPEN(50,FILE='SYMBOL',FORM='FORMATTED',STATUS='OLD')
+            REWIND(50)
+            READ(50,'(A)') STRING
+            CLOSE(50)
+            IF (STRING(1: 8) .EQ. 'SCF-ONLY') THEN
+               PRINT*,"SCF-ONLY CALCULATION: SKIPPING FORCES"
+            ELSE 
+! End modification
+              SIC = 0.0d0
+              do jspnx = 1,nspx
+                call SICLAGM(jspnx)
+              end do
+             call gttime(timex)
+             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
+             CALL SICLAG_DER
+             call gttime(timey)
+             print *, 'Time for parallel SICLAG_DER = ', timey-timex
+              CALL APOTNL_DFT(TOTQNUM)
+              CALL GTENRGY
+c             print *, 'AFTER GTENRGY ETOTAL', ETOTAL
+              ETOTAL = ETOTAL + ZSIC
+c             print *, 'Add ZSIC', ETOTAL
+            END IF
+#else
+c            WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
+c            WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+#endif
+        end if
+c
+
+C
+C     --- PRINT DETAILED SUMMARY OF ENERGIES ---
+C
+      ETOTAL=ETOTAL+EDISP
+      PRINT 1200, ' '
+      PRINT 1200, 'SUMMARY OF ENERGY CONTRIBUTIONS:'
+      PRINT 1200, '================================'
+      PRINT 1200, 'TOTAL ENERGY:               ',ETOTAL
+      IF(SOLVENT1) THEN
+        PRINT 1200,'TOTAL ENERGY WITH SOLVENTS: ',ESOLTOT +ETOTAL
+        PRINT 1200,'SOLVENT-ELECTRON COULOMB:   ',ESOLC
+        PRINT 1200,'SOLVENT-NUCLEAR COULOMB:    ',ENUCSOL
+        PRINT 1200,'SOLVENT-SOLVENT COULOMB:    ',ESOLTOT
+      ENDIF
+      PRINT 1200, 'NUCLEAR REPULSION:          ',ENNUC
+      PRINT 1200, 'LOCAL POTENTIAL:            ',ELOCAL
+      PRINT 1200, 'MEAN-FIELD COULOMB:         ',ECOUL 
+      IF (CONVERGENCE) THEN
+        PRINT 1200,'NONLOCAL POTENTIAL:         ',ENONLO
+        PRINT 1200,'KINETIC:                    ',EKINONL-ENONLO
+      ELSE
+        PRINT 1200,'KINETIC+NONLOCAL POTENTIAL: ',EKINONL
+      END IF
+      PRINT 1200, 'LOCAL EXCHANGE:             ',ERGXL 
+      PRINT 1200, 'LOCAL CORRELATION:          ',ERGCL 
+      PRINT 1200, 'NONLOCAL EXCHANGE:          ',ERGXN 
+      PRINT 1200, 'NONLOCAL CORRELATION:       ',ERGCN 
+      PRINT 1200, 'EXTERNAL ELECTRIC FIELD:    ',ERGFLD
+      IF(PCM1)THEN
+        PRINT 1200, 'PCM POLARIZATION ENERGY:    ',EPCM
+      ENDIF
+      IF(DFTD31) THEN
+        PRINT 1200, 'DISPERSION ENERGY:          ',EDISP
+      ENDIF
+      PRINT 1200, ' '
+ 1200 FORMAT(A,F20.6)
+C
+C     --- FIRST LET US CLEAN UP THE DISK A BIT ... ---
+C
+      IF (CONVERGENCE) THEN
+C       CALL KINETIC
+C
+        OPEN(99,FILE='KBROY1' ,FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='KBROY2' ,FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='COULOM3',FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='HAMBST' ,FORM='UNFORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='OVLPTST',FORM='FORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='FRMLV'  ,FORM='FORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+        OPEN(99,FILE='BROYDEN',FORM='FORMATTED',STATUS='UNKNOWN')
+        CLOSE(99,STATUS='DELETE')
+C
+C   --- WRITE FORCE DATA, DIPOLE AND EFIELD TO FRCOUT, WRITE VIBINP ---
+C
+        IF (CALCTYPE1 .EQ. 2) THEN
+         PRINT*,"SCF-ONLY CALCULATION: NO NEED TO WRITE FRCOUT"
+         PRINT*,""
+        ELSE
+         CALL WRITEFRC(NCALC)
+        END IF
+C
+      END IF
+!################################
+!##     END IF   CONVERGENCE   ##
+!################################
+C
+C     --- OPEN HISTORY. CALL UPDATE FOR GEOMETRY MINIMIZATION  ---
+C
+      OPEN(33,FILE='HISTORY',FORM='FORMATTED',STATUS='UNKNOWN',
+     %     ACCESS='APPEND')
+C
+      WRITE(33,*) ' 1000 ****** N E W   D A T A   S E T ******'
+      IF (CONVERGENCE) THEN
+        IF(CALCTYPE1.NE.2) CALL UPDATE(NCALC,MODE_RUN)
+        WRITE(33,*)' CONVERGENCE REACHED TOLERANCE:',SCFTOL
+      ELSE
+        WRITE(33,*)' NO CONVERGENCE, TOLERANCE:',SCFTOL
+      END IF
+      WRITE(33,1100)TRACE,ETOTAL,EKINONL
+C
+C     --- TRANSFER OF ATOM PARAMETERS TO HISTORY ---
+C
+      NN_ATOMS=NIDENT
+      WRITE(33,*) NN_ATOMS,' NUMBER OF IDENTITY MEMBERS'
+      DO 650 IA=1,NN_ATOMS
+        CALL GASITES(1,RIDT(1,IA),MXNUC,RLOCA,MSITES)
+        WRITE(33,*)MXNUC,' NUMBER OF IDENTICAL ATOMS, POSITION:'
+        WRITE(33,1110)(RIDT(J,IA),J=1,3),
+     &                ZELC(IFUIDT(IA)),ZNUC(IFUIDT(IA))
+  650 CONTINUE
+      WRITE(33,*) '-1000 ****** E N D   D A T A   S E T ******'
+      CLOSE(33)
+C
+C     --- WRITE/UPDATE MOLDEN OUTPUT FILE ---
+C
+C      IF (MOLDEN.NE.'JMOL') CALL MOLDENDRV("OPT")
+C
+C     --- APPEND WAVE FUNCTIONS TO INPUT IF SMALL CALCULATION ---
+C
+      IF (TTIME .LT. 600) THEN
+        OPEN(99,FILE='INPUT',FORM='FORMATTED',STATUS='OLD',
+     %          ACCESS='APPEND')
+C
+        WRITE(99,1120) NSPN,'SPIN'
+        WRITE(99,1120) NWF,'NUMBER OF OCCUPIED ORBITALS, EVALUES:'
+        WRITE(99,1130)(EVLOCC(IWF), IWF=1,NWF)
+        ITOT=0
+        WRITE(99,1120)N_REP,'NUMBER OF REPRESENTATIONS'
+        DO 770 ISPN=1,NSPN
+          DO 760 I_REP=1,N_REP
+c           ITOT=ITOT+1
+            WRITE(99,1140) N_OCC(I_REP,ISPN),NS_TOT(I_REP)
+            WRITE(99,1130)(OCCUPANCY(I_OCC+ITOT),
+     &                     I_OCC=1,N_OCC(I_REP,ISPN))
+            ITOT=ITOT+N_OCC(I_REP,ISPN)
+            DO 750 IWF=1,N_OCC(I_REP,ISPN)
+              WRITE(99,*)' '
+              WRITE(99,1130)(PSI_COEF(I,IWF,I_REP,ISPN),
+     &                       I=1,NS_TOT(I_REP))
+  750       CONTINUE
+  760     CONTINUE
+  770   CONTINUE
+        CLOSE(99)
+      END IF
+C
+C     --- WRITE WAVEFUNCTIONS TO UNFORMATTED FILE ---
+C
+      IF(.NOT. FROZENDENSITY1) THEN
+       CALL WFOUT
+      END IF   !NOT write WFOUT in the frozen density mode.
+C     CALL WFOUT2
+!     ############################
+!     #    FOD Optimization      #
+!     ############################
+!     --- CALL ELECTRONIC_GEOMETRY to compute forces on FODs.
+!     --- Use CGRAD to update new positions for FODs.
+      IF(.NOT.FOD_LOOP1) THEN
+       PRINT *, "ELECTRO >> ELECTRONIC_GEOMETRY"
+       IF(LSICF) then
+        !IF(SCALEDLBFGS1) THEN
+        IF(FOD_OPT2) THEN
+          CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
+!         CALL SCALEDLBFGS(ETOTAL)
+        ELSE
+!         CALL ELECTRONIC_GEOMETRY(ETOTAL)
+          CALL FOD_OPT(ETOTAL,FOD_CONVERGE)
+        END IF
+       END IF
+       PRINT *, "SUCCESS >> ELECTRONIC_GEOMETRY"
+      END IF
+      IF(LSICF) THEN
+        CALL DEALLOCATE_SIC_SHM
+        call allocate_sic(.false.)
+        call allocate_diag1(.false.)
+      END IF
+      IF(FOMSH_ENABLE) DEALLOCATE(FOMSH_INFO)
+C
+C     --- FIGURE OUT IF WE SHOULD DO ALL THE ANALYSIS STUFF     ---
+C     --- THIS WILL ONLY HAPPEN IF WE HAVE A CONVERGED GEOMETRY ---
+C
+      IF (OPTIMIZED) DOITALL=.FALSE.
+C
+C     --- CREATE EMPTY INPUT FILES UNLESS THEY ALREADY EXIST ---
+C
+      IF (DOITALL) THEN
+        DO I=1,4
+          IF (I .EQ. 1) THEN
+            NAME='DOSOCCU'
+          ELSE IF (I .EQ. 2) THEN
+            NAME='ATOMSPH'
+          ELSE IF (I .EQ. 3) THEN
+            NAME='DOSVIRT'
+          ELSE
+            NAME='DOSJNT'
+          END IF
+C
+          INQUIRE(FILE=NAME,EXIST=EXIST)
+          IF (.NOT. EXIST) THEN
+            OPEN(65,FILE=NAME,FORM='FORMATTED',STATUS='NEW')
+            REWIND(65)
+            WRITE(65,*) ' '
+            CLOSE(65)
+          END IF
+        END DO
+      END IF
+C
+      !CALL CHECK_INPUTS
+      !IF(SPNORB1) CALL SPNORB
+C
+      CALL CHECK_INPUTS
+C     IF(DOSJNT1) CALL EXCITE(2)
+C     IF(DOSJNT1) CALL DOSJNT_ORIG
+      IF(DOSJNT1) CALL DOSJNT
+
+      IF(POPULATION1) THEN
+       CALL write_population(1) !Mulliken Population
+       CALL write_population(2) !Lowdin Population
+      END IF
+
+C     CALL QPOL
+C
+C     --- WAVEFUNCTION DECOMPOSITION INTO LOCAL CONTRIBUTIONS    ---
+C     --- APPROXIMATE ATOMIC CHARGES AND DENSITY/POTENTIAL GRIDS ---
+C     --- THIS WILL DESTROY POTENTIAL AND MESH ARRAYS ---
+C
+C#ifndef MPI
+c     CALL QDIPOLE
+c     CALL DIR
+C     CALL EFG
+C     CALL HYPERF(0)
+      IF(ATOMSPH1) CALL ATOMSPH(0)
+c     CALL POTRHOGRD
+C#else
+      WRITE(6,*)'**COMPILE WITHOUT DMPI FOR POTRHOGRD'
+C#endif
+C
+      CALL CHECK_INPUTS
+      IF(RHOGRID1) CALL RHOGRID
+C
+      CALL CHECK_INPUTS
+      IF(WFGRID1) CALL WFGRID
+CYY Write out Fermi orbitals if WFGRID1 is on.
+      CALL CHECK_INPUTS
+      IF(LSICF .AND. WFFRM1) CALL WFFRM
+C
+C      CALL POTGRID
+C      IF (HAVEHAM) CALL WFGRID
+C       CALL CHECK_INPUTS
+C       IF(FORMFAK1) CALL FORMFAK
+       !IF(MATDIPOLE1) CALL MATDIPOLE
+C
+C     --- WAVEFUNCTION DENSITY GRID, ANGULAR DECOMPOSITION OF  ---
+C     --- WAVEFUNCTIONS FOR EACH CENTER, AND JOINT DENSITY OF  ---
+C     --- STATES THE STORED HAMILTONIAN MATRIX MUST BE PRESENT ---
+C     --- TO SOLVE THESE TASKS SINCE IT IS USED TO FIND THE    ---
+C     --- EIGENVALUES AND EIGENFUNCTIONS ---
+C
+      CALL CHECK_INPUTS
+      LNEWWF=.FALSE.
+      IF(DOSOCCU1) CALL CALLDECOMP(LNEWWF,'DOSOCCU')
+      LNEWWF=.FALSE.
+      IF(DOSOCCU1) CALL CALLDECOMP(LNEWWF,'DOSVIRT')
+C
+C      CALL DOSJNT !ALWAYS CALL DOSJNT SINCE IT IS PARALLELIZED....
+C      IF (HAVEHAM) THEN
+C       ISTSCF=1
+c       CALL WFGRID
+       LNEWWF=.TRUE.
+      IF(DOSOCCU1) CALL CALLDECOMP(LNEWWF,'DOSOCCU')
+       LNEWWF=.TRUE.
+      IF(DOSOCCU1) CALL CALLDECOMP(LNEWWF,'DOSVIRT')
+C      END IF
+C
+C     --- NOW WRITE BASIS SETS AND MOS INTO MOLDEN FILE ---
+C
+      CALL CHECK_INPUTS
+      IF(MOLDEN1)THEN
+        IF ((MOLDEN.EQ.'FULL').OR.(MOLDEN.EQ.'JMOL')) THEN
+          !CALL MOLDENDRV('MOS')
+        END IF
+      ENDIF
+C
+C     --- CALCULATE DENSITY MATRIX ---
+C
+      IF(NBO1)THEN
+        IF(NGRP>1)THEN
+          WRITE(6,*) 'NBO INTEFRACE NOT AVAILABLE FOR'
+          WRITE(6,*) 'SYMMETRIC SYSTEMS'
+        ELSE
+!         IF (PRTMOS.OR.PRTPMAT.OR.NBO) CALL BLDPMAT
+C
+C     --- PRINT OVERLAP MATRIX AND WRITE NBO ANALYSIS INPUT FILE ---
+C
+          !IF (PRTSMAT.OR.NBO) CALL NBODRV
+        ENDIF
+      ENDIF
+
+! LR-TDDFT
+!!     call tdflosic
+!      call casida
+
+C
+C     --- UPDATE RUNS ---
+C     --- REREAD IN CASE CHANGES HAVE BEEN MADE ---
+C
+c     CALL WRITEWF
+C
+      OPEN(65,FILE='RUNS',FORM='FORMATTED',STATUS='UNKNOWN')
+      REWIND(65)
+      READ(65,*) ITBEG,NCALC
+      READ(65,*) ISTSCF,ISTDEF
+      READ(65,*) IHIPOL
+      REWIND(65)
+      IHIPOL=0
+      ITBEG=ITTOT
+      IF (CONVERGENCE) THEN
+        ITBEG=0
+        ISTSCF=ISTDEF
+        CALL CHECK_INPUTS
+        IF(CALCTYPE1.NE.2) NCALC=NCALC+1
+      ELSE
+        IF (FULLSTEP) THEN
+          ISTSCF=2
+        ELSE
+          ITBEG= -1
+          MAXSCF=0
+        END IF
+      END IF
+      WRITE(65,'(2(1X,I5),12X,A)') ITBEG,NCALC,'ITBEG, NCALC'
+      WRITE(65,'(2(1X,I5),12X,A)') ISTSCF, ISTDEF,
+     & 'START: 0=SCR.NUC, 1=HAM, 2=POT, 3=LSF, 4=WFUNC, 5=WFUNC_FRAG'
+      WRITE(65,'(1X,I5,18X,A)') IHIPOL,
+     &          'START HAMILTONIAN IS INTERPOLATED: 0=NO, 1=YES'
+      CLOSE(65)
+  900 CONTINUE
+C
+C     --- AFTERMATH ---
+C
+      CLOSE(7)
+      CALL GTTIME(TIME2)
+      PRINT '(A)',' '
+      CALL TIMOUT('EXECUTION OF UNRAVEL (PART 1):     ',T1UNRV)
+      CALL TIMOUT('EXECUTION OF UNRAVEL (PART 2):     ',T2UNRV)
+      CALL TIMOUT('EXECUTION OF THIS NEAT PROGRAM:    ',TIME2-TIME1)
+      PRINT '(A)','HOPE TO SEE YOU AGAIN VERY SOON :-)' 
+C
+C     --- THAT IS THE END, FOLKS ---
+C     --- REMOVE RUNNING ---
+C
+C LB: REMOVE LOCK FILE
+C      INQUIRE(FILE='RUNNING',EXIST=EXIST)
+C      IF(EXIST)THEN
+C        CALL SYSTEM('rm RUNNING')
+C      ELSE
+C        WRITE(6,*)'SOMETHING WRONG HERE, RUNNING FILE NOT FOUND!'
+C      ENDIF
+C LB
+C     OPEN(65,FILE='RUNNING',FORM='FORMATTED',STATUS='OLD')
+C     CLOSE(65,STATUS='DELETE')
+C
+C     --- FORMAT STUFF ---
+C
+ 1010 FORMAT('TRACE OF HAMILTONIAN: ',F18.6)
+ 1020 FORMAT(2X,'IT',10X,'TRACE',16X,'ETOT',17X,
+     &       'EKIN+ENONLOC',10X,'CHARGE',14X,'EDFT+SIC',13X,' LOWEST')
+ 1030 FORMAT(1X,I3,6(1X,F20.9))
+ 1100 FORMAT(3(1X,F20.8),' TR, EN, KN')
+ 1110 FORMAT(3(1X,F15.6),3X,2(1X,F8.3),' R, ZELC, ZNUC')
+ 1120 FORMAT(1X,I5,5X,A)
+ 1130 FORMAT(3(G20.12))
+ 1140 FORMAT(3(1X,I5),5X,A)
+C
+#ifdef MPI
+      RETURN
+C
+#endif
+C     ------------------------------------------------------------------
+C
+      END

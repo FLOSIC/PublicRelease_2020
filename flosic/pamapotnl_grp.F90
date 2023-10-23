@@ -1,0 +1,67 @@
+! UTEP Electronic Structure Lab (2020)
+subroutine pamapotnl_grp(mode,spnx,iorbx)
+#ifdef MPI
+use debug1
+use common2,only : NSPN
+use common5,only : CONVERGENCE
+use mpidat1,only : SHM_MANAGER_COMM,NCALLED_MANAGERS,MANAGER_SIZE
+use SICMAT,only  : SIC,DERSIC!,ZPOT
+use FRM,only     : RESULTS,DEBDAX
+use MOCORB,only  : NFRM
+use mesh1,only    : NMSH
+use mpi
+include 'PARAMA2'
+integer,intent(in) :: mode,iorbx,spnx
+integer :: I,IPROC,TID,job,tag,ierr
+integer :: mpidata(2)
+real(8) :: TOTQNUM
+if(mode==1)then
+  NCALLED_MANAGERS=NCALLED_MANAGERS+1
+  CALL GTNTID_GRP_MANAGER(TID)
+  tag=0
+  job=3
+  call mpi_send(job,1,mpi_integer,TID,tag,shm_manager_comm,ierr)
+  mpidata(1)=spnx
+  mpidata(2)=iorbx
+  tag=301
+! Send data to manager pf group TID
+  call mpi_send(mpidata,2,mpi_integer,TID,tag,shm_manager_comm,ierr)
+
+endif
+
+if(mode==2)then
+!  call tracer('FINISHED APOTNL_SIC loop')
+  CALL CKWORKER_GRP_MANAGER(3,TID)
+  IF(NCALLED_MANAGERS.NE.0) THEN
+    CALL TRACER('NCALLED_MANAGERS SHOULD BE ZERO',NCALLED_MANAGERS)
+    CALL STOPIT
+  ENDIF
+  DO IPROC=1,MANAGER_SIZE
+    JOB=4
+    TAG=0
+    CALL MPI_SSEND(JOB,1,MPI_INTEGER,IPROC,TAG,SHM_MANAGER_COMM,IERR)
+    CALL MPI_SSEND(SPNX,1,MPI_INTEGER,IPROC,TAG,SHM_MANAGER_COMM,IERR)
+  END DO
+! CALL MPI_REDUCE(MPI_IN_PLACE,SIC(1,1,SPNX),MAX_OCC*MAX_OCC,&
+!      MPI_DOUBLE_PRECISION,MPI_SUM,0,SHM_MANAGER_COMM,IERR)
+! CALL MPI_REDUCE(MPI_IN_PLACE,ZPOT(1,1,SPNX),NMSH*MAX_OCC,&
+!      MPI_DOUBLE_PRECISION,MPI_SUM,0,SHM_MANAGER_COMM,IERR)
+  CALL MPI_REDUCE(MPI_IN_PLACE,RESULTS(1,1,SPNX),13*MAX_OCC,&
+       MPI_DOUBLE_PRECISION,MPI_SUM,0,SHM_MANAGER_COMM,IERR)
+  IF(CONVERGENCE) THEN
+!     CALL TRACER('SIC CONVERGENCE')
+!     DO I=1,NFRM(SPNX)
+!       CALL TRACER('CALLING FINAL FRMORB2 FOR ORBITAL',I)
+!       CALL FRMORB2(SPNX,I)
+!     ENDDO
+    CALL MPI_REDUCE(MPI_IN_PLACE,DEBDAX(1,1,SPNX),3*MAX_OCC,&
+         MPI_DOUBLE_PRECISION,MPI_SUM,0,SHM_MANAGER_COMM,IERR)
+    IF(SPNX.EQ.NSPN) THEN
+    CALL MPI_REDUCE(MPI_IN_PLACE,DERSIC(1,1,1),3*MAX_OCC*MX_CNT,&
+         MPI_DOUBLE_PRECISION,MPI_SUM,0,SHM_MANAGER_COMM,IERR)
+    ENDIF
+  ENDIF
+endif
+#endif
+return
+end subroutine pamapotnl_grp

@@ -1,39 +1,42 @@
 C UTEP Electronic Structure Lab (2020)
 C
-       SUBROUTINE POTGRID
+       SUBROUTINE RHOPOT
 C
 C POTRHOGRID VERSION DIRK POREZAG JUNE 1998. 
 C CALCULATION OF CHARGES WITHIN A SPHERE moved into atomsph JK 3/99
-C * POTENTIAL ON A GRID -- TB 12/04
-       USE XTMP2, Only : PHIG
+C * DENSITY AND SPIN DENSITY ON A GRID OF POINTS  -- TB 04/03
+C * ELF ON A GRID OF POINTS  -- TB 05/03
+C * POTENTIAL ON A GRID -- TB 08/03
+
        use common2,only : RCNT, NCNT, IGGA, ISPN, NSPN, EFIELD
-! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:57 MDT 2017
+       use common3,only : RMAT
+       use common7,only : MODDEN
+! Conversion to implicit none.  Raja Zope Sun Aug 20 09:01:58 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
        INCLUDE  'PARAMA2'  
-       INTEGER :: I, I1, I2, IBEG, ICNT, IFORM, IGRAD, ILOOP, IPTS, IS,
-     & ITYPE, IUNIT, IX, IY, IZ, J, MODE, NATOM, NGRAD, NGRID, NLOOP,
-     & NMSH, NSTORE
-       REAL*8 :: PHIG , SYMBOL, CHR, DENTOT, DERIV, EFHERE, EXHERE,
-     & FACT1, FACT4, FACTOR, PI, POT, POTIN, RBAS, TIME1, TMP, VOL, X,
-     & Y, Z, RHOG
+       REAL*8 :: SYMBOL 
+       INTEGER :: I, I1, I2, IBEG, ICNT, IELF, IFORM, ILOOP, IPTS, IS,
+     & ITYPE, IUNIT, IX, IY, IZ, J, JS, MODE, NATOM, NGRAD, NGRID,
+     & NLOOP, NMODE, NMSH, NSTORE
+       REAL*8 :: SYMBOL , CHR, COULOMB, D, D1, DENTOT, DERIV, DH,
+     & EFHERE, EXHERE, FACT1, FACT4, FACTOR, PHIG, PI, POT, POTIN,
+     & RBAS, RHOG, RHOSQ, TIME1, TMP, VOL, X, Y, Z
        SAVE
        PARAMETER (MAXSPH=500)
        PARAMETER (MAXRAD=1000)
        PARAMETER (MAXANG=200)
 C
-       LOGICAL ICOUNT,EXIST
-       LOGICAL POTEN
-       LOGICAL ELF
-       LOGICAL LGGA
+       LOGICAL ICOUNT,EXIST,ELF
+       LOGICAL DENSTY,POTEN
        CHARACTER*20 FNAME(6),FORMSTR
 C
 C SCRATCH COMMON BLOCK FOR LOCAL ARRAYS
 C
        DIMENSION NGRID(3),DERIV(3)
        DIMENSION RBAS(3,4),TMP(3)
-C      COMMON/TMP1/COULOMB(MAX_PTS),RHOG(MAX_PTS,KRHOG,MXSPN)
-C    &  ,PHIG(MAX_PTS,2)
+       COMMON/TMP1/COULOMB(MAX_PTS),RHOG(MAX_PTS,KRHOG,MXSPN)
+     &  ,PHIG(MAX_PTS,2)
        COMMON/MIXPOT/POTIN(MAX_PTS*MXSPN),POT(MAX_PTS*MXSPN)
 C
 C
@@ -44,6 +47,7 @@ C
        PRINT '(A)',' '
        PRINT '(A)','DENSITY/POTENTIAL GRIDS'
        CALL GTTIME(TIME1)
+       DENSTY=.FALSE.
        POTEN =.FALSE.
        NSTORE=NMSH
 C
@@ -51,8 +55,14 @@ C READ IN NECESSARY INPUT DATA
 C
          FORMSTR= ' '
 
-         FNAME(1)='POTGRID'
+         FNAME(1)='RHOGRID'
          INQUIRE(FILE=FNAME(1),EXIST=EXIST)
+         IF (EXIST) DENSTY=.TRUE.
+         IF (.NOT.EXIST) FORMSTR= ' --> NOTHING TO DO'
+         PRINT '(2A)','DENSITY GRID  ',FORMSTR
+
+         FNAME(2)='POTGRID'
+         INQUIRE(FILE=FNAME(2),EXIST=EXIST)
          IF (EXIST) POTEN=.TRUE.
          IF (.NOT.EXIST) THEN
            FORMSTR= ' --> NOTHING TO DO'
@@ -62,11 +72,11 @@ C
 C DETERMINE IF THERE IS ANYTHING TO DO 
 C
 
-        IF ((.NOT.POTEN)) GOTO 900
+        IF ((.NOT.DENSTY).AND.(.NOT.POTEN)) GOTO 900
 C
 C READ INPUT DATA
 C
-        IF (POTEN)FNAME(1)="POTGRID"
+        IF (.NOT.DENSTY)FNAME(1)="POTGRID"
         OPEN(72,FILE=FNAME(1),FORM='FORMATTED',STATUS='OLD')
         REWIND(72)
 C
@@ -131,33 +141,57 @@ C
         END IF
         DO I=1,3
          IF (NGRID(I) .LT. 1) THEN
-          PRINT *,'RHOGRID: NUMBER OF GRID POINTS MUST BE >= 1'
+          write(6,*)'RHOGRID: NUMBER OF GRID POINTS MUST BE >= 1'
           GOTO 890
          END IF
         END DO
         IF (NGRID(3) .GT. MAX_PTS) THEN
-         PRINT *,'POTGRID: MAX_PTS MUST BEAT LEAST: ',NGRID(3)
-         PRINT *,'SKIPPING GRID EVALUATION '
+         write(6,*)'RHOGRID: MAX_PTS MUST BEAT LEAST: ',NGRID(3)
+         write(6,*)'SKIPPING GRID EVALUATION '
          GOTO 890
         END IF
         NLOOP=NGRID(1)*NGRID(2)
+        IF(DENSTY) THEN
+          IF(NSPN.EQ.1) THEN
+             FNAME(1)=FNAME(1)(1:3)//'GROUT'
+          ELSE
+             FNAME(1)=FNAME(1)(1:3)//'TOT'
+             FNAME(2)=FNAME(1)(1:3)//'SPN'
+          ENDIF
+        END IF
         IF(POTEN) THEN
-          FNAME(2)='POT'
+          FNAME(5)='POT'
           IF (NSPN.GT.1) THEN
-              FNAME(2)=FNAME(2)(1:3)//'UP'
-              FNAME(3)=FNAME(2)(1:3)//'DN'
+              FNAME(5)=FNAME(5)(1:3)//'UP'
+              FNAME(6)=FNAME(5)(1:3)//'DN'
           END IF
         ENDIF
+        IF(ELF) THEN
+              FNAME(3)='ELF'
+         IF (NSPN.GT.1) THEN
+              FNAME(3)=FNAME(3)(1:3)//'UP'
+              FNAME(4)=FNAME(3)(1:3)//'DN'
+         END IF
+        END IF
                
    
 C
 C OPEN OUTPUT FILES, WRITE HEADER
 C
+        IF(POTEN) NMODE=2
 
-        IBEG=75
+        DO 700 MODE=1,NMODE
+          IF(MODE.EQ.1) THEN
+            IF (.NOT.DENSTY) GO TO 700 
+            IBEG=73
+            JS=0
+          ELSE
+            IBEG=75
+            JS = 4
+          ENDIF
         DO IS=1,NSPN
         IUNIT=IBEG+IS
-   20   OPEN(IUNIT,FILE=FNAME(IS+1),FORM=FORMSTR,STATUS='UNKNOWN')
+   20   OPEN(IUNIT,FILE=FNAME(JS+IS),FORM=FORMSTR,STATUS='UNKNOWN')
         REWIND(IUNIT)
         IF (IFORM .EQ. 1) THEN
          WRITE(IUNIT) ITYPE,NSPN
@@ -171,9 +205,15 @@ C
           WRITE(IUNIT) ISPN,ISPN,ISPN,ISPN,X
          END DO
         ELSE
+         IF (MODE.EQ.1) THEN
+             WRITE(IUNIT,*)'CLUSTER OUTPUT'
+             IF(NSPN.EQ.1) WRITE(IUNIT,*)'SCF TOTAL DENSITY (ANG)'
+             IF(NSPN.EQ.2) WRITE(IUNIT,*)'SCF DENSITY (ANG)'
+         ELSE
              WRITE(IUNIT,*)'CLUSTER OUTPUT'
              IF(NSPN.EQ.1) WRITE(IUNIT,*)'SCF TOTAL POTENTIAL (ANG)'
              IF(NSPN.EQ.2) WRITE(IUNIT,*)'SCF POTENTIAL (ANG)'
+         ENDIF
          OPEN(87,FILE='XMOL.DAT')
          READ(87,*) NATOM
          READ(87,*) 
@@ -189,7 +229,31 @@ C
          CLOSE(87)
         ENDIF
         ENDDO
+ 700    CONTINUE
         
+       IF (ELF) THEN
+         DO IS=1,NSPN
+          IELF=80+IS
+          OPEN(IELF,FILE=FNAME(2+IS),FORM=FORMSTR,STATUS='UNKNOWN')
+          WRITE(IELF,*)'CLUSTER OUTPUT'
+          WRITE(IELF,*)'ELECTRON LOCALIZTION FUNCTION (ANG)'
+           OPEN(87,FILE='XMOL.DAT')
+           REWIND(87)
+           READ(87,*) NATOM
+           READ(87,*) 
+           WRITE(IELF,'(1X,I10,3F20.12)') NATOM,(RBAS(J,1),J=1,3)
+           DO I=1,3
+            WRITE(IELF,'(1X,I10,3F20.12)') NGRID(I),(RBAS(J,I+1),J=1,3)
+           ENDDO
+           DO I=1,NATOM
+             READ(87,*)IZ, X, Y, Z
+             CHR=REAL(IZ)
+             WRITE(IELF,2002)IZ, CHR, X, Y, Z
+           END DO
+           CLOSE(87)
+          END DO
+         END IF
+
 2001    FORMAT(A25)
 2002    FORMAT(I6,4F16.10)
 C
@@ -226,6 +290,7 @@ C NOW: CALCULATE ELECTRONIC DENSITY
 C DENSITY WILL BE STORED IN RHOG
 C
          NGRAD=1
+         MODDEN=2
 c
 c
 c MPI: need to send updated mesh data
@@ -233,48 +298,114 @@ c
 c
           I1=IGGA(1)
           I2=IGGA(2)
-          IF ((IGGA(1).GT.0).OR.(IGGA(2).GT.0)) THEN
-              LGGA= .TRUE.
-              NGRAD=10
+          IF (.NOT.ELF) THEN
+             IGGA(1)=0
+             IGGA(2)=0
           END IF
-
           CALL DENSOLD(VOL)
           IGGA(1)=I1
           IGGA(2)=I2
 
         IF (POTEN) THEN
-c#ifdef MPI 
-c        CALL SENDDATA(102)
-c#endif
+#ifdef MPI 
+        CALL SENDDATA(102)
+#endif
         CALL COUPOT1
         ENDIF
 
 C
+C  CURRENTLY, ELF is written in RHOG(IPTS,10,1)
 C
         FACTOR=0.5292D0**3
         FACT4=0.5292D0**4
         FACT1=0.5292D0
+         DO IS=1,NSPN
+          DO IPTS=1,NMSH
+           RHOG(IPTS,10,IS)=0.0D0
+          END DO 
+         END DO
+        
+       IF (ELF) THEN
+        DO IPTS=1,NMSH
+         DO IS=1,NSPN    
+          D=RHOG(IPTS,1,IS)
+          IF (D.GT.1.0D-20) THEN
+           RHOSQ=RHOG(IPTS,2,IS)**2+RHOG(IPTS,3,IS)**2
+     &                                  +RHOG(IPTS,4,IS)**2
+           RHOSQ=RHOSQ
+           D1=PHIG(IPTS,IS)-0.25D0*RHOSQ/RHOG(IPTS,1,IS)
+           DH=0.6d0*(3.0d0*PI**2)**0.66666*RHOG(IPTS,1,IS)**1.6667
+           RHOG(IPTS,10,IS)=1.0d0/(1.0d0+(D1/DH)**2)
+          END IF
+         END DO 
+        END DO 
+       END IF
 C
 C
 C UPDATE DATA IN RHOG
 C
-         DO IGRAD=1,NGRAD
+c         DO IGRAD=1,NGRAD
           DO IPTS=1,NMSH
-           RHOG(IPTS,IGRAD,1)=RHOG(IPTS,IGRAD,1)+RHOG(IPTS,IGRAD,NSPN)
+           RHOG(IPTS,1,1)=RHOG(IPTS,1,1)+RHOG(IPTS,1,NSPN)
           END DO 
           DO IPTS=1,NMSH
             DENTOT=DENTOT+RHOG(IPTS,1,1)*WMSH(IPTS)
           END DO
-         END DO 
+
+c         END DO 
+C DENSITY GRID
 C
+C        DENSITY IN  ANG^-3 FOR THE GAUSSIAN CUBE FORMAT
+C        
+         IF (DENSTY) THEN
+        
+         IF (NSPN.EQ.1) THEN
+           IF (ITYPE .EQ. 1) THEN
+
+            IF (IFORM .EQ. 1) THEN
+             WRITE(74)(RHOG(IPTS,1,1), IPTS=1,NMSH)
+            ELSE
+             WRITE(74,9010)(RHOG(IPTS,1,1)*FACTOR, IPTS=1,NMSH)
+            END IF
+           ELSE
+
+           DO IPTS=1,NMSH
+             WRITE(74,9020)(RMSH(I,IPTS), I=1,3)
+             WRITE(74,9010) RHOG(IPTS,1,1)
+            END DO
+          END IF
+         ELSE     !IF SPIN-POLARISED
+          DO IS=1,NSPN
+           IUNIT=73+IS
+           IELF =80+IS
+           IF (ITYPE .EQ. 1) THEN
+            IF (IFORM .EQ. 1) THEN
+             WRITE(IUNIT)(RHOG(IPTS,1,1),
+     &                 RHOG(IPTS,1,1)-2*RHOG(IPTS,1,NSPN), IPTS=1,NMSH)
+            ELSE
+            IF(IS.EQ.1) WRITE(IUNIT,9010) (RHOG(IPTS,1,1)
+     &               *FACTOR,IPTS=1,NMSH)
+            IF(ELF)WRITE(IELF,9010) (RHOG(IPTS,10,IS),IPTS=1,NMSH)
+            IF(IS.EQ.2) WRITE(IUNIT,9010) ((RHOG(IPTS,1,1)-2*
+     &               RHOG(IPTS,1,NSPN)) *FACTOR,IPTS=1,NMSH)
+            END IF
+           ELSE
+            DO IPTS=1,NMSH
+             WRITE(IUNIT,9020)(RMSH(I,IPTS), I=1,3)
+             WRITE(IUNIT,9010) RHOG(IPTS,1,1),
+     &                 RHOG(IPTS,1,1)-2*RHOG(IPTS,1,NSPN)
+            END DO
+            END IF
+          END DO
+         END IF
+        END IF
 
         IF (POTEN) THEN
           WRITE(6,*) 'WRITING POTENTIAL'
 C THE FOLLOWING PART IS ONLY DONE IF (MODE .EQ. 2)
 C CALCULATING KOHN-SHAM POTENTIAL POT 
 C
-         CALL GETVLXC(NMSH,RHOG,POT,POTIN)
-         CALL AFPOT(NSPN,RHOG,POT,POTIN)
+         CALL GETVLXC(MAX_PTS,RHOG,POT,POTIN)
 C
 C ADD EFIELD POTENTIAL TO LOCAL POTENTIAL
 C
@@ -338,9 +469,9 @@ C
 C
 C ERROR HANDLING
 C        
-  870   CLOSE(76)
-        IF (NSPN.EQ.2) CLOSE(77)
-  880   PRINT *,'ERROR IN INPUT FILE, SKIPPING MODE ',MODE
+  870   CLOSE(74)
+        IF (NSPN.EQ.2) CLOSE(75)
+  880   write(6,*)'ERROR IN INPUT FILE, SKIPPING MODE ',MODE
   890   CLOSE(72)
   900  CONTINUE
        NMSH=NSTORE
