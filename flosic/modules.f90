@@ -96,6 +96,7 @@ module global_inputs
   logical :: cexcited,cdosjnt,cwfgrid,cdosoccu,cformfak,catomsph,cmatdipole,cnonscf,cnonscfforces,&
              cdftd3,ccalctype,cfragment,cbasis,cpolarizability,crhogrid,csolvent,cmaxscf,cscftol,cmolden,&
              cnbo,csymmetry,cmpi_io,cspnorb,cfixm,cpcm,cdmat,cmixing,clibxc,cefp
+  character*30 :: basis_filename
 
   real(8),parameter :: mb_size=1024.0*1024.0
   real(8),parameter :: gb_size=1024.0*1024.0*1024.0

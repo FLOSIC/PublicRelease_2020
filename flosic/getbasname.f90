@@ -1,5 +1,6 @@
 ! UTEP Electronic Structure Lab (2020)
 SUBROUTINE GETBASNAME(BASIS,FILENAME)
+  use global_inputs, only : basis_filename
   IMPLICIT NONE
   INTEGER :: BASIS
   CHARACTER*40 :: FILENAME
@@ -120,5 +121,8 @@ SUBROUTINE GETBASNAME(BASIS,FILENAME)
     FILENAME='/lanl2dzdp_ecp.basis'
   CASE(59)
     FILENAME='/UGBS.basis'
+  CASE(100)
+    WRITE(FILENAME,'(3A)') '/', trim(basis_filename), '.basis'
   END SELECT
+
 END SUBROUTINE GETBASNAME

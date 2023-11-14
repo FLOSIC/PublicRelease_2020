@@ -475,12 +475,15 @@ subroutine check_inputs
     elseif(basisv=='UGBS') then
        calc_basis=59
     else
-      if(cbasis)then
-        write(6,'(A)')'CHECK_INPUTS:WRONG value for BASISV'
-        write(6,'(A)')'Assuming DEFAULT'
-        calc_basis=1
-        cbasis=.FALSE.
-      endif
+      !grab basis set file name
+      calc_basis=100
+      basis_filename=basisv
+      !if(cbasis)then
+      !  write(6,'(A)')'CHECK_INPUTS:WRONG value for BASISV'
+      !  write(6,'(A)')'Assuming DEFAULT'
+      !  calc_basis=1
+      !  cbasis=.FALSE.
+      !endif
     endif
 ! Check for RHOGRID
     if(rhogridv=='Y'.or.rhogridv=='y')then
