@@ -515,7 +515,7 @@ C
           DO IL=1,NBASF(1,L)+NBASF(2,L)
             !write coefficients NALP times
             !YY If molden1 is on, enforce normalization of basis set
-            !IF(MOLDEN1) call renorm(L,ALPSET(:),CONSET(:,IL,L),NALP)
+            IF(MOLDEN1) call renorm(L,ALPSET(:),CONSET(:,IL,L),NALP)
             WRITE(92,1070)(CONSET(J,IL,L), J=1,NALP)
             WRITE(92,*)
           END DO

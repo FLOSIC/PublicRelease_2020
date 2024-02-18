@@ -207,7 +207,7 @@ c
 c
            CALL CHECK_INPUTS
            IF(MOLDEN1)THEN
-             !CALL MOLDENDRV("XYZ")
+             CALL MOLDENDRV("XYZ")
            ENDIF
            GOTO 900
           END IF
@@ -526,7 +526,7 @@ C
       IF(MOLDEN1)THEN
         IF (MOLDEN.NE.'NONE') THEN
           NGRP=NGFULL
-          !CALL MOLDENDRV("XYZ")
+          CALL MOLDENDRV("XYZ")
           NGRP=NGPERM
         END IF
       ENDIF

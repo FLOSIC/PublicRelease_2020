@@ -165,7 +165,7 @@ SIC = fodonmsh.o fermi_occ.o fermilv_sic.o diagon_sic.o diagsvd.o ewevge.o ewevs
 SIC2 = frmorb_mpi.o pamlmsic.o paslmsic.o pamlmsic_der.o paslmsic_der.o 
 
 #SIC symmetry
-SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o newwave_2020.o recursion.o
+SIC3 = fodmat_all.o sicham.o sicmat.o scissor.o sichammixdrv.o newwave_2020.o recursion.o #newwave_serial_symmetry.o
 
 METAGGA = normh.o hammixdrv.o subvlxc_libxc.o gettau_par.o getvlxc.o setdftyp.o r2scanex.o r2scancor.o regscan.o scan.o overnum_libxc.o pamhamil_libxc.o pashamil_libxc.o gethold_libxc.o gethold_mgga.o atomscfvlxc.o gtgraddrv.o call_mgga.o
 #For the original rSCAN, use regscan_jcp.o in place of regscan.o.
@@ -198,6 +198,9 @@ BASIS = sallbas3.o getbasname.o
 
 GIT = gitversion.o
 
+WFX = wfwind2.o write_unsym.o wfxdrv.o wfxmos.o printmo.o printbasis.o wfxtag.o moldenthings.o moldendrv.o moldenmos.o check_molden.o
+
+
 EXCITED = particles.o lowden.o init_mpi.o excrewrite.o orthogonalize_hole.o fill_local.o fill_global.o
 
 DMAT = denmat_serial.o denmat_mpi.o coupot_dmat.o get_denmat_atoms.o dmatmix.o convert_dmat.o print_psicoef.o gtkinrgy_dmat.o write_denmat.o
@@ -225,7 +228,7 @@ UT_MKL_LIB = /opt/intel/mkl/lib/intel64/
 #$(FBASICS): PARAMS commons.inc
 #$(FTNBASICS): PARAMS commons.inc
 
-OBJ = $(FTNBASICS) $(FBASICS) $(FBASICSMPI) $(LOCALSIC) $(METAGGA) $(SIC) $(SIC2) $(SIC3) $(EXTRAFIL) $(POSTACTIVE) $(POSTACTIVEMPI) $(BASIS) $(DISP) $(GIT) $(DMAT) $(GROUPOBJ) $(POPULATION) $(LEVY_PERDEW) 
+OBJ = $(FTNBASICS) $(FBASICS) $(FBASICSMPI) $(LOCALSIC) $(METAGGA) $(SIC) $(SIC2) $(SIC3) $(EXTRAFIL) $(POSTACTIVE) $(POSTACTIVEMPI) $(BASIS) $(DISP) $(GIT) $(WFX) $(DMAT) $(GROUPOBJ) $(POPULATION) $(LEVY_PERDEW) 
 
 # Binary file name
 BIN = nrlmol_exe

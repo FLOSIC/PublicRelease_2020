@@ -12,7 +12,8 @@ C> Path diverges depending on ATOMSIC and FRMORB files
          INQUIRE(FILE='FRMORB',EXIST=EXIST)
          IF(EXIST) THEN
            IF(symmetrymodule1) THEN
-             CALL NEWWAVE_2020(ITTOT,TRACE)
+             CALL NEWWAVE_2020(ITTOT,TRACE,ISUCCEED)
+             !CALL NEWWAVE_serial_symmetry(ITTOT,TRACE)
            ELSE
              CALL SCFSICW(ITTOT,TRACE)
            END IF

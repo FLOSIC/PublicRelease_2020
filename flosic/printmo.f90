@@ -1,0 +1,229 @@
+! UTEP Electronic Structure Lab (2020)
+!###############################################################################
+subroutine printmo(nmo,nelec)
+! This subroutine creates MOL.TMP and SPN.TMP files. These contain the MO
+! coefficients and the spin information
+use xmol,only    : NUM_ATMS,XMOL_LIST,GET_LETTER,ATOMORB_LAB
+use common2,only : EGMIN, EGMAX, RIDT, LSYMMAX, N_CON, NFNCT, N_POS, NSPN, &
+                   NATOMS, INDICES
+use common5,only : PSI, EVLOCC, NWF, NWFS, OCCUPANCY, EFERMI
+use common8,only : N_REP, NS_TOT   !if you want to skip WFWIND2
+use global_inputs, only : EXCITED1
+! Conversion to implicit none.  Raja Zope Sun Aug 20 11:17:36 MDT 2017
+
+!      INCLUDE  'PARAMAS'  
+       INCLUDE  'PARAMA2'  
+       INTEGER :: I, I_POS, ICON, IDIM, IFNCT, ILOC, INUC, ISHDUMMY, &
+     & ISHELLA, ISIZE, IWF, J_POS, JCON, JLOC, JSPN, KLOC, KNT, L_NUC, &
+     & LI, LMX1, M_NUC, MCON, MU, NBAS, NU
+       REAL*8 :: AU2ANG , EFMAX, EFMIN, ERGMAX, ERGMIN, OCCP, PSIKH,  SPN
+       REAL*8 :: FFERMI
+
+REAL*8 EPS
+PARAMETER (EPS = 1.E-6)
+!--- LOCAL WORK FIELDS ---
+DIMENSION ISIZE(3),SPN(2)
+DIMENSION KLOC(10,6,3),PSIKH(6)
+CHARACTER*1 PRN
+CHARACTER*2 AZI,LETTER
+CHARACTER*3 IATOM
+CHARACTER*15 ORBNME(6)
+CHARACTER*80 LINE,STRCOMP
+INTEGER K,STREXT,NBASTOT
+REAL*8 TEMP
+real*8, allocatable :: CMO(:)
+LOGICAL BETAMOS
+integer, intent(out) :: nmo,nelec
+real*8 :: sumoccp = 0.0d0
+DATA ISIZE/1,3,6/
+DATA AU2ANG/0.529177D0/
+! LOCAL DYNAMICAL FIELDS
+INTEGER IERR,SPINV
+REAL*8,ALLOCATABLE  :: RVECA(:,:)
+LOGICAL EXIST
+!------------------------------------------------------------------
+nmo=0
+!--- CALCULATE ENERGY TRESHOLDS ---
+EFMIN=MIN(EFERMI(1),EFERMI(NSPN))
+EFMAX=MAX(EFERMI(1),EFERMI(NSPN))
+!--- SET THRESHOLDS HERE FOR NOW ---
+ERGMIN=EFMIN-(EGMIN)
+ERGMAX=EFMAX+(EGMAX)
+
+CALL CHECK_INPUTS
+!IF(.NOT. EXCITED1) then
+! CALL WFWIND2(ERGMIN,ERGMAX,.TRUE.,.TRUE.,IFAIL,NBASTOT)
+!ELSE
+ NBASTOT = sum(NS_TOT(1:N_REP))
+!END IF
+BETAMOS = .FALSE.
+
+!--- ALLOCATE LOCAL FIELDS ---
+IF (NWF.GT.NWFS(1)) THEN
+ IDIM = 2*NWFS(1)
+ BETAMOS = .TRUE.
+ELSE
+ IDIM = NWFS(1)
+END IF
+
+ALLOCATE(RVECA(3,MX_GRP),STAT=IERR)
+IF (IERR.GT.0) WRITE(*,*) 'ERROR: RVECA ALLOCATION FAILED IN', 'PRINTMO'
+IF(.not. ALLOCATED(ATOMORB_LAB)) ALLOCATE(ATOMORB_LAB(NDH),STAT=IERR)
+IF (IERR.GT.0) WRITE(*,*) 'ERROR: ALLOCATION FAILED IN ','PRINTMO'
+
+!--- OPEN AND APPEND MOLDEN FILE ---
+OPEN(43,FILE='MOL.TMP',FORM='FORMATTED',STATUS='UNKNOWN')
+REWIND(43)
+OPEN(44,FILE='SPN.TMP',FORM='FORMATTED',STATUS='UNKNOWN')
+REWIND(44)
+
+!--- WRITE ENERGY, SPIN, AND OCCUPATIONS ---
+!WRITE(43,37)
+!37 FORMAT('[MO]')
+
+!--- RUN OVER REQUESTED MOLECULAR ORBITALS ---
+NBAS = NWFS(1)
+TEMP=0.0001D0
+DO 87 IWF=1,NWF
+
+!--- FIND OUT IF BETA ORBITALS ARE NEEDED ---
+ JSPN=1
+ IF(IWF.GT.NWFS(1))JSPN=2
+ KNT = 0
+
+ !--- PRINT LINE WITH ORBITAL INFORMATION:             ---
+ !--- INDICES(1-4,IWF)= NUMBER, K_REP, IROW, AND ISPN  ---
+ INDICES(1,IWF) =  IWF
+ ! LINE = ''
+ ! LINE(1:4) = 'Sym='
+ ! DO J=1,4
+ !   K = STREXT(STRCOMP(LINE))
+ !   WRITE(LINE(K+1:K+6),'(I5)')INDICES(J,IWF)
+ !   IF (J.LT.4) WRITE(LINE(K+7:K+8),'(A1)')'-'
+ !   LINE = STRCOMP(LINE)
+ ! END DO
+ ! WRITE(43,'(A80)') LINE
+
+! WRITE(43,39)EVLOCC(IWF),EFERMI(JSPN)
+
+  IF(IWF.LE.NWFS(1))THEN
+    OCCP=FFERMI(EVLOCC(IWF),EFERMI(1),TEMP)
+    SPINV=1
+!    WRITE(43,40)'Alpha'
+! !--- OCCUPATION FOR CLOSED SHELL SYSTEMS ---
+    IF (.NOT.BETAMOS) OCCP = 2.0*OCCP
+  ELSE
+    OCCP=FFERMI(EVLOCC(IWF),EFERMI(JSPN),TEMP)
+    SPINV=2
+!    WRITE(43,40)'Beta '
+  END IF
+
+!--- NUMERICAL STABILITY TEST ---
+ IF (ABS(OCCP).LT.EPS) OCCP = 0.0
+ IF(EXCITED1) THEN
+  WRITE(43,41) OCCUPANCY(IWF)
+  OCCP = OCCUPANCY(IWF)
+ ELSE
+  WRITE(43,41)OCCP!OCCUPANCY(IWF)
+ ENDIF
+ WRITE(43,39)EVLOCC(IWF)
+ 39 FORMAT(' ENE=',G23.6)
+ 40 FORMAT('Spin= ',A5)
+ 41 FORMAT(' OCCUP= ',G20.6)
+sumoccp = sumoccp + OCCP
+IF(OCCP > 5.0d-8) nmo=nmo+1
+IF(OCCP > 5.0d-8) WRITE(44,'(I2,2D20.7)') SPINV,OCCP, EVLOCC(IWF)
+
+ ISHELLA=0
+ DO 86 IFNCT=1,NFNCT
+   LMX1=LSYMMAX(IFNCT)+1
+   DO 84 I_POS=1,N_POS(IFNCT)
+     ISHELLA=ISHELLA+1
+     CALL OBINFO(1,RIDT(1,ISHELLA),RVECA,M_NUC,ISHDUMMY)
+     DO 82 J_POS=1,M_NUC
+       CALL UTRAVEL(IFNCT,ISHELLA,J_POS,RIDT(1,ISHELLA),RVECA,L_NUC,1)
+       ILOC=0
+       DO LI=1,LMX1
+         DO MU=1,ISIZE(LI)
+           DO ICON=1,N_CON(LI,IFNCT)
+             ILOC=ILOC+1
+             KLOC(ICON,MU,LI)=ILOC
+           END DO
+         END DO
+       END DO
+
+       DO LI=1,LMX1
+         DO MCON=1,N_CON(LI,IFNCT)
+           DO MU=1,ISIZE(LI)
+             NU=0
+             DO ICON=1,N_CON(LI,IFNCT)
+               JCON=ICON
+!--- LABELS FOR 'S' ATOMIC ORBITALS ---
+               IF(LI.EQ.1)THEN
+                 PRN='S'
+                 AZI=' '
+!--- LABELS FOR 'P' ATOMIC ORBITALS ---
+               ELSE  IF(LI.EQ.2)THEN
+                 PRN='P'
+                 IF(MU.EQ.1)AZI='X '
+                 IF(MU.EQ.2)AZI='Y '
+                 IF(MU.EQ.3)AZI='Z '
+                 JCON=JCON+1
+!--- LABELS FOR 'D' ATOMIC ORBITALS ---
+               ELSE IF(LI.EQ.3)THEN
+                 JCON=JCON+2
+                 PRN='D'
+                 IF(MU.EQ.1)AZI='XX'
+                 IF(MU.EQ.2)AZI='YY'
+                 IF(MU.EQ.3)AZI='ZZ'
+                 IF(MU.EQ.4)AZI='XY'
+                 IF(MU.EQ.5)AZI='XZ'
+                 IF(MU.EQ.6)AZI='YZ'
+               END IF
+
+               IF(ICON.EQ.MCON)THEN
+                 JLOC=KLOC(ICON,MU,LI)
+                 NU=MU
+                 PSIKH(NU)=PSI(JLOC,IWF,1)
+                 WRITE(ORBNME(NU),42)JCON,PRN,AZI,JLOC
+!                  WRITE(43,43)JCON,PRN,AZI,JLOC,PSI(JLOC,IWF,1)
+               END IF
+42               FORMAT(I2,A1,A2,I5)
+43               FORMAT(I2,A1,A2,I5,F12.6)
+             END DO !ICON
+           END DO !MU
+!--- NOW WRITE 'S', 'P', AND 'D' ORBIALS ---
+           DO MU=1,ISIZE(LI)
+             KNT=KNT+1
+             ATOMORB_LAB(KNT)%ORBLAB = ORBNME(MU)(1:5)
+             WRITE(43,44)KNT,PSIKH(MU)
+44           FORMAT(I10,F12.6)
+           END DO
+         END DO
+       END DO
+82   CONTINUE
+84 CONTINUE
+86 CONTINUE
+87 CONTINUE
+
+nelec = nint(sumoccp)
+
+!--- CLOSE MOLDEN FILE ---
+CLOSE(44)
+CLOSE(43)
+
+!--- ADD ATOMIC LABEL TO ATOMIC ORBITAL LABEL ---
+INUC = 0
+DO I=1,NBASTOT
+ IF (ATOMORB_LAB(I)%ORBLAB(1:3).EQ.' 1S') INUC = INUC + 1
+ CALL GET_LETTER(XMOL_LIST(INUC)%ANUM,LETTER)
+ ATOMORB_LAB(I)%ATNUM = INUC
+ ATOMORB_LAB(I)%ATLAB = LETTER
+END DO
+
+!--- DEALLOCATE LOCAL FIELDS ---
+DEALLOCATE(RVECA,STAT=IERR)
+IF (IERR.GT.0) WRITE(*,*) 'ERROR: DEALLOCATION FAILED IN ','WRITE_UNSYM'
+
+RETURN
+END subroutine printmo

@@ -1206,7 +1206,7 @@ C
       CALL CHECK_INPUTS
       IF(MOLDEN1)THEN
         IF ((MOLDEN.EQ.'FULL').OR.(MOLDEN.EQ.'JMOL')) THEN
-          !CALL MOLDENDRV('MOS')
+          CALL MOLDENDRV('MOS')
         END IF
       ENDIF
 C

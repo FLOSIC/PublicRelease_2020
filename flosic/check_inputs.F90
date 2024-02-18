@@ -94,6 +94,7 @@ subroutine check_inputs
     write(68,'(A)')'JNTDOSV       = ''N'' ! This calculates joint density of states (DFA only)'
     write(68,'(A)')'MAXSCFV       = 100 ! Maximum SCF iterations'
     write(68,'(A)')'MIXINGV       = ''H'' ! (H)amiltonian (P)otential (D)ensity matrix mixing'
+    write(68,'(A)')'MOLDENV       = ''N'' ! Use molden and wfx driver'
     write(68,'(A)')'NONSCFV       = ''N'' ! Set to Y to do a non SCF calculation' 
     write(68,'(A)')'NONSCFFORCESV = ''N'' ! Set to Y to calculate forces in a non SCF calculation' 
     write(68,'(A)')'NWFOUTV       = 10  ! Write WFOUT file for every N-th iteration'    
@@ -104,7 +105,7 @@ subroutine check_inputs
     write(68,'(A)')'SPNPOLV       = ''N'' ! Run spin polarized calculation from CLUSTER'
     write(68,'(A)')'MESHSETTINGV  =  0  ! Mesh recommended for (0)LDA/PBE, (1)SCAN, (2)rSCAN'
     write(68,'(A)')'SYMMETRYV     = ''N'' ! Set to Y to detect symmetry'
-    write(68,'(A)')'SYMMMODULEV   = ''N'' ! (T) Use symmtery and approx Ham. (F) use Jacobi rotation (SIC only)'
+    write(68,'(A)')'SYMMMODULEV   = ''N'' ! (Y) Use symmtery and approx Ham. (N) use Jacobi rotation (SIC only)'
     write(68,'(A)')'UNIHAMV       = ''N'' ! Set to Y to use unified Hamiltonian formalism in SCF-SIC (SIC only)'
     write(68,'(A)')'WFGRIDV       = ''N'' ! set to Y to write orbitals in cube format (DFA only)'
     write(68,'(A)')'WFFRMV        = ''N'' ! set to Y to write Fermi orbitals in cube format (SIC only)'
@@ -540,8 +541,8 @@ subroutine check_inputs
       molden1=.FALSE.
     else
       if(cmolden) then
-        !write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for MOLDENV'
-        !write(6,'(A)')'Assuming N'
+        write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for MOLDENV'
+        write(6,'(A)')'Assuming N'
         molden1=.FALSE.
         cmolden=.FALSE.
       endif
