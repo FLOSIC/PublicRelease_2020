@@ -1,5 +1,5 @@
 C UTEP Electronic Structure Lab (2020)
-      SUBROUTINE CHKMIN(MODE_RUN,NCALC,ENERGY,FTOL,X,G,OPTION)
+      SUBROUTINE CHKMIN(MODE_RUN,NCALC,ENERGY,FTOL,NPAR,X,G,OPTION)
 C
 C     CHECK FOR OPTIMIZATION CONVERGENCE
 C
@@ -9,14 +9,15 @@ C     ------------------------------------------------------------------
 C
 C     --- GLOBAL VARIABLES ---
 C  
-      use common2,only : GSUM,GMAX,GTOL,OPTIMIZED
+      use common2,only : GSUM,GMAX,GTOL,OPTIMIZED,NIDENT
       use common5,only : CONVERGENCE
 C
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:37 MDT 2017
 
 !      INCLUDE  'PARAMAS'  
        INCLUDE  'PARAMA2'  
-       INTEGER :: NIDENT, NPAR
+       !INTEGER :: NIDENT 
+       INTEGER :: NPAR
 C
 C     --- LOCAL VARIABLES ---
 C
