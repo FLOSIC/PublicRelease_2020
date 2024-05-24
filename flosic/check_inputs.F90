@@ -31,7 +31,7 @@ subroutine check_inputs
   real*8    :: scftolv       = -1.0
   character :: moldenv       = 'F'
   character :: nbov          = 'F'
-  character :: symmetryv     = 'F'
+  character :: symmetryv     = 'T'
   character :: mpi_iov       = 'F'
   character :: spnorbv       = 'F'
   character :: fixmv         = 'F'
@@ -104,7 +104,7 @@ subroutine check_inputs
     write(68,'(A)')'SCFTOLV       = 1.0D-6 ! SCF tolerance'
     write(68,'(A)')'SPNPOLV       = ''N'' ! Run spin polarized calculation from CLUSTER'
     write(68,'(A)')'MESHSETTINGV  =  0  ! Mesh recommended for (0)LDA/PBE, (1)SCAN, (2)rSCAN'
-    write(68,'(A)')'SYMMETRYV     = ''N'' ! Set to Y to detect symmetry'
+    write(68,'(A)')'SYMMETRYV     = ''Y'' ! Set to Y to detect symmetry in EZSTART'
     write(68,'(A)')'SYMMMODULEV   = ''N'' ! (Y) Use symmtery and approx Ham. (N) use Jacobi rotation (SIC only)'
     write(68,'(A)')'UNIHAMV       = ''N'' ! Set to Y to use unified Hamiltonian formalism in SCF-SIC (SIC only)'
     write(68,'(A)')'WFGRIDV       = ''N'' ! set to Y to write orbitals in cube format (DFA only)'
@@ -569,7 +569,7 @@ subroutine check_inputs
       if(csymmetry) then
         write(6,'(A)')'CHECK_INPUTS:Wrong or missing value for SYMMETRYV'
         write(6,'(A)')'Assuming Y'
-        symmetry1=.TRUE.
+        symmetry1=.FALSE.
         csymmetry=.FALSE.
       endif
     endif
