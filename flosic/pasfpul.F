@@ -53,7 +53,9 @@ c
      &                TAG,MPI_COMM_WORLD,IRECVSTAT,IERR)
         ENDIF
         IF(LSICF) THEN
+#ifdef ATOMFORCE
          CALL FRCSLV0(MPTS,LPTS)
+#endif
         ELSE
          CALL FRCSLV(MPTS,LPTS)
         END IF

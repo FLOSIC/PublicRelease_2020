@@ -134,6 +134,13 @@ C check_input.F91 FILE)
           PRINT '(A)','> Meta-GGA detected. <' 
           PRINT '(A)','> Hamiltonian mixing will be used. <'
          END IF
+C IF PBEIBP is used, turn on meta-GGA mode
+         IF(IDFTYP(1).EQ.15) IGGA(1)=3
+         IF(IDFTYP(2).EQ.15) IGGA(2)=3
+         IF(IDFTYP(1).EQ.15 .OR. IDFTYP(2).EQ.15) THEN
+          PRINT '(A)','> PBE integration by part detected <'
+          PRINT '(A)','> Meta-GGA mode will be used. <'
+         END IF
 
          RETURN
   900    write(6,*)'SETDFTYP: INVALID FUNCTIONAL TYPE:',STRING

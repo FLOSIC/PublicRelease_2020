@@ -171,26 +171,28 @@ c   ek = <phi_i|-del^2/2|phi_j>
 c   dftV = <phi_i|VDFT|phi_j>
 c   allH = <phi_i|HDFT|phi_j>
 c
-!      IF(LSICF) THEN
-!       print *, 'over1'
-!       do iwf = 1,nwftot
-!        print 83, (over1(jwf,iwf),jwf=1,nwftot)
-!       end do
-!       print *, 'ek'
-!       do iwf = 1, nwftot
-!        print 83, (ek(jwf,iwf),jwf=1,nwftot)
-!       end do
-!       print *, 'dftV'
-!       do iwf = 1, nwftot
-!        print 83, (dftV(jwf,iwf),jwf=1,nwftot)
-!       end do
-!       print *, 'allH'
-!       do iwf = 1, nwftot
-!        print 83, (allH(jwf,iwf),jwf=1,nwftot)
-!       end do
- 83      format(1x,10(1x,f10.4))
-!       print *, 'return from mfpulay'
-!      END IF
+#ifdef ATOMFORCE
+      IF(LSICF) THEN
+       print *, 'over1'
+       do iwf = 1,nwftot
+        print 83, (over1(jwf,iwf),jwf=1,nwftot)
+       end do
+       print *, 'ek'
+       do iwf = 1, nwftot
+        print 83, (ek(jwf,iwf),jwf=1,nwftot)
+       end do
+       print *, 'dftV'
+       do iwf = 1, nwftot
+        print 83, (dftV(jwf,iwf),jwf=1,nwftot)
+       end do
+       print *, 'allH'
+       do iwf = 1, nwftot
+        print 83, (allH(jwf,iwf),jwf=1,nwftot)
+       end do
+83      format(1x,10(1x,f10.4))
+       print *, 'return from mfpulay'
+      END IF
+#endif
 c>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
        RETURN
       END

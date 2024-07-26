@@ -53,8 +53,8 @@ RHT(:,NSPN)=RHTDN(:)
     call xscan_r1(D,DGRAD,TAU,VX,VXDD,AMUXD,EX,2,1,1)
     contraction=1
   case(15) !pbe integration by parts
-    !call exchpbe(D,DGRAD,EX,VX,VXDD)
-    call stopit
+    call exchpbe(D,DGRAD,EX,VX,VXDD)
+    !call stopit
     AMUXD=0.0d0
   end select
 
@@ -169,7 +169,7 @@ RHT(:,NSPN)=RHTDN(:)
                    VCUP,VCDN,vsigma1,vsigma2,vsigma3,AMUCD1,AMUCD2,EC, &
                    2,1,1)
   case(15) !pbe integratin by parts
-    !call ecorpbe(DUP+DDN, sqrt(DG2(1)), (DUP-DDN)/(DUP+DDN), EC, VCUP, VCDN, VCDD1, NSPN)
+    call ecorpbe(DUP+DDN, sqrt(DG2(1)), (DUP-DDN)/(DUP+DDN), EC, VCUP, VCDN, VCDD1, NSPN)
     !subroutine ecorpbe(rho,agrad,zet,ectot,decup,decdn,decdg,nspin)
     VCDD2=VCDD1
     AMUCD1=0.0d0

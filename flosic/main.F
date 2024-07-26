@@ -927,7 +927,7 @@ c
                 call SICLAGM(jspnx)
               end do
              call gttime(timex)
-             WRITE(6,*) 'CALLING SICLAG_DER FOR SPIN',JSPNX
+             WRITE(6,*) 'CALLING SICLAG_DER'
              CALL SICLAG_DER
              call gttime(timey)
              print *, 'Time for parallel SICLAG_DER = ', timey-timex
