@@ -583,29 +583,12 @@ C
 C LB: INITIALIZE DEBDAX ARRAY
 !        WRITE(6,*)'NSPN',NSPN,SIZE(SIC,3)
 
-         SIC(1:MAX_OCC,1:MAX_OCC,1:NSPN)=0.0D0
-         DEBDAX(   1:3,1:MAX_OCC,1:NSPN)=0.0D0
-         RESULTS( 1:13,1:MAX_OCC,1:NSPN)=0.0D0
-
-         !DO I=1,NSPN
-         ! DO J=1,MAX_OCC
-         !  DO K=1,MAX_OCC
-         !    SIC(K,J,I)=0.0D0
-         !  END DO
-         ! END DO
-         ! DO IORB=1,MAX_OCC
-         !  DO J=1,3
-         !    DEBDAX(J,IORB,I)=0.0d0
-         !  END DO
-         ! END DO
-         !END DO
-         !DO JSPNX=1,NSPX
-         ! DO IORBX=1,MAX_OCC
-         !  DO I=1,13
-         !   RESULTS(I,IORBX,JSPNX)=0.0d0
-         !  END DO
-         ! END DO
-         !END DO
+         !SIC(1:MAX_OCC,1:MAX_OCC,1:NSPN)=0.0D0
+         !DEBDAX(   1:3,1:MAX_OCC,1:NSPN)=0.0D0
+         !RESULTS( 1:13,1:MAX_OCC,1:NSPN)=0.0D0
+         SIC    =0.0D0
+         DEBDAX =0.0D0
+         RESULTS=0.0D0
          
          IF(AVGSICON)THEN
           allocate(AVGSIC(NMSH*2))
@@ -666,8 +649,6 @@ C          IF(JSPNX.EQ.2)CALL FIXTMAT(1)
 
            END DO
 #endif
-! Moved SIC matrix initialization here -> Reverted.
-!          SIC(:,:,JSPNX)=0.0D0
 ! Construct SIC matrix
            CALL GTTIME(TIMET3)
            IF(NFRM(JSPNX) > 0) THEN !Skip if orbital is zero
@@ -811,7 +792,7 @@ C        CLOSE(76)
 801   FORMAT(' ORBITAL SIC:',15F11.6)
 802   FORMAT(F4.0,20F11.6)
 39    FORMAT(' ',3F20.12)
-!C Calculate forces or do Potential Mixing, depending on convergence
+!Calculate forces or do Potential Mixing, depending on convergence
 !YY call_forces goes with apotnl (UTEP version) and not apotnl_dft (based on
 !'PERFECT')
 !     IF(.not. LSIC) THEN
@@ -835,7 +816,7 @@ C
        write(55,*) ERGXL,ERGCL,ZSIC
        close(55)
       endif
-! Local-SIC and GSIC exit here. Orb-SIC continues calculation.
+! Local-SIC (oneshot) and GSIC exit here. Orb-SIC continues calculation.
       if(oneshot) then
        print *,"End of calculation"
        print *,"Calculation is done non self-consistently" 
@@ -939,7 +920,7 @@ c             print *, 'Add ZSIC', ETOTAL
             END IF
 #else
 c            WRITE(6,*) 'SKIPPING SICLAG_DER FOR FLO'
-c            WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THE FEATURE'
+c            WRITE(6,*) 'RECOMPILE WITH ATOMFORCE TO USE THIS FEATURE'
 #endif
         end if
 c

@@ -26,7 +26,7 @@ C UTEP Electronic Structure Lab (2020)
        REAL(8) :: AFRM, APT1, APT2, CHGDN, CHGE, CHGUP,
      & RPTS, SMCHG, TMKIN, WMSA
 
-       REAL(8), ALLOCATABLE :: POTFILE(:,:),POTSMALL(:,:)
+       REAL(8), ALLOCATABLE :: POTFILE(:,:),SICP(:,:) !POTSMALL(:,:)
        CHARACTER*12 :: ZPOTSTR,MGGASTR
 
        PARAMETER (NMAX=MPBLOCK)
@@ -36,7 +36,7 @@ C UTEP Electronic Structure Lab (2020)
 
        DIMENSION WMSA(NMAX),RPTS(3,NMAX)
        !DIMENSION SICP(NMAX)
-       REAL(8) :: SICP(NMAX,MAX_OCC)
+       !REAL(8) :: SICP(NMAX,MAX_OCC)
        DATA FIRST/.TRUE./
        INTEGER MFRM
 
@@ -56,9 +56,9 @@ C UTEP Electronic Structure Lab (2020)
        ITASKE=2
 !
 !
-       ALLOCATE(POTSMALL(NMAX,NFRM(1)+NFRM(2)))
-       IF(ISMGGA.OR.LIBXC1) ALLOCATE(ZMGGAS(4,NMAX,MAX_OCC))
-       !IF(ISMGGA.OR.LIBXC1) ALLOCATE(ZMGGAS(4,NMAX,NFRM(1)+NFRM(2)))
+       ALLOCATE(SICP(NMAX,NFRM(LSPN)))
+       !ALLOCATE(POTSMALL(NMAX,NFRM(LSPN)))
+       IF(ISMGGA.OR.LIBXC1) ALLOCATE(ZMGGAS(4,NMAX,NFRM(LSPN)))
        LGGA= .TRUE.
        NGRAD=4
 C
@@ -90,21 +90,24 @@ C LOOP OVER ALL POINTS
 ! v3 Read potential from files
        DO LFM=1,NFRM(LSPN)
         DO IPTS=1,MPTS
-         READ(206+LFM+IRBOFS) POTSMALL(IPTS,LFM)
+         !READ(206+LFM+IRBOFS) POTSMALL(IPTS,LFM)
+         READ(206+LFM+IRBOFS) SICP(IPTS,LFM)
         END DO
        END DO
 
        DO IPTS=1,MPTS
          WMSA(IPTS)=WMSH(LPTS+IPTS)
          DO LFM=1,NFRM(LSPN)
-          SICP(IPTS,LFM+IRBOFS)=POTSMALL(IPTS,LFM)*WMSA(IPTS)
+          !SICP(IPTS,LFM+IRBOFS)=POTSMALL(IPTS,LFM)*WMSA(IPTS)
+          !SICP(IPTS,LFM)=POTSMALL(IPTS,LFM)*WMSA(IPTS)
+          SICP(IPTS,LFM)=SICP(IPTS,LFM)*WMSA(IPTS)
          END DO
 !MGGA - We assume spin down is 0 (need to check this).  RHOG down is 0.
          IF(LIBXC1.OR.ISMGGA)THEN
           DO LFM=1,NFRM(LSPN)
-           READ(106+LFM+IRBOFS) ZMGGAS(1:4,IPTS,LFM+IRBOFS)
-           IF(SDSICON) ZMGGAS(:,IPTS,LFM+IRBOFS)=
-     &                 ZMGGAS(:,IPTS,LFM+IRBOFS)*SDSICSAV(LFM,LSPN)
+           READ(106+LFM+IRBOFS) ZMGGAS(1:4,IPTS,LFM)
+           IF(SDSICON) ZMGGAS(:,IPTS,LFM)=
+     &                 ZMGGAS(:,IPTS,LFM)*SDSICSAV(LFM,LSPN)
           END DO
          ENDIF
          DO J=1,3
@@ -112,12 +115,12 @@ C LOOP OVER ALL POINTS
          END DO
        END DO
 #ifndef MPI
-       CALL SICLMSLV(LSPN,MPTS,WMSA,SICP,RPTS)
+       CALL SICLMSLV(LSPN,NFRM(LSPN),MPTS,WMSA,SICP,RPTS)
 #else
        IF(NPROC > 0) THEN !Prevent dead lock when NPROC=0
         CALL PAMLMSIC(1,LSPN,NFRM(LSPN),MPTS,WMSA,SICP,RPTS)
        ELSE
-        CALL SICLMSLV(LSPN,MPTS,WMSA,SICP,RPTS)
+        CALL SICLMSLV(LSPN,NFRM(LSPN),MPTS,WMSA,SICP,RPTS)
        END IF
 #endif
 
@@ -169,7 +172,8 @@ C      PRINT*,'SMCHG:',CHGUP,CHGDN,SMCHG,TMKIN,NWFS(1)
         ENDIF
        ENDIF
        IF(ISMGGA.OR.LIBXC1) DEALLOCATE(ZMGGAS)
-       DEALLOCATE(POTSMALL)
+       !DEALLOCATE(POTSMALL)
+       DEALLOCATE(SICP)
        RETURN
        END
 
@@ -177,7 +181,7 @@ C      PRINT*,'SMCHG:',CHGUP,CHGDN,SMCHG,TMKIN,NWFS(1)
 ! commenting unused variables
 ! optimized with blas routines 11/2017: cmd
  
-       SUBROUTINE SICLMSLV(LSPN,MPTS,WMSA,SICP,RPTS)
+       SUBROUTINE SICLMSLV(LSPN,LFX,MPTS,WMSA,SICP,RPTS)
 !      use mesh1,only : wmsh,rmsh,nmsh
        use common2,only : RIDT,N_CON,LSYMMAX,N_POS,NFNCT !,NSPN
        use common5,only : NWF,NWFS,PSI
@@ -198,16 +202,17 @@ C      PRINT*,'SMCHG:',CHGUP,CHGDN,SMCHG,TMKIN,NWFS(1)
        INCLUDE  'PARAMA2'  
 !      PARAMETER (NMAX=MPBLOCK)
        INTEGER,PARAMETER :: NMAX=MPBLOCK
-       INTEGER,INTENT(IN) :: LSPN,MPTS
-       REAL(8),INTENT(IN) :: WMSA(NMAX),SICP(NMAX,MAX_OCC),
-     &                       RPTS(3,NMAX)
+       INTEGER,INTENT(IN) :: LSPN,MPTS,LFX
+!       REAL(8),INTENT(IN) :: WMSA(NMAX),SICP(NMAX,MAX_OCC),
+!     &                       RPTS(3,NMAX)
+       REAL(8),INTENT(IN) :: WMSA(NMAX), SICP(NMAX,LFX),RPTS(3,NMAX)
 !      REAL(8) :: WMSA, RPTS, SICP
 !      DIMENSION WMSA(NMAX),RPTS(3,NMAX)
 !      DIMENSION SICP(NMAX)
        INTEGER :: IPTS, ISIZE, NGRAD, I_POS, ICON, IGR,
      & IERR, IFNCT, ILOC, ISHDUM, ISHELLA, IWF, J_POS, JFM, JFN,
      & JPTS, KPTS, L_NUC, LFN, LI, LMAX1, LPV, M_NUC, MU, NDERV, NPV
-     & ,NOFS
+     & ,NOFS,LL,LFO
 ! unused variables
 !      INTEGER :: I, IFRM, ISPN, ITASKB, ITASKE, J, LPTS, JWF, NMAX,
 !    & NTID, 
@@ -253,6 +258,7 @@ C
 
 
        SAVE  !YY to save or not save?
+
 !YY allocate tmp2 arrays
        !For LDA and GGA you only need 1 dim
        ALLOCATE(PSIG(NMAX,4,MAX_OCC),STAT=IERR)
@@ -450,29 +456,32 @@ C
         IF(LSPN.NE.0)THEN
 !        LFN=LFM+NWFS(1)*(LSPN-1)
 !<<<<<<<<< ADD LFN LOOP HERE <<<<<<<<<<<
-         NOFS=NWFS(1)*(LSPN-1) 
-         DO LFN=1+NOFS,NFRM(LSPN)+NOFS
+         NOFS=NWFS(1)*(LSPN-1)
+         DO LL=1,NFRM(LSPN) 
+         !DO LFN=1+NOFS,NFRM(LSPN)+NOFS
+          LFN=LL+NOFS
+          LFO=LL
           PSIGLFN=0.0d0
           DO IPTS=1,MPTS
 !          PSIGLFN(IPTS)=PSIG(IPTS,1,LFN)*WMSA(IPTS)*SICP(IPTS)
-           PSIGLFN(IPTS,1)=PSIG(IPTS,1,LFN)*SICP(IPTS,LFN) !WMSA multiplication done in SICLAGM
+           PSIGLFN(IPTS,1)=PSIG(IPTS,1,LFN)*SICP(IPTS,LFO) !WMSA multiplication done in SICLAGM
            if(ISMGGA.OR.LIBXC1) then
             PSIGLFN(IPTS,2)=PSIG(IPTS,1,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(1,IPTS,LFN)
+     &                     *ZMGGAS(1,IPTS,LFO)
             PSIGLFN(IPTS,3)=PSIG(IPTS,1,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(2,IPTS,LFN)
+     &                     *ZMGGAS(2,IPTS,LFO)
             PSIGLFN(IPTS,4)=PSIG(IPTS,1,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(3,IPTS,LFN)
+     &                     *ZMGGAS(3,IPTS,LFO)
             PSIGLFN(IPTS,5)=WMSA(IPTS)*(
-     &                      PSIG(IPTS,2,LFN)*ZMGGAS(1,IPTS,LFN)+
-     &                      PSIG(IPTS,3,LFN)*ZMGGAS(2,IPTS,LFN)+
-     &                      PSIG(IPTS,4,LFN)*ZMGGAS(3,IPTS,LFN))
+     &                      PSIG(IPTS,2,LFN)*ZMGGAS(1,IPTS,LFO)+
+     &                      PSIG(IPTS,3,LFN)*ZMGGAS(2,IPTS,LFO)+
+     &                      PSIG(IPTS,4,LFN)*ZMGGAS(3,IPTS,LFO))
             PSIGLFN(IPTS,6)=PSIG(IPTS,2,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(4,IPTS,LFN)
+     &                     *ZMGGAS(4,IPTS,LFO)
             PSIGLFN(IPTS,7)=PSIG(IPTS,3,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(4,IPTS,LFN)
+     &                     *ZMGGAS(4,IPTS,LFO)
             PSIGLFN(IPTS,8)=PSIG(IPTS,4,LFN)*WMSA(IPTS)
-     &                     *ZMGGAS(4,IPTS,LFN)
+     &                     *ZMGGAS(4,IPTS,LFO)
            end if
           END DO
 
@@ -501,8 +510,8 @@ C
            end if
 ! LB ONLY A SINGLE ROW OF SIC IS SHARED NOW
 !          SIC(JFM,LFN,LSPN)=SIC(JFM,LFN,LSPN)-psiadd
-! YY Why there is NOFS when SIC array has a SPIN dimension? 
-           SIC(JFM,LFN-NOFS,LSPN)=SIC(JFM,LFN-NOFS,LSPN)-psiadd
+!           SIC(JFM,LFN-NOFS,LSPN)=SIC(JFM,LFN-NOFS,LSPN)-psiadd
+           SIC(JFM,LL,LSPN)=SIC(JFM,LL,LSPN)-psiadd
 !          SIC_COL(JFM)=SIC_COL(JFM)-psiadd
 !LB
           END DO

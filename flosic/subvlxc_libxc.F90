@@ -1,7 +1,7 @@
 ! UTEP Electronic Structure Lab (2020)
-!> @file subvlxc_libxc.F91
+!> @file subvlxc_libxc.F90
 !> @author Yoh Yamamoto
-!> @details subvlxc_libxc.F91 is a substantially edited version of 
+!> @details subvlxc_libxc.F90 is a substantially edited version of 
 !>  subvlxc.ftn. It is capable of calling Libxc Library. To use 
 !>  libxc, look up a functional string on 
 !>  https://www.tddft.org/programs/libxc/functionals/ 
@@ -26,7 +26,7 @@ use debug1
 use mesh1,only    : WMSH,RMSH
 use common2,only  : RCNT, IFUCNT, NCNT, IGGA, IDFTYP, ISPN, NSPN
 !use common8,only : REP, N_REP, NDMREP, NS_TOT
-use global_inputs, only : libxc1   !<== Libxc switch moved to NRLMOL_INPUT.dat
+use global_inputs, only : libxc1  
 use common5,only : CONVERGENCE
 use XTMP2A,ONLY : TAUCHOP,ISMGGA,MIXINS,TAUW_TAU,BETA
 use scaledpzsic,only : SICEXCS,SDSICON,GSICON,scaledsic
@@ -49,7 +49,7 @@ real(8), intent(in)  :: RHOV(10*MXSPN*MPBLOCKXC)
 real(8), intent(out) :: VXCS(MXSPN*MPBLOCKXC)        ! Only using MPTS*2 out of MPBLOCK*2
 real(8), intent(out) :: VLOS(MPBLOCKXC)
 real(8), intent(out) :: EXCVEC(4)
-logical, intent(in)  :: LDFTF  ! T:DFT, F:SIC
+logical, intent(in)  :: LDFTF            ! T:DFT, F:SIC
 integer, intent(in)  :: MXXD,KXXS,KXXO   ! needed for unravel2 in gettau
 
 real(8) :: ISPFAC
@@ -58,9 +58,9 @@ real(8), allocatable :: RHOC(:,:),  &
                         DTMP(:,:),  &
                         RTMP(:),    &
                         VLOC(:)
-!YY: Additional variables - dE/drho terms for exchange and correlation terms
+!Additional variables - dE/drho terms for exchange and correlation terms
 real(8), allocatable :: vxloc(:), vclocup(:), vclocdn(:)
-!YY: Inputs required for libxc calculation. Sending them to call_libxc_unp/pol
+!Inputs required for libxc calculation. Sending them to call_libxc_unp/pol
 !subroutines
 real(8), allocatable :: rhoin(:),      &  !Density
                         sigmain(:),    &  !Contracted gradient of density
@@ -89,7 +89,7 @@ real(8), allocatable :: mixcorup(:,:), mixcordn(:,:)
 real(8) :: VCUP,VCDN,DVCUP,DVCDN
 !real(8) :: vsigma1,vsigma2,vsigma3
 !########################################################################
-!#  Libxc switch: libxcv in NRLMOL_INPUT.DAT and libxc1 in global_input #
+!#  Libxc switch is found in setdftyp 
 !########################################################################
 
 ! COMMON/PW91GAS/ IS NEEDED FOR PW91 GGA
@@ -144,7 +144,7 @@ allocate(RHOC(10,MPBLOCKXC),STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLO
 allocate(XTMP(3,MPBLOCKXC),STAT=IERR);  if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING XTMP'
 allocate(DTMP(3,MPBLOCKXC),STAT=IERR);  if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING DTMP'
 allocate(RTMP(MPBLOCKXC),STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING RTMP'
-allocate(VLOC(NSPEED),STAT=IERR);     if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING VLOC'
+allocate(VLOC(NSPEED),STAT=IERR);       if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING VLOC'
 allocate(TAUCHOP(MPBLOCKXC,MXSPN),STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR ALLOCATING TAUCHOP'
 
 if(ISMGGA) then
@@ -160,9 +160,6 @@ end if
 ! DELTA IS USED TO PREVENT DIVISION BY ZERO FOR R=0
 
 if (MODE > 1) THEN
-   !do IPTS=1,MPTS
-   !   VLOS(IPTS)= 0.0D0
-   !end do
    VLOS(:)=0.0d0
    DELTA=1.0D-100
    do ICNT=1,NCNT
@@ -186,7 +183,7 @@ if (MODE > 1) THEN
    end do
 end if
 
-if(libxc1 .or. ismgga) mixins(:,:)=0.0d0 !uncommented
+if(libxc1 .or. ismgga) mixins(:,:)=0.0d0 
 if((.not.LDFTF).and.scaledsic) then
     SICEXCS(:)=0.0d0
 end if
@@ -219,11 +216,6 @@ if(.NOT. libxc1 .OR. MODE==1) then
 
 ! INITIALIZE DG2, DGG, DLP
 
-      !do I=1,3
-      !   DG2(I)= 0.0D0
-      !   DGG(I)= 0.0D0
-      !   DLP(I)= 0.0D0
-      !end do
       DG2(:)=0.0d0
       DGG(:)=0.0d0
       DLP(:)=0.0d0
@@ -325,14 +317,8 @@ if(.NOT. libxc1 .OR. MODE==1) then
                end if
             end if
 
-           !if (IDFTYP(1) .LE. 6) THEN
-           !   CALL PW91EX(DKF,S,U,V,EX,DEX,VX)
-           !else if (IDFTYP(1) == 7) THEN
-           !   CALL PBEEX(D,S,U,V,1,1,EX,DEX,VX)
-           !end if
            !LB: ADDED REVPBE AND RPBE
-
-! YY: This is where GGA functional subroutines are called
+           !This is where individual functional subroutines are called
             SELECT case(IDFTYP(1))
             case(:6)
                CALL PW91EX(DKF,S,U,V,EX,DEX,VX)    !PW91
@@ -371,7 +357,7 @@ if(.NOT. libxc1 .OR. MODE==1) then
              endif
              SICEXCS(IPTS)= SICEXCS(IPTS)+ ISPFAC*0.5D0*EX*D
             else
-             VXCS(JPTS)= VXCS(JPTS)+VX  ! add returned Vx
+             VXCS(JPTS)= VXCS(JPTS)+VX  
              EXL=EXL+ISPFAC*0.5D0*EX *D*WMSH(LPTS+IPTS)   ! Add returned local energy Ex
              EXN=EXN+ISPFAC*0.5D0*DEX*D*WMSH(LPTS+IPTS)   ! Add returned non local Energy
             end if
@@ -426,10 +412,10 @@ if(.NOT. libxc1 .OR. MODE==1) then
       end if
 
       if (IDFTYP(2) <= 5) then
-! YY:LDA subroutine
+!LDA subroutine
          CALL LDACOR(D,ZET,IDFTYP(2),EC,VCOR)
 
-!YY. for LDA, set DEC, DVCUP, DVCDN to zeroes (nonlocal)
+!For LDA, set DEC, DVCUP, DVCDN to zeroes (non rho dependent)
          VCUP= VCOR(1)
          VCDN= VCOR(2)
          DEC=   0.0D0
@@ -485,9 +471,9 @@ if(.NOT. libxc1 .OR. MODE==1) then
         end if
        end if
       else
-       ECL= ECL+ EC*D*WMSH(LPTS+IPTS)    !YY. add returned Ec here
+       ECL= ECL+ EC*D*WMSH(LPTS+IPTS)
        ECN= ECN+DEC*D*WMSH(LPTS+IPTS)
-       VXCS(IPTS)= VXCS(IPTS)+VCUP+DVCUP !YY. add returned Vc up here
+       VXCS(IPTS)= VXCS(IPTS)+VCUP+DVCUP 
        if (NSPN == 2) VXCS(IPTS+MPTS)= VXCS(IPTS+MPTS)+VCDN+DVCDN
       end if
 
@@ -511,11 +497,11 @@ EXCVEC(4)=ECN
 
 !DEALLOCATE LOCAL ARRAYS
 
-deallocate(RHOC,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RHOC'
-deallocate(XTMP,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING XTMP'
-deallocate(DTMP,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING DTMP'
-deallocate(RTMP,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RTMP'
-deallocate(VLOC,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING VLOC'
+deallocate(RHOC,STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RHOC'
+deallocate(XTMP,STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING XTMP'
+deallocate(DTMP,STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING DTMP'
+deallocate(RTMP,STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING RTMP'
+deallocate(VLOC,STAT=IERR);    if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING VLOC'
 deallocate(TAUCHOP,STAT=IERR); if(IERR/=0)WRITE(6,*)'SUBVLXC:ERROR DEALLOCATING TAUCHOP'
 
 return

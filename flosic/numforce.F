@@ -181,8 +181,7 @@ C
         open(12001,FILE='LIBXCFRC',FORM='UNFORMATTED',STATUS='OLD')
         rewind(12001)
         do IPTS=1,NMSH*NSPN
-          read(12001) MIXIN(1,IPTS),MIXIN(2,IPTS),
-     &                MIXIN(3,IPTS),MIXIN(4,IPTS)
+          read(12001) MIXIN(1:4,IPTS)
         end do
         close(12001)
       ENDIF

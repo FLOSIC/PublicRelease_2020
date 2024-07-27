@@ -46,7 +46,7 @@ c  In this version LSPN = NSPN (total spin) and LFN = LFRM(1)+LFRM(2) = total
 c    occupied orbitals
        LSPN = ITRANS(1)
        LFN  = ITRANS(2)
-       LFM  =LFN
+       LFM  = LFN
        MPTS = ITRANS(3)
 c      PRINT*,IRANK,'PAS RECV LSPN LFN MPTS:',LSPN,LFN, MPTS
        TAG=7402

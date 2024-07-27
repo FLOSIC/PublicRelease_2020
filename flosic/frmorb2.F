@@ -78,11 +78,12 @@ C
        LSPN=ABS(LSXX)
 
 !Allocate local arrays 
-       ALLOCATE(TMP(MAX_OCC,MAX_OCC)) !Do we really need this array?
-       TMP(:,:)=0.0d0
-       ALLOCATE(VER(MAX_OCC,MAX_OCC,4)) !Do we really need this?
-       VER(:,:,:)=0.0d0
-       ALLOCATE(AFRM(3,MAX_OCC))
+       !ALLOCATE(TMP(MAX_OCC,MAX_OCC)) !Do we really need this array?
+       !TMP(:,:)=0.0d0
+       !ALLOCATE(VER(MAX_OCC,MAX_OCC,4)) !Do we really need this?
+       !VER(:,:,:)=0.0d0
+       !ALLOCATE(AFRM(3,MAX_OCC))
+       ALLOCATE(AFRM(3,LFRM(1)+LFRM(2)))
        AFRM(:,:)=0.0d0
 
 !YY allocate for_diag1
@@ -484,13 +485,14 @@ C        IF(K.EQ.4)WRITE(INITOUT,*)'<dFj/dZj|Fi>:'
           END IF
 C         WRITE(INITOUT,50) (OVER(JFM,IFM),JFM=1,NFRM(ISPN))
          END DO
-         IF(ISPN.EQ.LSPN)THEN
-          DO IF=1,NFRM(ISPN)
-           DO JF=1,NFRM(ISPN)
-            VER(JF,IF,K)=OVER(JF,IF)
-           END DO
-          END DO
-         END IF
+         !YY VER is currently not used
+         !IF(ISPN.EQ.LSPN)THEN
+         ! DO IF=1,NFRM(ISPN)
+         !  DO JF=1,NFRM(ISPN)
+         !   VER(JF,IF,K)=OVER(JF,IF)
+         !  END DO
+         ! END DO
+         !END IF
          IF(K.EQ.1)THEN
           DO I=1,NFRM(ISPN)
            DO J=1,NFRM(ISPN)
@@ -557,13 +559,14 @@ C Calculate dQ_i/dAxj:  Derivative terms
             DO MF=1,NFRM(ISPN)
              SC1(MF)=OVER(MF,JF)+OVER(MF,KF) !or transpose?
             END DO
-            DO IA=1,NFRM(ISPN)
-             DO MF=1,NFRM(ISPN)
-              !YY This is T_aj T_ak
-              TMP(IA,MF)=TMP(IA,MF)+FILO(JF,IA)*FILO(KF,IA)*
-     &                 SC1(MF)
-             END DO
-            END DO
+! YY TMP is currently not in use
+!            DO IA=1,NFRM(ISPN)
+!             DO MF=1,NFRM(ISPN)
+!              !YY This is T_aj T_ak
+!              TMP(IA,MF)=TMP(IA,MF)+FILO(JF,IA)*FILO(KF,IA)*
+!     &                 SC1(MF)
+!             END DO
+!            END DO
            END DO
           END DO
 C         PRINT*,'dQ_i/dA_mx',K
@@ -748,8 +751,8 @@ C       END IF
 !      DEALLOCATE(FILO)
 
        DEALLOCATE(AFRM)
-       DEALLOCATE(VER)
-       DEALLOCATE(TMP)
+       !DEALLOCATE(VER)
+       !DEALLOCATE(TMP)
 
        RETURN
        END

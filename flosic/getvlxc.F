@@ -59,7 +59,7 @@ C
 C FIGURE OUT SIZE OF NGRAD
 C INITIALIZE ENERGIES
 C
-! YY. ISGGA is set to .true. for GGA and above the Jacob's ladder
+! YY. ISGGA is set to .true. for GGA and above in the Jacob's ladder
 ! FYI: IGGA(IXC)= 0:LDA  1:GGA  3:MGGA
        !ISGGA= ((IGGA(1) .EQ. 1) .OR. (IGGA(2) .EQ. 1))
        ISGGA= ((IGGA(1) >= 1) .OR. (IGGA(2) >= 1))
@@ -100,8 +100,6 @@ C LB
 C
 C MPI: CALL PARALLEL VERSION 
 C
-!YY Since there is mesh screening in apotnl_sic, mpi in getvlxc
-!   is disabled.
 #ifdef MPI
 #ifdef GROUP
        IF(LDFTF) THEN
@@ -114,7 +112,6 @@ C
      &                     LDFTF,MXXD,KXXS,KXXO)
        END IF
 #else
-       !print *,"PAMVLXC"
        !Broadcast LIBXC1 and ISMGGA if nproc >= 1
        IF(LIBXC1.OR.ISMGGA) CALL SENDDATA(202)  
        CALL PAMVLXC(NGRAD,NDIM,RHOG,VXC,VLO,
@@ -145,32 +142,27 @@ C
         IOFS1=(NSPN-1)*NMSH   ! Spin down offset of the entire mesh
         IOFS2=(NSPN-1)*MPTS   ! Spin down offset of chopped mesh
         DO IPTS=1,MPTS
-         VXC(LPTS+IPTS)=VXCS(IPTS)  ! Spin up
+         VXC(LPTS+IPTS)      =VXCS(IPTS)        ! Spin up
          VXC(LPTS+IPTS+IOFS1)=VXCS(IPTS+IOFS2)  ! Spin down
-         VLO(LPTS+IPTS)=VLOS(IPTS)
+         VLO(LPTS+IPTS)      =VLOS(IPTS)
 ! EXC for LSIC 
          IF(scaledsic) SICEXC(LPTS+IPTS)=SICEXCS(IPTS)
          IF(LIBXC1.OR.ISMGGA)THEN
 ! GGA
-           MIXIN(1,LPTS+IPTS)=MIXINS(1,IPTS)  !Spin up mixin elems
-           MIXIN(2,LPTS+IPTS)=MIXINS(2,IPTS)
-           MIXIN(3,LPTS+IPTS)=MIXINS(3,IPTS)
+           MIXIN(1,LPTS+IPTS)      =MIXINS(1,IPTS)        !Spin up mixin elems
+           MIXIN(2,LPTS+IPTS)      =MIXINS(2,IPTS)
+           MIXIN(3,LPTS+IPTS)      =MIXINS(3,IPTS)
            MIXIN(1,LPTS+IPTS+IOFS1)=MIXINS(1,IPTS+IOFS2)  !Spin dn mixin elems
            MIXIN(2,LPTS+IPTS+IOFS1)=MIXINS(2,IPTS+IOFS2)
            MIXIN(3,LPTS+IPTS+IOFS1)=MIXINS(3,IPTS+IOFS2)
          
 ! meta-GGA
-           MIXIN(4,LPTS+IPTS)=MIXINS(4,IPTS)  !Spin up mixin elems
+           MIXIN(4,LPTS+IPTS)      =MIXINS(4,IPTS)        !Spin up mixin elems
            MIXIN(4,LPTS+IPTS+IOFS1)=MIXINS(4,IPTS+IOFS2)  !Spin dn mixin elems
          ENDIF
-!         write(*,*) LPTS+IPTS, VXC(LPTS+IPTS), LPTS+IPTS+IOFS1, 
-!     &                  VXC(LPTS+IPTS+IOFS1), VLO(LPTS+IPTS)
         END DO
        END DO
-C
 #endif
-!      write(6,*)'getvlxc:libxc1',libxc1,'ismgga',ismgga,
-!    &      'CONVERGENCE',CONVERGENCE,'NSPN',nspn
 
 ! Compute HAMXC file if you are running a DFT calculation.
 ! We need a different approach for SIC MGGA.
@@ -196,13 +188,12 @@ C
           CLOSE(12001,STATUS='DELETE')
          END IF
 
-         !Write MIXIN arrays to file. You use these in Pulay force
+         !Write MIXIN arrays to file. This is used in Pulay force
          !calculation.
          if(LIBXC1.OR.ISMGGA) then
            open(12001,FILE='LIBXCFRC',FORM='UNFORMATTED',STATUS='NEW')
            do IPTS=1,NMSH*NSPN
-             write(12001) MIXIN(1,IPTS),MIXIN(2,IPTS),
-     &                    MIXIN(3,IPTS),MIXIN(4,IPTS)
+             write(12001) MIXIN(1:4,IPTS)
            end do
            close(12001)
          end if
