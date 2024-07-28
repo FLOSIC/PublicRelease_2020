@@ -62,7 +62,8 @@ C UTEP Electronic Structure Lab (2020)
      &                 TID,TAG,MPI_COMM_WORLD,IERR)
         IF(ISMGGA.OR.LIBXC1)THEN
          TAG=7407
-         CALL MPI_SSEND(ZMGGAS,4*NMAX*MAX_OCC,MPI_DOUBLE_PRECISION,
+         CALL MPI_SSEND(ZMGGAS,4*NMAX*(LFRM(1)+LFRM(2)),
+     &                 MPI_DOUBLE_PRECISION,
      &                 TID,TAG,MPI_COMM_WORLD,IERR)
         ENDIF
 !       PRINT*,'I AM RETURNING TO SICLAG_DER',IRANK

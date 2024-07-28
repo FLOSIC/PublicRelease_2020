@@ -4,7 +4,7 @@ C UTEP Electronic Structure Lab (2020)
 !     use common2,only : NSPN
       use mpidat1, only : IRANK
       use SICMAT, only : SIC,DERSIC,ZMGGAS
-      use FRM, only : BFRM,RESULTS,DEBDAX
+      use FRM, only : BFRM,RESULTS,DEBDAX,LFRM
       USE XTMP2A,ONLY : ISMGGA
       use global_inputs,only : libxc1
 ! Conversion to implicit none.  Raja Zope Thu Aug 17 14:34:56 MDT 2017
@@ -73,11 +73,12 @@ C      PRINT*,IRANK,'PAS RECV   LFM IS ZERO:',LFM
         TAG=7407
         !allocate array for mgga
         if(.not.allocated(ZMGGAS)) then
-         ALLOCATE(ZMGGAS(4,NMAX,MAX_OCC),STAT=IERR)
+         ALLOCATE(ZMGGAS(4,NMAX,LFRM(1)+LFRM(2)),STAT=IERR)
          IF(IERR/=0)WRITE(6,*)'ERROR ALLOCATING ZMGGAS'
         end if
         ZMGGAS(:,:,:)=0.0d0
-        CALL MPI_RECV(ZMGGAS(1,1,1),4*NMAX*MAX_OCC,MPI_DOUBLE_PRECISION,
+        CALL MPI_RECV(ZMGGAS(1,1,1),4*NMAX*(LFRM(1)+LFRM(2)),
+     &                MPI_DOUBLE_PRECISION,
      &                0,TAG,MPI_COMM_WORLD,IRECVSTAT,IERR)
        END IF
        CALL GTTIME(APT1)
