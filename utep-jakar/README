@@ -1,0 +1,17 @@
+On UTEP Jakar you need to load the modules as follows,
+
+> module load gnu8 openmpi3 scalapack
+
+Installing lapack to your home directory can be done with the setup_jakar.sh script. Run it with the following command. You need to do this only once.
+
+> bash setup_jakar.sh
+
+You can set up gnuplot with gnuplot_install script. Simply run the as follows. You need to do this only once.
+
+> bash gnuplot_install.sh  
+ 
+For the FLOSIC (PR2020) code compilation, copy of makefile for Jakar is included. Copy it to the PublicRelease_2020/flosic/ directory before the code compilation.
+
+> cp Makefile.jakar ../flosic/
+> cd ../flosic/
+> make
