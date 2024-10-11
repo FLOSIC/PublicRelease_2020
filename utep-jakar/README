@@ -12,6 +12,6 @@ You can set up gnuplot with gnuplot_install script. Simply run the as follows. Y
  
 For the FLOSIC (PR2020) code compilation, copy of makefile for Jakar is included. Copy it to the PublicRelease_2020/flosic/ directory before the code compilation.
 
-> cp Makefile.jakar ../flosic/
+> cp Makefile.jakar ../flosic/makefile
 > cd ../flosic/
 > make
