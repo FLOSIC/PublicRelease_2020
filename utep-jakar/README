@@ -1,6 +1,7 @@
 On UTEP Jakar you need to load the modules as follows,
 
-> module load gnu8 openmpi3 scalapack
+> module load gnu12 mpich openblas 
+
 
 Installing lapack to your home directory can be done with the setup_jakar.sh script. Run it with the following command. You need to do this only once.
 
@@ -15,3 +16,18 @@ For the FLOSIC (PR2020) code compilation, copy of makefile for Jakar is included
 > cp Makefile.jakar ../flosic/makefile
 > cd ../flosic/
 > make
+
+
+
+To submit/queue a job to computing nodes, first, prepare a directory with input files, binary, and job script. An included job.sl is a minimum job script that uses 10 CPU cores on general partition. It can be customized for your calculation. Once you have your job script ready, run
+
+> sbatch job.sl
+
+You can check the status of your jobs with the squeue command.
+
+> squeue -u <username>
+
+In the status, you see R (running), CF (configuring), CG (completed), etc. 
+If you need to cancel a job, do
+
+> scancel <job-id-number>

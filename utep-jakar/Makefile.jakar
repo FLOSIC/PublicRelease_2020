@@ -41,7 +41,7 @@ FFF = mpif90
 # Home Libraries
 # Fedora repository installation
 IDIR = -I/usr/lib64/gfortran/modules/
-LDIR = -L$(HOME)/lib/ -L/opt/ohpc/pub/libs/gnu8/openblas/0.3.7/lib/
+LDIR = -L$(HOME)/lib/ -L/opt/ohpc/pub/libs/gnu12/openblas/0.3.21/lib/
 #IDIR = -I$(HOME)/include/
 LIBS = $(LDIR) 
 
