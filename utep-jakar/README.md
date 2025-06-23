@@ -10,7 +10,7 @@ First, on UTEP Jakar you need to load the modules with a command as follows,
 
 Optional: You can append the module load command in your ~/.bashrc file, such that these modules are loaded automatically each time you log in to Jakar.
 
-Installing lapack to your home directory can be done with the included setup_jakar.sh script. Run it with the following command. You need to do this only once.
+**No longer needed:** Installing lapack to your home directory can be done with the included setup_jakar.sh script. Run it with the following command. You need to do this only once. **As of June 2025, you do not need to install lapack to your home directory.**
 
 > bash setup_jakar.sh
 
