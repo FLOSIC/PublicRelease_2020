@@ -41,7 +41,7 @@ FFF = mpif90
 # Home Libraries
 # Fedora repository installation
 IDIR = -I/usr/lib64/gfortran/modules/
-LDIR = -L$(HOME)/lib/ -L/opt/ohpc/pub/libs/gnu12/openblas/0.3.21/lib/
+LDIR = -L$(OPENBLAS_LIB)
 #IDIR = -I$(HOME)/include/
 LIBS = $(LDIR) 
 
@@ -269,7 +269,7 @@ nrlmol: $(OBJ)
 #	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -Wl,-rpath,$(TACC_MKL_LIB) -L$(TACC_MKL_LIB) -Wl,--start-group \
 #        -lmkl_scalapack_lp64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lmkl_blacs_intelmpi_lp64 -Wl,--end-group -lpthread -lm
 # Fedora (Quantum/Luis local)
-	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -llapack -lopenblas $(LIBS) 
+	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -lopenblas $(LIBS) 
 # Ubuntu
 #	$(FFF) $(LFLAGS) $(OBJ) -o $(BIN) -llapack -lblas -lblacsCinit-openmpi -lblacs-openmpi -lscalapack-openmpi
 # MAC OS machines
